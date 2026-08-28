@@ -192,8 +192,46 @@ export const somniaExchange: ExchangePort = {
         result: seriesResult(r.voided, r.winningOutcome),
         volumeQuote: Number(r.cumulativeQuoteVolume) / 10 ** (r.quoteDecimals || 6),
         openingPrice: raw ?? undefined,
+        oracleQuestionId: r.oracleQuestionId ?? undefined,
       };
     });
+  },
+  async listMarketFills(pool, decimals) {
+    try {
+      const dec = decimals || 6;
+      return getExchange()
+        .client.getLiveFills(pool, { limit: 12 })
+        .map((f) => ({
+          id: f.id,
+          price: Number(f.fillPrice) / 10 ** dec,
+          quantity: Number(f.quantity) / 10 ** dec,
+          quote: Number(f.quoteQuantity) / 10 ** dec,
+          aggressor: f.takerSide
+            ? f.takerSide.endsWith("YES")
+              ? ("up" as const)
+              : ("down" as const)
+            : f.takerIsBid === true
+              ? ("up" as const)
+              : f.takerIsBid === false
+                ? ("down" as const)
+                : null,
+          ts: Number(f.timestamp),
+          txHash: f.txHash,
+        }));
+    } catch {
+      return [];
+    }
+  },
+  async watchAssetPrice(asset) {
+    try {
+      await getExchange().client.watchPrice(asset);
+    } catch {
+      /* price feed optional; board works without it */
+    }
+  },
+  assetPrice(asset) {
+    const p = getExchange().client.getLivePrice(asset);
+    return p ? { asset: p.asset, price: p.price, ema: p.ema } : null;
   },
   async onchainStatus(marketId) {
     const oc = await getExchange().client.getMarketOnchain(marketId);
@@ -209,9 +247,7 @@ export const somniaExchange: ExchangePort = {
     return writeTxHash(await placePostOnlyBuy(symbol, contracts, price));
   },
   outcomeBalances,
-  async mintTestCollateral() {
-    await getExchange().trader.faucet();
-  },
+  mintTestCollateral,
   previewClaimSession,
   claimFinalized,
   async listOpenTickets(symbol) {
@@ -233,7 +269,7 @@ export const somniaExchange: ExchangePort = {
     }
   },
   async cancelOpenTicket(id, symbol) {
-    await getExchange().cancelOrder(id, symbol);
+    return writeTxHash(await getExchange().cancelOrder(id, symbol));
   },
   async listFills(account) {
     try {
@@ -346,7 +382,8 @@ export async function outcomeBalances(account: Address, marketId: `0x${string}`)
 }
 
 export async function mintTestCollateral() {
-  return getExchange().trader.faucet();
+  const res = await getExchange().trader.faucet();
+  return res.hash;
 }
 
 async function listSettledSnapshots(account: Address, venueId?: string): Promise<SettledWindow[]> {
@@ -392,6 +429,7 @@ export async function claimFinalized(account: Address, venueId?: string) {
           amount: intent.amount,
         });
         if (res.receipt.status === "reverted") throw new Error("redeem reverted");
+        return res.hash;
       },
     },
     intents,

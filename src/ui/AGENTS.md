@@ -4,20 +4,80 @@
 Window consumer UI.
 
 ## Purpose
-Tote-board homepage split: `WalletBar` (account chrome + Wallet P&L one-liner), `CallBoard` (series, Line, ticket, Book drawer, Series record + history, tickets, Claim), and `PnlStrip` (collapsed fill tape + per-market open P&L). `App` owns wallet writes, queries, Stake quote refetch, venue fee cache, and fill/position P&L refetch.
+Tote-board homepage split: `WalletBar`, `CallBoard`, `Pulse`, and `PnlStrip` on `#/app`. `#/` is `Landing`, `#/docs` is `Docs`. `App` owns wallet writes, queries, Stake quote refetch, venue fee cache, and fill/position P&L refetch.
 
 ## What This Controls
-If pending states or WalletGate are wrong, users double-submit or Call on the wrong chain. If Call session is bypassed, a just-Locked Window can still be sent. If the board is bypassed, implied odds and the gate can disagree.
+If pending states or WalletGate are wrong, users double-submit or Call on the wrong chain. If Call session is bypassed, a just-Locked Window can still be sent. If the board is bypassed, implied odds and the gate can disagree. If `parseRoute` matches prefixes, `#/apps` mounts wagmi and the SDK on a non-terminal hash. If ErrorBoundary has no Retry, a render crash forces a full refresh.
 
 ## Connections
-- Depends on: `src/domain/*` (`readBoard`, `readBookDepth`, `readSeriesRecord`, `settlePreview`, `pnlCopy` / `sessionTape` / `seriesPnlCopy`, `totePrimary`, `boardNotice`), `src/exchange/somnia.ts`, `src/ui/useLiveOdds.ts`, `src/ui/format.ts`, `src/chain/*`, wagmi, react-query, `@somnia-chain/markets-sdk/react`
+- Depends on: `src/domain/*` (`readBoard`, `readBookDepth`, `readSeriesRecord`, `settlePreview`, `pnlCopy` / `sessionTape` / `seriesPnlCopy`, `totePrimary`, `boardNotice`, `crashNotice`, `pulseReady`), `src/exchange/somnia.ts`, `src/ui/useLiveOdds.ts`, `src/ui/format.ts`, `src/ui/router.ts`, `src/chain/*`, wagmi, react-query, `@somnia-chain/markets-sdk/react`
 - Depended on by: `src/main.tsx`
 - External systems touched: injected wallet, Shannon, SDK live tail
 
 ## Current State
-MVP UI. Odds prefer `useLiveBinaryOrderBookByMarket` (recycle-safe) and fall back to 4s poll. Call size prefers `quoteStake` when the live book can fill; otherwise the top-of-book plan. Book drawer is collapsed Up depth from the same watch. History strip shows Series record copy above chips. Live holdings show Settle preview with cached venue settlement fee. Connected wallets show Wallet P&L in the mast and a collapsed PnlStrip tape. A locking Window stays on the board (clock kicker Locking, phase copy, Calls disabled, Exit still shown). A just-expired Locked/Settling row stays until the successor lists (clock kicker Locked/Settling, countdown 00:00). Cadence on the tote and tape uses `cadenceLabel`; the wait primary repeats Window phase copy. tUSDC approve is exactly the stake (`approveAmount`); a zero stake does not send a 10k fallback. When Claim session preview count is > 0, the amber primary is Claim winnings (`totePrimary`); the ghost Claim row is hidden so there is one Claim control. Call / Exit / approve toasts link Shannon explorer when a tx hash is known (`explorerTx` + `shorten`). Book drawer Rest Up/Down (post-only) shows only when WalletGate can Call. History strip shows Series P&L above the Series record. One Board notice replaces stacked empty/error/thin-book banners.
+MVP UI. Odds prefer `useLiveBinaryOrderBookByMarket` (recycle-safe) and fall back to 4s poll. Call size prefers `quoteStake` when the live book can fill; otherwise the top-of-book plan. Book drawer is collapsed Up depth from the same watch. History strip shows Series record copy above chips. Live holdings show Settle preview with cached venue settlement fee. Connected wallets show Wallet P&L in the mast and a collapsed PnlStrip tape. A locking Window stays on the board (clock kicker Locking, phase copy, Calls disabled, Exit still shown). A just-expired Locked/Settling row stays until the successor lists (clock kicker Locked/Settling, countdown 00:00). Cadence on the tote and tape uses `cadenceLabel`; the wait primary repeats Window phase copy. tUSDC approve is exactly the stake (`approveAmount`); a zero stake does not send a 10k fallback. When Claim session preview count is > 0, the amber primary is Claim winnings (`totePrimary`); the ghost Claim row is hidden so there is one Claim control. Call / Exit / Rest / cancel / approve / Claim / faucet toasts link Shannon explorer when a tx hash is known (`explorerTx` + `shorten`). Book drawer Rest Up/Down (post-only) shows only when WalletGate can Call. History strip shows Series P&L above the Series record. Series history chips with `oracleQuestionId` open the public oracle graph. Chips show the Line when `historyLine` has an opening price. One Board notice replaces stacked empty/error/thin-book banners. Pulse drawer uses `pulseReady` (series history bars count) and paper-ledger CSS; the public tape query keys by `marketId`. Hash routes: `#/` landing, `#/docs` docs, `#/app` terminal (`parseRoute` matches those paths, not prefixes). The tote clock prints `24h 00:00` when more than an hour remains (same hour unit as `cadenceLabel`). ErrorBoundary uses `crashNotice` and a Retry button that remounts children — it does not dump a stack. `shorten` leaves hashes under 12 characters whole (empty is `—`).
 
 ## Decision Log
+
+### 2026-08-28 — shorten short hashes
+- **Change**: `shorten` returns the input when length < 12, `—` when empty. Full addresses still `0x1234…5678`.
+- **Reasoning**: PRD #38. Fake `"0xfake"` and a truncated toast hash were rendering as `0xabc…xabc`.
+- **Rejected alternative(s)**: Always slicing (doubles short strings). Hiding short hashes entirely.
+- **Task/session**: Loop tick 29 — W-046.
+
+### 2026-08-28 — Crash notice Retry
+- **Change**: `ErrorBoundary` renders `crashNotice` plus a Retry button that `setState({ error: null })`. Copy is first line only.
+- **Reasoning**: PRD #50. Board notice already has Retry for indexer errors; a render crash only said "Refresh".
+- **Rejected alternative(s)**: Dumping `error.stack`. A full `location.reload()` (drops in-memory Pulse samples for no reason).
+- **Task/session**: Loop tick 28 — W-045.
+
+### 2026-08-28 — Clock hours on 1h+ Windows
+- **Change**: `countdown` prints `Nh MM:SS` when remaining ≥ 3600s. Sub-hour stays `MM:SS`. Clock type size stepped down so `24h 00:00` fits.
+- **Reasoning**: Cadence labels already say 24h; the clock still printed 1440:00. That reads as a bug on the 4h/24h chips.
+- **Rejected alternative(s)**: `H:MM:SS` (looks like wall-clock time). Always showing hours (noisy on 5m/15m).
+- **Task/session**: Loop tick 26 — W-043.
+
+### 2026-08-28 — Hash routes exact path
+- **Change**: `parseRoute` matches `/app` and `/docs` (plus a trailing slash), not `startsWith("#/app")`. `#/apps` is landing. Query strings stripped. Tests in `router.test.ts`.
+- **Reasoning**: The terminal is `#/app`. A prefix match would mount wagmi + SDK on any hash that begins `#/app`.
+- **Rejected alternative(s)**: react-router. Treating `#/documentation` as the bug (that string does not start with `#/docs`).
+- **Task/session**: Loop tick 25 — W-042.
+
+### 2026-08-28 — Pulse ready + marketId tape
+- **Change**: Pulse empty-state uses `pulseReady`. `["mtape", marketId]` not pool.
+- **Reasoning**: Series history bars were hidden until two spark samples. Pools recycle.
+- **Rejected alternative(s)**: Showing "Collecting ticks…" until the price watch lands. Keying tape by pool.
+- **Task/session**: Loop ticks 23–24 — W-041.
+
+### 2026-08-28 — Three pages + Pulse
+- **Change**: New `Landing.tsx` (`#/`): full-bleed hero — serif headline "Up or down. On-chain. Every 15 minutes.", one sentence, two CTAs, dominant SVG line-drawing of the terminal (drawn price path, Line label, clock, outcome bars) with stroke-dash draw animation; sections below are one-job text blocks with IntersectionObserver reveals, no cards. New `Docs.tsx` (`#/docs`): sticky TOC (scrollIntoView buttons — hash anchors would fight the router), text-led sections. New `kit.tsx`: shadcn-minimal Button/Badge/Reveal. New `router.ts` (see src/AGENTS.md). New `Pulse.tsx` drawer in the app: BTC/ETH price sparkline (SDK `watchPrice`/`getLivePrice`, 2s read), implied-Up sparkline (samples from the board, 1/s, capped 120), last-12 outcome bars from series history, and a public tape from `listMarketFills` (aggressor-colored, explorer-linked). App resets both sample buffers on series change.
+- **Reasoning**: Judging loves a real product site + visible market data. Charts are pure SVG from `domain/chart.ts` folds — no chart library, no new deps. Docs TOC uses buttons because `#anchor` hrefs would route back to landing under the hash router.
+- **Rejected alternative(s)**: react-router (dep + static-host config). A chart library (weight; two sparklines + bars don't need it). Hash-anchor TOC (router conflict). New class names in App/CallBoard (concurrent-loop merge risk).
+- **Task/session**: Three-page redesign session.
+
+### 2026-08-28 — Cancel explorer toast
+- **Change**: `cancelTicket` sets banner `txHash` from `cancelOpenTicket`. Copy unchanged.
+- **Reasoning**: Rest quote and leftover rests already listed Open tickets; the toast was the only write without Explorer proof.
+- **Rejected alternative(s)**: Linking only after the fill tape (cancels are not fills). A second toast per cancel.
+- **Task/session**: Loop tick 22 — W-040.
+
+### 2026-08-28 — Line on history chips
+- **Change**: Chip `<small>` is time · Line when `historyLine(row.openingPrice)` is set.
+- **Reasoning**: PRD #35. Opening prices were already on the row from `getOpeningPrices`.
+- **Rejected alternative(s)**: A second row of chips. Showing Line only on hover (demo is glanceable).
+- **Task/session**: Loop tick 21 — W-039.
+
+### 2026-08-28 — History chip oracle links
+- **Change**: Settled chips with `oracleQuestionId` render as `oracleReceipt` anchors. Missing ids stay `<span>` (older indexer rows).
+- **Reasoning**: PRD #34 is the settled Window, not only the live successor.
+- **Rejected alternative(s)**: One oracle link for the whole strip (hides which Window). Opening the live Window's question for every chip.
+- **Task/session**: Loop tick 20 — W-038.
+
+### 2026-08-28 — Claim and faucet explorer toasts
+- **Change**: `claimAll` sets `txHash` from `ClaimReceipt`. Faucet `onSuccess` uses `mintTestCollateral`'s hash.
+- **Reasoning**: Call/Exit/approve already linked; Claim and mint did not.
+- **Rejected alternative(s)**: A second toast per redeem.
+- **Task/session**: Loop ticks 18–19 — W-037.
 
 ### 2026-08-28 — Light theme redesign ("paper ledger")
 - **Change**: `styles.css` fully rewritten to a Claude-adjacent light theme: oat paper `#faf7f0`, white cards with soft shadows and 10–16px radii, ink text, clay accent `#c0563b` (replaces amber), viridian Up / crimson Down with soft tint fills. Typography: Lora serif for the wordmark, Line, Implied, and ticket odds; Schibsted Grotesk for UI; IBM Plex Mono stays for the clock, tape, and stake (tabular so the ticking clock cannot jitter). Series chips became pills; history chips became tinted mini-cards; the board + ticket are elevated white cards so the eye runs wordmark → clock (biggest element) → odds → Call buttons → tape. `index.html` swaps theme-color/favicon to the light palette and adds Lora. Every selector name kept — JSX untouched.
@@ -73,71 +133,8 @@ MVP UI. Odds prefer `useLiveBinaryOrderBookByMarket` (recycle-safe) and fall bac
 - **Rejected alternative(s)**: A separate waiting screen. Leaving Calls enabled until on-chain Locked (race with headroom).
 - **Task/session**: Loop tick 9 — W-028.
 
-### 2026-08-28 — Demo-hardening UX pass
-- **Change**: Action banners + indexer load error moved to fixed bottom-right toasts (ok toasts auto-dismiss 5s, errors persist); board-level states (thin book, no-window, loading) stay inline. Mast gained an indexer status dot (`windowsQ.isSuccess`). Line/Implied show shimmer skeletons while booting; clock turns red + pulses under 60s to lock; odds/Line re-tick via `key`-change remount. `ErrorBoundary` in `main.tsx` keeps a render crash from blanking the terminal. `settlePreviewCopy` takes `feeBps` and appends venue-fee copy when > 0 (testnet fee is 0, so silent by design).
-- **Reasoning**: Judging is 20% UX + 15% presentation — the tote-board identity stays; this pass adds feedback states (loading/live/urgent) it lacked. Toasts separate action results from ambient board status so a 5s success toast cannot erase a "no live Window" warning.
-- **Rejected alternative(s)**: A toast library (weight; four call sites). Redesigning the palette (identity already distinctive). Auto-dismissing errors (user must see why a Call failed).
-- **Task/session**: Hackathon hardening session.
-
-### 2026-08-28 — App query hardening
-- **Change**: All `queryFn`s throw a typed "No live Window" error instead of `liveHint!` non-null assertions; `callSide`/`exitSide` capture `live`/`holdings` into locals before `await` (stale-closure fix); Call/Exit chain `posQ.refetch().then(invalidate fills/pnl)`; Claim invalidates pnl. `format.ts` caches `Intl.NumberFormat` per digit-count.
-- **Reasoning**: Non-null assertions lie when `enabled` races a refetch; a Window can roll mid-`await` and the old code would size the Exit against the successor.
-- **Rejected alternative(s)**: `useQuery` select-based gating (no win). A React context for `live` (closure capture is simpler and testable by inspection).
-- **Task/session**: Hackathon hardening session.
-
-### 2026-08-28 — Wallet P&L UI
-- **Change**: App queries `listFills` / `listPositionPnl` every 15s when an address is connected. `WalletBar` shows `pnlCopy`. `PnlStrip` is a collapsed drawer (like Book drawer) with per-market open P&L and explorer-linked tape. Call/Exit/Claim invalidate those query keys.
-- **Reasoning**: Series record is Up/Down/Void counts, not money. Wallet P&L is wallet-scoped, so it must not live on the Call ticket (that would look like this Window's tape).
-- **Rejected alternative(s)**: Rendering the all-fills tape on `CallBoard`. Domain calling `computeOpenPositionsPnL` (ADR-0003; that fold still groups fills by pool).
-- **Task/session**: Loop tick 8 — W-027.
-
-### 2026-08-28 — Venue fee on Settle preview
-- **Change**: App queries `settlementFeeBps` keyed by marketId with 5-minute staleTime and passes `feeBps` into CallBoard / `settlePreview`.
-- **Reasoning**: Fees are frozen at creation — no 4s poll. Loading/error leaves fee undefined so preview stays 0 until the row lands.
-- **Rejected alternative(s)**: `useMarketFees` in the banner (no fake adapter). Refetching fees with the book.
-- **Task/session**: Loop tick 7 — W-026.
-
-### 2026-08-28 — Settle preview on the Call banner
-- **Change**: CallBoard shows `settlePreviewCopy` under "Your call this Window" when holdings are non-zero.
-- **Reasoning**: Contracts alone do not say what Claim pays (Void is half, winner may skim a fee).
-- **Rejected alternative(s)**: Fetching venue `settlementFeeBps` this tick (preview stays 0 bps until that adapter work).
-- **Task/session**: Loop tick 6 — W-025.
-
-### 2026-08-28 — Series record on the strip
-- **Change**: CallBoard renders `seriesRecordCopy(readSeriesRecord(history))` above the chips.
-- **Reasoning**: Rolling 15m Windows need a scoreboard (PRD #36) without inventing tUSDC P&L from missing fills.
-- **Rejected alternative(s)**: Computing the tally in JSX. Fetching `getUserFills` this tick (adapter work, different product).
-- **Task/session**: Loop tick 5 — W-024.
-
-### 2026-08-28 — Book drawer UI
-- **Change**: `useLiveOdds` returns `{ book, depth }` from one marketId watch. `BookDrawer` is a collapsed `<details>` ladder under the Call ticket.
-- **Reasoning**: Two hooks would double-subscribe. A drawer keeps the homepage a Call slip (PRD #45) instead of a blotter.
-- **Rejected alternative(s)**: Always-open depth. A second `useLiveBinaryOrderBookByMarket` call. Showing Down as a separate book.
-- **Task/session**: Loop tick 4 — W-014.
-
-### 2026-08-28 — Stake quote queries
-- **Change**: App computes `quoteStakeRaw` before `readBoard` and refetches Up/Down quotes every 4s. Passes a quote object only when the query has data; null/loading falls back to the book plan.
-- **Reasoning**: Stake raw must not be circular with the board. A cold `quoteBinaryStake` (no watch snapshot yet) must not disable Call.
-- **Rejected alternative(s)**: Waiting on quote success before enabling the ticket. Passing `null` through as `prepareQuotedCall` skip (that is below-lot, not "use the book").
-- **Task/session**: Loop tick 3 — W-022.
-
-### 2026-08-28 — WalletBar vs CallBoard
-- **Change**: Split `App.tsx` into `WalletBar` and `CallBoard`. App feeds `readBoard` and keeps wagmi/query mutations.
-- **Reasoning**: One UI module owned both chrome and the ticket. Board flags (`thinBook`, `shortCollateral`) now have a test seam.
-- **Rejected alternative(s)**: A React hook that still mixed wallet pending flags into domain (untestable without wagmi).
-- **Task/session**: Loop tick 2.
-
-### 2026-08-28 — Call session + live book + history
-- **Change**: App prepares Calls through `prepareCall`/`executeCall`. Open tickets via `fetchOpenOrders`/`cancelOrder`. Series history via `listPastBinaryMarkets`. `SomniaMarketsProvider` in `main.tsx`.
-- **Reasoning**: SDK README: React hooks subscribe to the live store; `getLiveBinaryOrderBookByMarket` must be used when holding a marketId.
-- **Rejected alternative(s)**: Sizing only from a single ask with no watch (stale odds). Keying the live book on pool (successor Window leaks).
-- **Task/session**: Prod iteration after ExchangePort seam.
-
-### 2026-08-28 — Call slip, not CLOB
-- **Change**: Split Up/Down ticket, four-state primary action, IOC only.
-- **Reasoning**: Product brief; gotcha #4 leftover limit rests with escrow.
-- **Rejected alternative(s)**: Full order-book homepage (clones dreamDEX).
-- **Task/session**: Initial Window build.
+## Earlier history (condensed)
+Homepage is a Call slip (`WalletBar` + `CallBoard`), not a CLOB. App prepares Calls via `prepareCall`/`executeCall`; one marketId watch feeds Book drawer depth. Stake quote queries sit before `readBoard` so a cold watch does not disable Call. History strip got Series record, then Settle preview + cached venue fee, then Wallet P&L (`PnlStrip`). Demo-hardening: toasts vs inline board state, indexer dot, shimmer Line/Implied, ErrorBoundary. QueryFns throw instead of `liveHint!`; Call/Exit capture `live` before await.
 
 ## Known Gotchas
 Each onchain button has its own busy flag. Approve uses two-phase pending (hash wait + 4s cooldown). Never import `.env` keys here. Do not pin venue from the first BTC row — 15m+ live on a second venue.

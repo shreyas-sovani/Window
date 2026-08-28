@@ -13,6 +13,7 @@ import {
 } from "wagmi";
 import { shannonChain } from "../chain/chain";
 import { explorerTx, TUSDC } from "../chain/shannon";
+import { pushSample } from "../domain/chart";
 import { callSkipCopy, executeCall, executeExit, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
 import { pickWindow } from "../domain/pick-window";
 import { pnlCopy, pnlTotals, seriesPnl, seriesPnlCopy } from "../domain/pnl";
@@ -22,9 +23,11 @@ import { totePrimary, totePrimaryCopy } from "../domain/tote-primary";
 import { boardNotice } from "../domain/board-notice";
 import { readBoard } from "../domain/window-board";
 import { bindWallet, somniaExchange } from "../exchange/somnia";
+import type { Sample } from "../exchange/port";
 import { CallBoard, type Busy } from "./CallBoard";
 import { fmt, shorten } from "./format";
 import { PnlStrip } from "./PnlStrip";
+import { Pulse } from "./Pulse";
 import { useLiveOdds } from "./useLiveOdds";
 import { WalletBar } from "./WalletBar";
 
@@ -210,6 +213,24 @@ export function App() {
     enabled: Boolean(address),
     refetchInterval: 60_000,
   });
+  const marketFillsQ = useQuery({
+    queryKey: ["mtape", liveHint?.marketId],
+    queryFn: () => {
+      const h = liveHint;
+      if (!h?.pool) throw new Error("No live Window for this series.");
+      return somniaExchange.listMarketFills(h.pool, h.decimals);
+    },
+    enabled: Boolean(liveHint?.marketId),
+    refetchInterval: 6_000,
+  });
+  const priceQ = useQuery({
+    queryKey: ["price", asset],
+    queryFn: () => somniaExchange.assetPrice(asset),
+    refetchInterval: 2_000,
+  });
+  useEffect(() => {
+    void somniaExchange.watchAssetPrice(asset);
+  }, [asset]);
   const totals = useMemo(
     () => pnlTotals(pnlQ.data ?? [], fillsQ.data ?? []),
     [pnlQ.data, fillsQ.data],
@@ -259,6 +280,23 @@ export function App() {
   const primaryBusy =
     connecting || switching || writing || approveCooldown || approveWait.isLoading || busy !== null;
 
+  const [impliedSamples, setImpliedSamples] = useState<Sample[]>([]);
+  const [priceSamples, setPriceSamples] = useState<Sample[]>([]);
+  const implied = board.implied;
+  useEffect(() => {
+    setImpliedSamples([]);
+    setPriceSamples([]);
+  }, [asset, intervalSec]);
+  useEffect(() => {
+    if (implied === undefined) return;
+    setImpliedSamples((prev) => pushSample(prev, { t: Math.floor(now), v: implied }));
+  }, [implied, now]);
+  useEffect(() => {
+    const price = priceQ.data;
+    if (!price) return;
+    setPriceSamples((prev) => pushSample(prev, { t: Math.floor(now), v: price.price }));
+  }, [priceQ.data, now]);
+
   async function onPrimary() {
     setBanner(null);
     try {
@@ -298,8 +336,8 @@ export function App() {
 
   const faucet = useMutation({
     mutationFn: () => somniaExchange.mintTestCollateral(),
-    onSuccess: () => {
-      setBanner({ kind: "ok", text: "Minted up to 10,000 tUSDC." });
+    onSuccess: (txHash) => {
+      setBanner({ kind: "ok", text: "Minted up to 10,000 tUSDC.", txHash });
       void qc.invalidateQueries();
     },
     onError: (e) => setBanner({ kind: "err", text: revertCopy(e) }),
@@ -374,10 +412,13 @@ export function App() {
     setBusy("claim");
     setBanner(null);
     try {
-      const n = await somniaExchange.claimFinalized(address, live?.venueId);
+      const receipt = await somniaExchange.claimFinalized(address, live?.venueId);
       setBanner({
         kind: "ok",
-        text: n ? `Claimed ${n} outcome balance(s).` : "Nothing to claim on recent Finalized Windows.",
+        text: receipt.count
+          ? `Claimed ${receipt.count} outcome balance(s).`
+          : "Nothing to claim on recent Finalized Windows.",
+        txHash: receipt.txHash,
       });
       void qc.invalidateQueries({ queryKey: ["fills"] });
       void qc.invalidateQueries({ queryKey: ["pnl"] });
@@ -422,8 +463,12 @@ export function App() {
     setBusy("cancel");
     setBanner(null);
     try {
-      await somniaExchange.cancelOpenTicket(id, symbol);
-      setBanner({ kind: "ok", text: "Cancelled resting order. Escrow returns to this wallet." });
+      const txHash = await somniaExchange.cancelOpenTicket(id, symbol);
+      setBanner({
+        kind: "ok",
+        text: "Cancelled resting order. Escrow returns to this wallet.",
+        txHash,
+      });
       void openQ.refetch();
     } catch (e) {
       setBanner({ kind: "err", text: revertCopy(e) });
@@ -522,6 +567,15 @@ export function App() {
       />
 
       {address && <PnlStrip fills={fillsQ.data} positions={pnlQ.data} />}
+
+      <Pulse
+        asset={asset}
+        price={priceQ.data ?? undefined}
+        priceSamples={priceSamples}
+        impliedSamples={impliedSamples}
+        history={historyQ.data}
+        fills={marketFillsQ.data ?? []}
+      />
 
       <aside className="toasts" aria-live="polite">
         {banner && (

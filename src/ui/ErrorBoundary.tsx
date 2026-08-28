@@ -1,8 +1,9 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { crashNotice } from "../domain/board-notice";
 
 type State = { error: Error | null };
 
-/** Keeps one render crash from blanking the whole terminal. */
+/** Keeps one render crash from blanking the whole page. Retry remounts children. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   state: State = { error: null };
 
@@ -16,11 +17,14 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
 
   render() {
     if (this.state.error) {
+      const notice = crashNotice(this.state.error.message);
       return (
         <div className="app">
-          <div className="banner err">
-            The board hit an unexpected error: {this.state.error.message}. Refresh to reconnect — your on-chain
-            positions are safe.
+          <div className={`banner ${notice.kind === "err" ? "err" : ""}`}>
+            {notice.text}
+            <button className="ghost" type="button" onClick={() => this.setState({ error: null })}>
+              {notice.action}
+            </button>
           </div>
         </div>
       );

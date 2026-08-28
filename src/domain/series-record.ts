@@ -38,3 +38,11 @@ export function seriesRecordCopy(record: SeriesRecord): string {
   if (last) parts.push(`last ${last}`);
   return parts.join(" · ");
 }
+
+/** Line (opening price) for a settled Window. Missing/zero is not invented. */
+export function historyLine(openingPrice: string | undefined): number | undefined {
+  if (!openingPrice) return undefined;
+  const n = Number(openingPrice);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return n;
+}

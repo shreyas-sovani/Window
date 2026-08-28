@@ -47,9 +47,27 @@ export type PastWindow = {
   result: SeriesResult;
   volumeQuote?: number;
   openingPrice?: string;
+  oracleQuestionId?: string;
 };
 
 export type OutcomeHoldings = { up: bigint; down: bigint; decimals: number };
+
+/** Time-series point for sparklines. */
+export type Sample = { t: number; v: number };
+
+/** One fill on a pool's public tape; aggressor is the taker direction, null while unresolved. */
+export type MarketFill = {
+  id: string;
+  price: number;
+  quantity: number;
+  quote: number;
+  aggressor: "up" | "down" | null;
+  ts: number;
+  txHash: string;
+};
+
+/** Latest feed read for an underlying asset. */
+export type AssetPrice = { asset: string; price: number; ema: number };
 
 /** One fill this wallet participated in, account-relative. Display-grade. */
 export type WalletFill = {
@@ -90,6 +108,11 @@ export type WindowFeed = {
   quoteStake(marketId: `0x${string}`, side: "up" | "down", stakeRaw: bigint): Promise<StakeQuote | null>;
   settlementFeeBps(marketId: `0x${string}`): Promise<bigint>;
   listSeriesHistory(asset: string, intervalSec: number, venueId?: string): Promise<PastWindow[]>;
+  /** Public tape of a pool. */
+  listMarketFills(pool: string, decimals: number): Promise<MarketFill[]>;
+  /** Watch + read the underlying asset's on-chain price feed. */
+  watchAssetPrice(asset: string): Promise<void>;
+  assetPrice(asset: string): AssetPrice | null;
 };
 
 /** Writes and wallet-scoped reads. Gate Call/Exit on onchainStatus === 1. */
@@ -99,12 +122,12 @@ export type VenueWriter = {
   iocSell(symbol: string, contracts: number, price: number): Promise<string | undefined>;
   restBuy(symbol: string, contracts: number, price: number): Promise<string | undefined>;
   outcomeBalances(account: Address, marketId: `0x${string}`): Promise<OutcomeHoldings>;
-  mintTestCollateral(): Promise<void>;
-  claimFinalized(account: Address, venueId?: string): Promise<number>;
+  mintTestCollateral(): Promise<string | undefined>;
+  claimFinalized(account: Address, venueId?: string): Promise<{ count: number; txHash?: string }>;
   /** Claim session intent count. Does not redeem. */
   previewClaimSession(account: Address, venueId?: string): Promise<number>;
   listOpenTickets(symbol?: string): Promise<OpenTicket[]>;
-  cancelOpenTicket(id: string, symbol: string): Promise<void>;
+  cancelOpenTicket(id: string, symbol: string): Promise<string | undefined>;
   listFills(account: Address): Promise<WalletFill[]>;
   listPositionPnl(account: Address): Promise<PositionPnl[]>;
 };

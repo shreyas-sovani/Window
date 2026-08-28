@@ -15,9 +15,69 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-PRD is `needs-triage` locally (no hosted tracker). Series P&L and Board notice are done (W-035, W-036). SDK-FEEDBACK has 8 items. Default Call stays IOC.
+PRD is `needs-triage` locally (no hosted tracker). Shorten-without-doubling is done (W-046). Crash notice Retry is done (W-045). SDK-FEEDBACK has 8 items. Default Call stays IOC.
 
 ## Decision Log
+
+### 2026-08-28 — Shorten short hashes (W-046)
+- **Change**: BACKLOG W-046 done. CONTEXT Explorer proof: `shorten` does not double hashes under 12 chars.
+- **Reasoning**: PRD #38. Toast and WalletBar share `shorten`; fake `0xfake` was garbled.
+- **Rejected alternative(s)**: A second formatter for tx hashes.
+- **Task/session**: 15m prod loop tick 29.
+
+### 2026-08-28 — Crash notice (W-045)
+- **Change**: BACKLOG W-045 done. CONTEXT gained Crash notice. ErrorBoundary Retry remounts; no stack dump.
+- **Reasoning**: PRD #50. Indexer errors already had Retry; a render crash did not.
+- **Rejected alternative(s)**: `location.reload()` as the only recovery.
+- **Task/session**: 15m prod loop tick 28.
+
+### 2026-08-28 — RevertCopy Call-path (W-044)
+- **Change**: BACKLOG W-044 done. CONTEXT gained RevertCopy. Maps `below-lot`, not Trading, SignerRequired, on-chain revert.
+- **Reasoning**: PRD #24. Prepare skips already had copy; the write catch did not, so a below-lot IOC looked like a gas failure.
+- **Rejected alternative(s)**: Dumping the raw `below-lot` string. Importing `callSkipCopy` into RevertCopy.
+- **Task/session**: 15m prod loop tick 27.
+
+### 2026-08-28 — Clock hours (W-043)
+- **Change**: BACKLOG W-043 done. CONTEXT Cadence now requires the tote clock to use hours, not `1440:00`.
+- **Reasoning**: Same unit bug as W-030, on the largest element of the board.
+- **Rejected alternative(s)**: Leaving MM:SS-only because 15m is the demo chip.
+- **Task/session**: 15m prod loop tick 26.
+
+### 2026-08-28 — Hash routes (W-042)
+- **Change**: BACKLOG W-042 done. CONTEXT product line names landing / docs / terminal hash routes. DEMO starts at `#/` then Open the terminal.
+- **Reasoning**: Prefix `startsWith("#/app")` would treat `#/apps` as the terminal and mount wallet providers.
+- **Rejected alternative(s)**: Leaving router untested because only three hashes exist in the nav.
+- **Task/session**: 15m prod loop tick 25.
+
+### 2026-08-28 — Pulse ready (W-041)
+- **Change**: BACKLOG W-041 done. CONTEXT gained Pulse. Last-window bars count as ready; tape query keys by marketId.
+- **Reasoning**: Collecting ticks hid Series history. Pools recycle.
+- **Rejected alternative(s)**: Waiting for two spark samples. Keying the public tape by pool.
+- **Task/session**: 15m prod loop ticks 23–24.
+
+### 2026-08-28 — Cancel explorer proof (W-040)
+- **Change**: BACKLOG W-040 done. CONTEXT Explorer proof now includes Open ticket cancel.
+- **Reasoning**: PRD #37 — prove every wallet write. Rest quote made cancel a real path, not a leftover-IOC rarity.
+- **Rejected alternative(s)**: Waiting for the P&L tape (cancels are not fills).
+- **Task/session**: 15m prod loop tick 22.
+
+### 2026-08-28 — History Line (W-039)
+- **Change**: BACKLOG W-039 done. CONTEXT Series history now requires the Line on chips when known.
+- **Reasoning**: PRD #35 — settled Windows include the Line, not only Up/Down/Void.
+- **Rejected alternative(s)**: Inventing a Line from question text.
+- **Task/session**: 15m prod loop tick 21.
+
+### 2026-08-28 — History oracle receipts (W-038)
+- **Change**: BACKLOG W-038 done. CONTEXT Oracle receipt now includes series history chips.
+- **Reasoning**: PRD #34 — audit Line vs close on the Window that actually settled.
+- **Rejected alternative(s)**: Only the live Window ghost link (often the successor).
+- **Task/session**: 15m prod loop tick 20.
+
+### 2026-08-28 — Claim/faucet explorer proof (W-037)
+- **Change**: BACKLOG W-037 done. CONTEXT Explorer proof now includes Claim (last redeem) and faucet.
+- **Reasoning**: PRD #37 — prove every wallet write, not only Calls.
+- **Rejected alternative(s)**: Waiting for the P&L tape (redeems are not fills).
+- **Task/session**: 15m prod loop ticks 18–19.
 
 ### 2026-08-28 — Series P&L + Board notice (W-035, W-036)
 - **Change**: BACKLOG W-035 and W-036 done. CONTEXT gained Series P&L and Board notice.
@@ -49,89 +109,8 @@ PRD is `needs-triage` locally (no hosted tracker). Series P&L and Board notice a
 - **Rejected alternative(s)**: Calling `trader.placeOrder` just to set expiry (ADR-0002 keeps unified IOC `createOrder`). Approving 10k "once".
 - **Task/session**: 15m prod loop tick 12.
 
-### 2026-08-28 — Cadence labels (W-030)
-- **Change**: BACKLOG W-030 done. CONTEXT Cadence now requires `cadenceLabel`. Wait primary uses Window phase copy.
-- **Reasoning**: Tote and tape were inventing "Nm" from raw seconds. Wait-gate copy lagged the board phase.
-- **Rejected alternative(s)**: A days unit for 86400 (product chips say 24h).
-- **Task/session**: 15m prod loop tick 11.
-
-### 2026-08-28 — Locked wait row (W-029)
-- **Change**: BACKLOG W-029 done. CONTEXT Window phase now falls back to a just-expired Locked/Settling row for one cadence. Adapter merges `listPastBinaryMarkets` Locked/Settling because `loadMarkets` drops inactive binaries.
-- **Reasoning**: After expiry the tote went blank until the next Window listed.
-- **Rejected alternative(s)**: `listLiveBinaryMarkets` only (that query is `expiry > now`). Showing Finalized as live.
-- **Task/session**: 15m prod loop tick 10.
-
-### 2026-08-28 — Window phase (W-028)
-- **Change**: BACKLOG W-028 done. CONTEXT gained Window phase. `pickWindow` keeps unexpired Trading rows through lock headroom; Call session still refuses new Calls.
-- **Reasoning**: Last ~90s of a 15m Window hid Exit and holdings behind "None live".
-- **Rejected alternative(s)**: A second picker. Showing Finalized rows on the live board.
-- **Task/session**: 15m prod loop tick 9.
-
-### 2026-08-28 — README rewrite + DEMO script
-- **Change**: README leads with an ASCII board hero, judge demo path including the P&L tape, capability table, and architecture map. New `docs/DEMO.md`: 90-second walkthrough with timings + fallbacks.
-- **Reasoning**: Presentation & Demo is 15% of judging; the repo is the submission artifact. The old README had the quickstart but no capability map or script.
-- **Rejected alternative(s)**: Screenshots (need a live session; ASCII hero is deterministic). A video script before the demo path was stable.
-- **Task/session**: Hackathon hardening session.
-
-### 2026-08-28 — Wallet P&L (W-027)
-- **Change**: BACKLOG W-027 done. CONTEXT gained Wallet P&L. SDK-FEEDBACK item 7 notes pool-grouped fills in `computeOpenPositionsPnL`.
-- **Reasoning**: PRD #36 wants series P&L; Series record is counts, money needs the fill tape. Domain stays SDK-free.
-- **Rejected alternative(s)**: Treating Series record as tUSDC P&L. Calling `fetchMyTrades` from the browser without a signer.
-- **Task/session**: 15m prod loop tick 8.
-
-### 2026-08-28 — Venue settlement fee (W-026)
-- **Change**: BACKLOG W-026 done. `parseSettlementFeeBps` maps indexer decimal strings; missing plumbing is 0. ExchangePort `settlementFeeBps(marketId)` on Somnia (`getMarketFees`) and fake.
-- **Reasoning**: Fees are frozen at market creation (standard bps, 1 = 0.01%). Domain stays SDK-free. App caches 5 minutes.
-- **Rejected alternative(s)**: `useMarketFees` in CallBoard (skips the fake adapter). Treating `bpsTimes1k` from the client d.ts comment (markets.ts + `estPayoutFor` use standard bps over 10_000).
-- **Task/session**: 15m prod loop tick 7.
-
-### 2026-08-28 — Settle preview (W-025)
-- **Change**: BACKLOG W-025 done. CONTEXT gained Settle preview. Winner/void math matches SDK `estPayoutFor` without importing the SDK.
-- **Reasoning**: Live holdings showed contracts but not what Claim would pay. Domain stays SDK-free; fee defaults to 0 bps until venue fees are fetched.
-- **Rejected alternative(s)**: Fill-based wallet P&L this tick (needs `getUserFills`). Importing `estPayoutFor` into domain (ADR-0003).
-- **Task/session**: 15m prod loop tick 6.
-
-### 2026-08-28 — Series record (W-024)
-- **Change**: BACKLOG W-024 done. CONTEXT gained Series record. `readSeriesRecord` tallies Finalized Up/Down/Void; last is newest expiry.
-- **Reasoning**: History chips had no tested read model (W-013). A series scoreboard is not wallet P&L — that needs fills.
-- **Rejected alternative(s)**: Calling SDK `computePositionPnL` from domain (ADR-0003). Showing a tUSDC P&L without fills (would be invented).
-- **Task/session**: 15m prod loop tick 5.
-
-### 2026-08-28 — Book drawer (W-014)
-- **Change**: BACKLOG W-014 done. CONTEXT gained Book drawer.
-- **Reasoning**: Loop tick added collapsed Up-book depth behind `readBookDepth` so the homepage is still a Call slip, not a CLOB.
-- **Rejected alternative(s)**: Rendering the SDK's four-sided book (NO is 1 − Up; that would clone dreamDEX). Putting depth only in JSX (no locality).
-- **Task/session**: 15m prod loop tick 4.
-
-### 2026-08-28 — Stake quote (W-022)
-- **Change**: BACKLOG W-022 done. CONTEXT gained Stake quote.
-- **Reasoning**: Loop tick sized Calls from the live book (`quoteBinaryStake`) instead of a single ask, behind `prepareQuotedCall` so domain stays SDK-free.
-- **Rejected alternative(s)**: Feeding SDK `trader.placeOrder` MARKET from the quote (ADR-0002 still uses unified IOC `createOrder` with human contracts/price).
-- **Task/session**: 15m prod loop tick 3.
-
-### 2026-08-28 — Window board (W-023)
-- **Change**: BACKLOG W-023 done. CONTEXT gained Window board.
-- **Reasoning**: Loop tick split wallet chrome from the Call ticket behind `readBoard`.
-- **Rejected alternative(s)**: JSX-only split with no tested read model.
-- **Task/session**: 15m prod loop tick 2.
-
-### 2026-08-28 — Claim session (W-021)
-- **Change**: BACKLOG W-021 done. CONTEXT gained Claim session.
-- **Reasoning**: Loop tick deepened the Finalized scan out of the Somnia adapter.
-- **Rejected alternative(s)**: Splitting App.tsx this tick (Claim had the worse locality).
-- **Task/session**: 15m prod loop.
-
-### 2026-08-28 — Call session + fake adapter landed
-- **Change**: BACKLOG W-008–W-013 / W-018–W-020 marked done. CONTEXT gained Call session, Open ticket, Series history, Cadence.
-- **Reasoning**: Architecture pass made ExchangePort a real seam (two adapters) and moved write rules out of App.
-- **Rejected alternative(s)**: Keeping Call/Exit logic in App.tsx (no test locality).
-- **Task/session**: Prod iteration.
-
-### 2026-08-28 — Plan then PRD
-- **Change**: PLAN, PRD, BACKLOG, ADR-0001/0002/0003.
-- **Reasoning**: User asked /plan then /to-prd before build.
-- **Rejected alternative(s)**: Scaffolding before a written CROPS/onchain split.
-- **Task/session**: Initial Window build.
+## Earlier history (condensed)
+Plan then PRD and ADRs first. Call session + fake adapter made ExchangePort a real seam (W-008–W-013 / W-018–W-020). Later ticks: Claim session, Window board, Stake quote, Book drawer, Series record, Settle preview, venue fee, Wallet P&L, README/DEMO, Window phase, Locked wait row, cadence labels (W-021–W-030).
 
 ## Known Gotchas
 `docs/info.txt` is the hackathon flyer, not the product spec.

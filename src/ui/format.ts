@@ -12,12 +12,16 @@ export function fmt(n: number | undefined, d = 2) {
 
 export function countdown(expiry: number, now: number) {
   const s = Math.max(0, Math.floor(expiry - now));
-  const m = Math.floor(s / 60);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
   const r = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+  const mmss = `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+  return h > 0 ? `${h}h ${mmss}` : mmss;
 }
 
 export function shorten(addr: string) {
+  if (!addr) return "—";
+  if (addr.length < 12) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 

@@ -19,6 +19,12 @@ Working defaults. Env overrides via `VITE_*`.
 
 ## Decision Log
 
+### 2026-08-28 — Oracle receipt URL tested
+- **Change**: `shannon.test.ts` locks `oracleReceipt` to `prd.oracle.somnia.host/questions/{id}?view=graph`.
+- **Reasoning**: Easy to drop `?view=graph` or point at a non-public host. PRD #34 is that graph.
+- **Rejected alternative(s)**: Building URLs in CallBoard.
+- **Task/session**: Loop tick 20 — W-038.
+
 ### 2026-08-28 — Explorer proof helpers tested
 - **Change**: `shannon.test.ts` locks `explorerTx` / `explorerAddress` to `shannon-explorer.somnia.network`.
 - **Reasoning**: Easy to point at mainnet `explorer.somnia.network` by accident. PRD #37 is Shannon.

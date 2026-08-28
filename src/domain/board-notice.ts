@@ -31,3 +31,13 @@ export function boardNotice(input: {
   }
   return null;
 }
+
+/** Render-crash fallback. First line only — never a stack. Retry remounts the tree. */
+export function crashNotice(message: string): BoardNotice {
+  const line = message.trim().split(/\n/)[0]?.slice(0, 160) || "Something broke in the board.";
+  return {
+    kind: "err",
+    text: `The board hit an unexpected error: ${line} Retry — your on-chain positions are safe.`,
+    action: "Retry",
+  };
+}

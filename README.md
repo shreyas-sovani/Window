@@ -25,14 +25,20 @@ Consumer Up/Down terminal for [dreamDEX Event Contracts](https://docs.dreamdex.i
 
 Call BTC or ETH for the live Window. The Line is the open. Default path is an IOC take — nothing rests, no surprises at settlement. Claim finalized Windows yourself; winnings do not auto-pay. Zero custom contracts. Everything runs through `@somnia-chain/markets-sdk` ≥ 0.28.1 (the HTTP API is spot-only — Event Contracts have no REST surface).
 
+Three pages, hash-routed — no server config needed:
+
+- `#/` — landing: the pitch, one screen, three steps
+- `#/docs` — docs: quickstart to settlement, one page
+- `#/app` — the terminal
+
 ## Demo path (judges)
 
 1. `cp .env.example .env && npm install && npm test && npm run dev`
-2. Open the printed localhost URL (often `http://localhost:5174/` if 5173 is taken).
+2. Open the printed localhost URL — skim the landing, then **Open the terminal** (or go straight to `#/app`).
 3. Injected wallet (MetaMask / Rabby): add Shannon — chain `50312`, RPC `https://api.infra.testnet.somnia.network`, symbol `STT`, explorer `https://shannon-explorer.somnia.network`.
 4. Gas: [testnet.somnia.network](https://testnet.somnia.network/).
 5. Connect → Switch to Shannon → **Mint tUSDC** (`trader.faucet`, cap 10,000) → Approve the stake → **Call Up** or **Call Down**.
-6. Watch the fill land in the **P&L tape**, the position mark to book, then the Window lock.
+6. Watch the fill land in the **P&L tape**, the position mark to book, and **Pulse** draw the price/implied sparklines + public tape.
 7. After expiry, **Claim finalized**. Oracle receipt is the public Line-vs-close trail.
 
 Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h. Indexer `intervalSec` can be a few seconds off (e.g. 3598 for 1h); Window snaps it to the canonical cadence.
@@ -47,6 +53,7 @@ Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h.
 | Series history + record | Last 12 finalized Windows per cadence with Up/Down/Void chips and running tally |
 | Settle preview | If-Up / If-Down / If-Void payout of the live position, venue fee aware |
 | Wallet P&L | Realized + unrealized per open position (avg-cost, marked to book) and a signed fill tape — all explorer-linked |
+| Pulse | Underlying price + implied-odds sparklines, last-12 outcome bars, and the pool's public fill tape — pure SVG, no chart lib |
 | Book drawer | Collapsed Up-depth ladder with size bars and spread |
 | Claim session | Scans finalized Windows, redeems winners (fee-adjusted) and voids (both sides at par) |
 | Open tickets | IOC should leave none — if one rests, cancel frees the escrow |
@@ -55,7 +62,7 @@ Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h.
 
 ```
 src/
-├── domain/        SDK-free pure logic — fully unit-tested (Vitest, 123 tests)
+├── domain/        SDK-free pure logic — fully unit-tested (Vitest, 145 tests)
 │   ├── pick-window, window-board     read models for the live series
 │   ├── call-ticket, call-session      sizing (tick/lot grids), Call/Exit intents
 │   ├── claim-plan, claim-session      what redeems, and how

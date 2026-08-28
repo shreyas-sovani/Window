@@ -1,23 +1,53 @@
 # AGENTS.md — src/domain
 
 ## Ownership
-Pure Event Contract domain: Grid, Lifecycle, CallTicket, Call session, Rest quote, Claim session, Claim primary, Window board, Book depth, Series record, Series P&L, Board notice, Settle preview, Wallet P&L, Window phase, ClaimPlan, WalletGate, RevertCopy, pickWindow, Cadence, order expiry.
+Pure Event Contract domain: Grid, Lifecycle, CallTicket, Call session, Rest quote, Claim session, Claim primary, Window board, Book depth, Series record, Series P&L, Board notice, Pulse chart folds, Settle preview, Wallet P&L, Window phase, ClaimPlan, WalletGate, RevertCopy, pickWindow, Cadence, order expiry.
 
 ## Purpose
 Encode venue rules (tick/lot, Trading-only writes, Finalized claims, four-state wallet, cadence snap) so UI and SDK adapters cannot drift.
 
 ## What This Controls
-Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas spent on losers or missed voids. Wrong Lifecycle → orders on Locked Windows. Wrong Cadence snap → 1h series missing when indexer reports 3598s. Wrong Claim primary → winnings stay behind a ghost button while the successor is Trading. Wrong Rest quote → a "post-only" control that actually IOC-takes. Wrong Series P&L → ETH 1h money mixed into BTC 15m. Wrong Board notice → stacked banners with no next action.
+Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas spent on losers or missed voids. Wrong Lifecycle → orders on Locked Windows. Wrong Cadence snap → 1h series missing when indexer reports 3598s. Wrong Claim primary → winnings stay behind a ghost button while the successor is Trading. Wrong Rest quote → a "post-only" control that actually IOC-takes. Wrong Series P&L → ETH 1h money mixed into BTC 15m. Wrong Board notice → stacked banners with no next action. Wrong `pulseReady` → last-window bars hidden behind "Collecting ticks…" until a spark has two samples. Wrong RevertCopy → `below-lot` or SignerRequired dumps as a generic STT toast. Wrong `crashNotice` → a stack in the banner and no Retry.
 
 ## Connections
-- Depends on: `viem` (`parseUnits` in CallTicket / Window board), `src/exchange/port.ts` types only (`LiveWindow`, `BookTop`, `StakeQuote`, `PastWindow`, `WalletFill`, `PositionPnl`)
+- Depends on: `viem` (`parseUnits` in CallTicket / Window board), `src/exchange/port.ts` types only (`LiveWindow`, `BookTop`, `StakeQuote`, `PastWindow`, `WalletFill`, `PositionPnl`, `Sample`, `MarketFill`)
 - Depended on by: `src/ui/App.tsx`, `src/exchange/somnia.ts`, `src/exchange/fake.ts`, `src/domain/*.test.ts`
 - External systems touched: none
 
 ## Current State
-Working. Covered by Vitest (Call session including Stake quote, IOC hash, and Rest quote, Claim session, Claim primary / totePrimary, Window board, Book depth, Series record, Series P&L, Board notice, Settle preview, Wallet P&L, Window phase including Locked fallback, fake ExchangeAdapter, cadence).
+Working. Covered by Vitest (Call session including Stake quote, IOC hash, and Rest quote, Claim session, Claim primary / totePrimary, Window board, Book depth, Series record, Series P&L, Board notice, Crash notice, Settle preview, Wallet P&L, Window phase including Locked fallback, fake ExchangeAdapter, cadence, RevertCopy Call-path throws, Pulse chart folds).
 
 ## Decision Log
+
+### 2026-08-28 — Crash notice
+- **Change**: `crashNotice(message)` returns a BoardNotice with Retry. First line, 160 chars, no stack. ErrorBoundary remounts on Retry.
+- **Reasoning**: PRD #50 next-action on errors. Render crashes are not indexer Board notices, but they share the same notice shape.
+- **Rejected alternative(s)**: A second notice type. Showing `error.stack` in the banner.
+- **Task/session**: Loop tick 28 — W-045.
+
+### 2026-08-28 — RevertCopy Call-path throws
+- **Change**: `revertCopy` maps `below-lot`, `Window is not Trading`, `SignerRequired`, and on-chain/redeem revert. Adapter `placeIocBuy` throws `below-lot`; Call session throws not-Trading — both used to hit the generic STT fallback.
+- **Reasoning**: PRD #24. Prepare-skip already has `callSkipCopy`; the write catch path did not.
+- **Rejected alternative(s)**: Importing `callSkipCopy` into RevertCopy (couples a write-failure mapper to prepare reasons). Showing the raw `below-lot` string.
+- **Task/session**: Loop tick 27 — W-044.
+
+### 2026-08-28 — Chart folds
+- **Change**: `chart.ts` — `pushSample` (append newest-last, drop duplicate `t`, cap 120), `sparkPath` (min-max normalized SVG polyline, empty under 2 points, constant-series safe), `outcomeBars` (newest-first capped history bars), `tapeRows` (newest-first market tape). Types `Sample`/`MarketFill` live in `exchange/port.ts`.
+- **Reasoning**: Sparkline geometry is pure math — belongs in the tested domain layer, not JSX. Normalization handles any scale (price vs probability) with one function.
+- **Rejected alternative(s)**: A chart library (ADR-0003 spirit: no UI dep in domain; SVG paths are 30 lines). Sampling inside components (untestable, and the cap/dedupe rules would rot).
+- **Task/session**: Three-page redesign session — Pulse charts.
+
+### 2026-08-28 — History Line
+- **Change**: `historyLine(openingPrice)` returns a positive number or undefined. CallBoard chips append `fmt(line, 2)` next to the settle time.
+- **Reasoning**: PRD #35. Adapter already fetches `getOpeningPrices` onto `PastWindow.openingPrice`; the chip was result + time only.
+- **Rejected alternative(s)**: Parsing Line from question text. Showing `0` / `NaN` as a fake Line.
+- **Task/session**: Loop tick 21 — W-039.
+
+### 2026-08-28 — Claim receipt hash
+- **Change**: `ClaimWriter.redeem` returns a hash. `executeClaims` returns `{ count, txHash }` using the last successful redeem.
+- **Reasoning**: PRD #37. A Claim session is N redeems; the toast can only reasonably link one. Last hash is the most recent write.
+- **Rejected alternative(s)**: Linking every redeem in the toast. Returning only `count` and hoping the fill tape indexes Claims (it is trade fills, not redeems).
+- **Task/session**: Loop ticks 18–19 — W-037.
 
 ### 2026-08-28 — Series P&L + Board notice
 - **Change**: `seriesPnl` / `seriesPnlCopy` filter Wallet P&L by asset + `canonicalInterval`. `boardNotice` picks one empty/error/thin-book/short-collateral row with a next action.
@@ -73,59 +103,8 @@ Working. Covered by Vitest (Call session including Stake quote, IOC hash, and Re
 - **Rejected alternative(s)**: Importing `computeOpenPositionsPnL` (ADR-0003, and that fold groups fills by pool). Inventing tUSDC P&L from Series history alone.
 - **Task/session**: Loop tick 8 — W-027.
 
-### 2026-08-28 — Parse settlement fee
-- **Change**: `parseSettlementFeeBps` turns indexer decimal strings into bigint bps; null/blank/junk/negative → 0n.
-- **Reasoning**: Adapter must not inline string parsing; tests pin the missing-plumbing case.
-- **Rejected alternative(s)**: Dividing by 1000 (that is on-chain `bpsTimes1k`, not the indexer field `estPayoutFor` consumes).
-- **Task/session**: Loop tick 7 — W-026.
-
-### 2026-08-28 — Settle preview
-- **Change**: `settlePreview` / `settlePreviewCopy` — winner `amount × (10_000 − feeBps) / 10_000`, Void half each side, loser 0. Default fee 0 bps.
-- **Reasoning**: Same protocol rule as SDK `estPayoutFor`, tested offline. Position banner can show Claim-time collateral without a live fee fetch.
-- **Rejected alternative(s)**: Domain importing markets-sdk. Treating Void as 0 (protocol redeems both sides at 0.5).
-- **Task/session**: Loop tick 6 — W-025.
-
-### 2026-08-28 — Series record
-- **Change**: `readSeriesRecord` / `seriesRecordCopy` tally Finalized Up/Down/Void. `last` is the newest expiry even when the indexer array is unsorted.
-- **Reasoning**: History chips were untested display. A series scoreboard belongs in domain; it is not fill-based wallet P&L.
-- **Rejected alternative(s)**: Importing SDK `computePositionPnL` (ADR-0003). Treating chip order as recency (indexer order is not a contract).
-- **Task/session**: Loop tick 5 — W-024.
-
-### 2026-08-28 — Book depth
-- **Change**: `readBookDepth` / `summarizeDepth` convert raw Up bids/asks into human levels (Down = 1 − Up), skip zero/invalid prices, cap at 5, accumulate size.
-- **Reasoning**: Drawer display rules belong in domain so UI cannot grow a four-sided blotter. SDK BinaryOrderBook stays in the exchange adapter.
-- **Rejected alternative(s)**: Passing `BinaryOrderBook` into CallBoard (ADR-0003). Showing NO bids/asks as a second ladder (same book, inverted).
-- **Task/session**: Loop tick 4 — W-014.
-
-### 2026-08-28 — Stake quote
-- **Change**: `prepareQuotedCall` takes a `StakeQuote` (raw quantity / limitPrice / escrow) and still gates on Trading + headroom. `readBoard` prefers `upQuote`/`downQuote` when present.
-- **Reasoning**: Live-book fill size belongs in Call session, not App. Quote fields stay raw so the adapter can pass SDK `BinaryStakeQuote` through without domain importing markets-sdk.
-- **Rejected alternative(s)**: Domain calling `quoteBinaryStake` (violates ADR-0003). Treating a null quote as "disable Call" (a cold watch would lock the ticket).
-- **Task/session**: Loop tick 3 — W-022.
-
-### 2026-08-28 — Window board
-- **Change**: `readBoard` composes pickWindow, Call session, implied Up, and WalletGate. `gateLabel` names the four-state primary action.
-- **Reasoning**: App was re-deriving live/plans/gate in the render path (no locality). WalletBar and CallBoard now render a board they do not compute.
-- **Rejected alternative(s)**: Extracting only JSX without a tested read model (shallow split).
-- **Task/session**: Loop tick 2 — split App wallet vs board.
-
-### 2026-08-28 — Claim session
-- **Change**: `planClaimSession` sorts newest-expired first, caps the scan, and expands ClaimPlan into redeem intents. `executeClaims` is the write loop.
-- **Reasoning**: Deletion test — without this, sort/cap/void/winner rules live in the Somnia adapter and cannot be tested offline.
-- **Rejected alternative(s)**: Keeping the scan loop in `claimFinalized` (no locality). Teaching App to call `planClaims` per row.
-- **Task/session**: Loop tick — deepen Claim session.
-
-### 2026-08-28 — Call session + cadence snap
-- **Change**: `prepareCall` / `executeCall` / `prepareExit` / `executeExit` gate IOC writes on on-chain Trading. `canonicalInterval` snaps indexer `intervalSec` onto 60/300/900/3600/14400/86400.
-- **Reasoning**: App was owning write rules (no locality). Live ETH 1h rows arrive as 3598s (`expiry − tradingStart`), so exact match hid the series.
-- **Rejected alternative(s)**: React hook owning the Trading check (untestable without wagmi). Parsing `interval` labels from question text (CONTEXT forbids that).
-- **Task/session**: Architecture pass after first live UI.
-
-### 2026-08-28 — First domain slice
-- **Change**: Added Grid, Lifecycle, CallTicket, ClaimPlan, WalletGate, RevertCopy, pickWindow.
-- **Reasoning**: ADR-0003 — SDK-free domain so tests run offline.
-- **Rejected alternative(s)**: Putting tick snap only in the SDK call site (untested in CI).
-- **Task/session**: Initial Window build.
+## Earlier history (condensed)
+First slice: Grid, Lifecycle, CallTicket, ClaimPlan, WalletGate, RevertCopy, pickWindow. Then Call session + cadence snap, Claim session, Window board, Stake quote, Book depth, Series record, Settle preview, `parseSettlementFeeBps`.
 
 ## Known Gotchas
 Headroom is 10% of `intervalSec`, not a fixed 300s (that kills 5m series). Collateral decimals come from the Window, not a hardcoded 6. Indexer cadence can be a few seconds off the label — always snap.

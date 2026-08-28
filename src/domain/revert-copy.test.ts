@@ -16,4 +16,11 @@ describe("RevertCopy", () => {
   it("falls back without dumping a selector", () => {
     expect(revertCopy("0x1234abcd")).not.toMatch(/^0x/);
   });
+
+  it("maps Call-path adapter errors to a sentence", () => {
+    expect(revertCopy(new Error("below-lot"))).toBe("Stake is below one lot. Increase the amount.");
+    expect(revertCopy(new Error("Window is not Trading"))).toBe("Window is not Trading.");
+    expect(revertCopy(new Error("SignerRequiredError"))).toMatch(/wallet/i);
+    expect(revertCopy(new Error("Call reverted on-chain"))).toMatch(/reverted/i);
+  });
 });

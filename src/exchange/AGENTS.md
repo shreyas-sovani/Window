@@ -19,6 +19,30 @@ Working against SDK types. `npm test` uses `createFakeExchange`, not the live in
 
 ## Decision Log
 
+### 2026-08-28 — Market tape + price feed on the port
+- **Change**: `WindowFeed.listMarketFills(pool, decimals)` maps SDK `getLiveFills` (aggressor from `takerSide`, falling back to `takerIsBid`) and `watchAssetPrice`/`assetPrice` wrap `client.watchPrice` + `getLivePrice` (human `price`/`ema`). Fake stores `marketFills`/`prices`/`watchedAssets` seed state.
+- **Reasoning**: `getLiveFills` is a sync live-store read (no round-trip) — the public tape is nearly free. `watchPrice` is ref-counted by the SDK; calling it per asset change composes with SDK internals. Both degrade to empty/null on any failure; the board never depends on them.
+- **Rejected alternative(s)**: `getFills(pool)` one-shot (indexer lag on a tape meant to feel live). Polling `fetchOrderBook` for price (wrong number — that's a probability, not the underlying).
+- **Task/session**: Three-page redesign session — Pulse charts.
+
+### 2026-08-28 — Cancel Open ticket hash
+- **Change**: `VenueWriter.cancelOpenTicket` returns `string | undefined`. Somnia `writeTxHash(cancelOrder)` — unified cancel has `info: TxResult`, no `txHash` on the wrapper. Fake returns `"0xfake"` after dropping the ticket.
+- **Reasoning**: Explorer proof for the remaining wallet write. Rest quote leaves escrow; cancel is how it returns.
+- **Rejected alternative(s)**: Parsing `cancelOrder.id` (on-chain order id, not a tx). Domain `executeCancel` (no Call-session gate; cancel is already a port write).
+- **Task/session**: Loop tick 22 — W-040.
+
+### 2026-08-28 — Series history oracle receipts
+- **Change**: `PastWindow.oracleQuestionId`. Somnia maps `listPastBinaryMarkets` `oracleQuestionId`. Fake history round-trips the field. CallBoard chips with an id are `oracleReceipt` links; chips without stay spans.
+- **Reasoning**: PRD #34. The live Window's ghost link is the successor (often still Trading). Settled receipts belong on the history strip.
+- **Rejected alternative(s)**: Domain importing the oracle host (chain owns `oracleReceipt`). Fetching `getOracleQuestion` per chip (the id is already on the market row).
+- **Task/session**: Loop tick 20 — W-038.
+
+### 2026-08-28 — Claim + faucet hashes
+- **Change**: `claimFinalized` returns `{ count, txHash }`. Somnia redeem/faucet return `TxResult.hash`. Fake returns `"0xfake"` on Claim and mint.
+- **Reasoning**: Explorer proof for writes that are not IOC orders. Last redeem is enough for a batch Claim.
+- **Rejected alternative(s)**: Changing `previewClaimSession` (still a count). Returning the full hash list through the port.
+- **Task/session**: Loop ticks 18–19 — W-037.
+
 ### 2026-08-28 — Post-only restBuy
 - **Change**: `VenueWriter.restBuy`. Somnia `createOrder(..., { postOnly: true })` — no `timeInForce: "IOC"`. Fake records `state.rests` and does not write a fill.
 - **Reasoning**: Unified `postOnly` maps to POST_ONLY. Mixing it into `iocBuy` would make the default Call rest by accident.

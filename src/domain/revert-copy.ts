@@ -8,6 +8,12 @@ export function revertCopy(err: unknown): string {
   if (/FaucetCapExceeded/i.test(text)) return "Faucet cap is 10,000 tUSDC per mint.";
   if (/PostOnlyWouldCross/i.test(text)) return "The book moved through that price.";
   if (/OrderAlreadyExpired/i.test(text)) return "That order expiry is in the past.";
+  if (/below-lot/i.test(text)) return "Stake is below one lot. Increase the amount.";
+  if (/Window is not Trading/i.test(text)) return "Window is not Trading.";
+  if (/SignerRequired/i.test(text)) return "Connect a wallet before this write.";
+  if (/reverted on-chain|redeem reverted/i.test(text)) {
+    return "The pool reverted that write. The Window may have locked, or size/price is off the grid.";
+  }
 
   return "The transaction did not go through. Check Shannon, gas (STT), and that the Window is still Trading.";
 }

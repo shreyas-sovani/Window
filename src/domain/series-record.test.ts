@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readSeriesRecord, seriesRecordCopy } from "./series-record";
+import { historyLine, readSeriesRecord, seriesRecordCopy } from "./series-record";
 import type { PastWindow } from "../exchange/port";
 
 const past = (over: Partial<PastWindow>): PastWindow => ({
@@ -24,5 +24,18 @@ describe("readSeriesRecord", () => {
     ]);
     expect(record).toMatchObject({ up: 1, down: 1, voided: 1, total: 3, last: "up" });
     expect(seriesRecordCopy(record)).toBe("1 Up · 1 Down · 1 Void · last Up");
+  });
+});
+
+describe("historyLine", () => {
+  it("returns the Line when opening price is a positive number", () => {
+    expect(historyLine("67432.51")).toBe(67432.51);
+  });
+
+  it("skips missing or zero so a chip does not invent a Line", () => {
+    expect(historyLine(undefined)).toBeUndefined();
+    expect(historyLine("")).toBeUndefined();
+    expect(historyLine("0")).toBeUndefined();
+    expect(historyLine("nope")).toBeUndefined();
   });
 });

@@ -2,8 +2,10 @@ import { planCall } from "../domain/call-ticket";
 import { planClaimSession } from "../domain/claim-session";
 import { impliedUp } from "../domain/implied";
 import type {
+  AssetPrice,
   ExchangePort,
   LiveWindow,
+  MarketFill,
   OpenTicket,
   OutcomeHoldings,
   PastWindow,
@@ -38,6 +40,9 @@ export type FakeExchangeState = {
   feesByMarket: Record<string, bigint>;
   fills: WalletFill[];
   positionPnl: PositionPnl[];
+  marketFills: Record<string, MarketFill[]>;
+  prices: Record<string, AssetPrice>;
+  watchedAssets: string[];
 };
 
 const emptyHoldings = (): OutcomeHoldings => ({ up: 0n, down: 0n, decimals: 6 });
@@ -103,6 +108,9 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     feesByMarket: seed.feesByMarket ?? {},
     fills: seed.fills ?? [],
     positionPnl: seed.positionPnl ?? [],
+    marketFills: seed.marketFills ?? {},
+    prices: seed.prices ?? {},
+    watchedAssets: seed.watchedAssets ?? [],
   };
 
   const port: ExchangePort = {
@@ -137,6 +145,15 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     async listSeriesHistory() {
       return state.history;
     },
+    async listMarketFills(pool) {
+      return [...(state.marketFills[pool] ?? [])].sort((a, b) => b.ts - a.ts);
+    },
+    async watchAssetPrice(asset) {
+      if (!state.watchedAssets.includes(asset)) state.watchedAssets.push(asset);
+    },
+    assetPrice(asset) {
+      return state.prices[asset] ?? null;
+    },
     async onchainStatus(marketId) {
       return state.statusByMarket[marketId] ?? 1;
     },
@@ -159,6 +176,7 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     },
     async mintTestCollateral() {
       state.faucetCalls += 1;
+      return "0xfake";
     },
     async previewClaimSession(_account, venueId) {
       return claimIntents(state, venueId).intents.length;
@@ -169,7 +187,7 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
         row.up = 0n;
         row.down = 0n;
       }
-      return intents.length;
+      return { count: intents.length, txHash: intents.length ? "0xfake" : undefined };
     },
     async listOpenTickets(symbol) {
       return state.tickets.filter((t) => !symbol || t.symbol === symbol);
@@ -177,6 +195,7 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     async cancelOpenTicket(id, symbol) {
       state.cancelled.push({ id, symbol });
       state.tickets = state.tickets.filter((t) => t.id !== id);
+      return "0xfake";
     },
     async listFills() {
       return [...state.fills].sort((a, b) => b.timestamp - a.timestamp);

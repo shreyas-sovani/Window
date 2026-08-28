@@ -59,6 +59,29 @@ describe("fake ExchangeAdapter", () => {
     expect(ex.state.fills).toEqual([]);
   });
 
+  it("returns a cancel hash and drops the open ticket", async () => {
+    const ex = createFakeExchange({
+      tickets: [{ id: "1", symbol: "BTC#YES", side: "buy", price: 0.5, remaining: 10 }],
+    });
+    expect(await ex.cancelOpenTicket("1", "BTC#YES")).toBe("0xfake");
+    expect(await ex.listOpenTickets()).toEqual([]);
+  });
+
+  it("keeps oracle question ids on series history", async () => {
+    const ex = createFakeExchange({
+      history: [
+        {
+          marketId: "0xabc",
+          expiry: 1_000,
+          result: "up",
+          oracleQuestionId: "42",
+        },
+      ],
+    });
+    const rows = await ex.listSeriesHistory("BTC", 900);
+    expect(rows[0]?.oracleQuestionId).toBe("42");
+  });
+
   it("claims only the winning side on a resolved Window", async () => {
     const ex = createFakeExchange({
       claims: [
@@ -72,8 +95,8 @@ describe("fake ExchangeAdapter", () => {
         },
       ],
     });
-    const n = await ex.claimFinalized("0x0000000000000000000000000000000000000001");
-    expect(n).toBe(1);
+    const receipt = await ex.claimFinalized("0x0000000000000000000000000000000000000001");
+    expect(receipt).toEqual({ count: 1, txHash: "0xfake" });
   });
 
   it("claims both sides on a void", async () => {
@@ -89,7 +112,10 @@ describe("fake ExchangeAdapter", () => {
         },
       ],
     });
-    expect(await ex.claimFinalized("0x0000000000000000000000000000000000000001")).toBe(2);
+    expect(await ex.claimFinalized("0x0000000000000000000000000000000000000001")).toEqual({
+      count: 2,
+      txHash: "0xfake",
+    });
   });
 
   it("previews Claim session count without redeeming", async () => {
@@ -108,7 +134,7 @@ describe("fake ExchangeAdapter", () => {
     });
     expect(await ex.previewClaimSession(account)).toBe(1);
     expect(ex.state.claims[0]?.up).toBe(5n);
-    expect(await ex.claimFinalized(account)).toBe(1);
+    expect(await ex.claimFinalized(account)).toEqual({ count: 1, txHash: "0xfake" });
     expect(await ex.previewClaimSession(account)).toBe(0);
   });
 

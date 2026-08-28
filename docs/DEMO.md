@@ -1,10 +1,10 @@
 # Window — 90-second demo script
 
-Setup before hitting record: wallet on Shannon with STT gas + a little tUSDC already minted (faucet works live too, but have a fallback wallet). Board open on BTC 15m.
+Setup before hitting record: wallet on Shannon with STT gas + a little tUSDC already minted (faucet works live too, but have a fallback wallet). Start at `#/` then **Open the terminal** (`#/app`) on BTC 15m.
 
 ## The script
 
-**0:00 — The pitch (on the board).** "Window is the consumer Up/Down terminal for dreamDEX Event Contracts on Somnia. One screen: the Line, live odds, a stake, two buttons. No order tables, no leverage language — a Call."
+**0:00 — The pitch (landing, then the board).** From the landing: "Window is the consumer Up/Down terminal for dreamDEX Event Contracts on Somnia." Click **Open the terminal**. "One screen: the Line, live odds, a stake, two buttons. No order tables, no leverage language — a Call."
 
 **0:10 — The read model.** Point at Line / Locks in / Implied Up. "Odds come from the SDK's live order book over WebSocket, with a polled top-of-book fallback. Countdown turns red inside the last minute — that's the lock." Hover the book drawer: "Real depth, human units, spread in the middle."
 
@@ -16,7 +16,7 @@ Setup before hitting record: wallet on Shannon with STT gas + a little tUSDC alr
 
 **1:05 — Claim.** If a finalized position exists: press **Claim finalized**. "Winnings never auto-pay. Window scans finalized markets the indexer hides from loadMarkets, redeems winners fee-adjusted, voids at half. One button."
 
-**1:15 — Close.** "Zero custom contracts. Every trade is the dreamDEX SDK on Somnia Shannon. Domain layer is pure TypeScript, 123 tests, adapters swappable — there's a deterministic fake exchange the whole suite runs against. docs/SDK-FEEDBACK.md is our eight-item report back to the dreamDEX team."
+**1:15 — Close.** "Zero custom contracts. Every trade is the dreamDEX SDK on Somnia Shannon. Domain layer is pure TypeScript, 145 tests, adapters swappable — there's a deterministic fake exchange the whole suite runs against. docs/SDK-FEEDBACK.md is our eight-item report back to the dreamDEX team."
 
 ## Fallbacks
 

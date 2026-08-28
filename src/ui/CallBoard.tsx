@@ -4,7 +4,7 @@ import type { BookDepth } from "../domain/book-depth";
 import { callSkipCopy } from "../domain/call-session";
 import { windowPhaseCopy } from "../domain/lifecycle";
 import { cadenceLabel, SERIES_CHIPS } from "../domain/series";
-import { readSeriesRecord, seriesRecordCopy } from "../domain/series-record";
+import { historyLine, readSeriesRecord, seriesRecordCopy } from "../domain/series-record";
 import { settlePreview, settlePreviewCopy } from "../domain/settle-preview";
 import type { WindowBoard } from "../domain/window-board";
 import type { OpenTicket, OutcomeHoldings, PastWindow } from "../exchange/port";
@@ -128,12 +128,33 @@ export function CallBoard(props: {
           {props.history && props.history.length > 0 && (
             <>
               <div className="record">{seriesRecordCopy(readSeriesRecord(props.history))}</div>
-              {props.history.map((row) => (
-                <span key={row.marketId} className={`chip ${row.result}`}>
-                  {historyLabel(row.result)}
-                  <small>{new Date(row.expiry * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>
-                </span>
-              ))}
+              {props.history.map((row) => {
+                const line = historyLine(row.openingPrice);
+                const body = (
+                  <>
+                    {historyLabel(row.result)}
+                    <small>
+                      {new Date(row.expiry * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {line !== undefined ? ` · ${fmt(line, 2)}` : ""}
+                    </small>
+                  </>
+                );
+                return row.oracleQuestionId ? (
+                  <a
+                    key={row.marketId}
+                    className={`chip ${row.result}`}
+                    href={oracleReceipt(row.oracleQuestionId)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {body}
+                  </a>
+                ) : (
+                  <span key={row.marketId} className={`chip ${row.result}`}>
+                    {body}
+                  </span>
+                );
+              })}
             </>
           )}
         </div>

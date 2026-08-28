@@ -39,19 +39,20 @@ describe("planClaimSession", () => {
 });
 
 describe("executeClaims", () => {
-  it("sends each intent and returns the count", async () => {
+  it("sends each intent and returns the last redeem hash", async () => {
     const sent: unknown[] = [];
-    const n = await executeClaims(
+    const receipt = await executeClaims(
       {
         redeem: async (intent) => {
           sent.push(intent.marketId);
+          return sent.length === 1 ? "0xfirst" : "0xlast";
         },
       },
       planClaimSession([
         row({ isVoided: true, isResolved: false, winningOutcome: null, up: 2n, down: 3n }),
       ]),
     );
-    expect(n).toBe(2);
+    expect(receipt).toEqual({ count: 2, txHash: "0xlast" });
     expect(sent).toEqual(["0xaaa", "0xaaa"]);
   });
 });

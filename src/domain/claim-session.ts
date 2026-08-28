@@ -19,7 +19,12 @@ export type ClaimIntent = {
 };
 
 export type ClaimWriter = {
-  redeem(intent: ClaimIntent): Promise<void>;
+  redeem(intent: ClaimIntent): Promise<string | undefined>;
+};
+
+export type ClaimReceipt = {
+  count: number;
+  txHash?: string;
 };
 
 function asOutcome(n: number | null): OutcomeIdx | null {
@@ -50,9 +55,11 @@ export function planClaimSession(rows: SettledWindow[], limit = 40): ClaimIntent
   return intents;
 }
 
-export async function executeClaims(writer: ClaimWriter, intents: ClaimIntent[]): Promise<number> {
+export async function executeClaims(writer: ClaimWriter, intents: ClaimIntent[]): Promise<ClaimReceipt> {
+  let txHash: string | undefined;
   for (const intent of intents) {
-    await writer.redeem(intent);
+    const hash = await writer.redeem(intent);
+    if (hash) txHash = hash;
   }
-  return intents.length;
+  return { count: intents.length, txHash };
 }
