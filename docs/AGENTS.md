@@ -15,9 +15,27 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-PRD is `needs-triage` locally (no hosted tracker). Shorten-without-doubling is done (W-046). Crash notice Retry is done (W-045). SDK-FEEDBACK has 8 items. Default Call stays IOC.
+PRD is `needs-triage` locally (no hosted tracker). Claim session continue-after-fail is done (W-048). Claim session Windows + tUSDC copy is done (W-047). Shorten-without-doubling is done (W-046). Crash notice Retry is done (W-045). SDK-FEEDBACK has 8 items. Default Call stays IOC.
 
 ## Decision Log
+
+### 2026-08-28 — Doc sweep: PLAN status banner
+- **Change**: PLAN.md opens with a "Status: built" note pointing at BACKLOG/AGENTS/CONTEXT, and its UI section notes the shipped light theme + three routes. No other PLAN edits — it stays the original plan, as history.
+- **Reasoning**: PLAN described the pre-build intent (dark tote-board, single page); readers were landing on it with no signal that every item shipped differently-later-better.
+- **Rejected alternative(s)**: Rewriting PLAN to describe the present (duplicates BACKLOG + AGENTS; destroys the historical record). Deleting PLAN (root AGENTS.md and PRD reference it).
+- **Task/session**: Doc cleanup sweep.
+
+### 2026-08-28 — Claim session continue-after-fail (W-048)
+- **Change**: BACKLOG W-048 done. CONTEXT Claim session: a failed redeem does not abort later Windows; all-fail rethrows.
+- **Reasoning**: PRD #32 Claim all. One reverted row was hiding the rest of the scan.
+- **Rejected alternative(s)**: Returning an empty receipt on total failure (no RevertCopy).
+- **Task/session**: 15m prod loop tick 31.
+
+### 2026-08-28 — Claim session Windows + tUSDC (W-047)
+- **Change**: BACKLOG W-047 done. CONTEXT Claim session / Claim primary: preview is unique Windows + expected collateral, copy names tUSDC. DEMO Claim beat uses that button.
+- **Reasoning**: PRD #29/#32. Intent count and "outcome balance(s)" were exchange jargon on the tote.
+- **Rejected alternative(s)**: Keeping "Claim winnings" as the only primary copy.
+- **Task/session**: 15m prod loop tick 30.
 
 ### 2026-08-28 — Shorten short hashes (W-046)
 - **Change**: BACKLOG W-046 done. CONTEXT Explorer proof: `shorten` does not double hashes under 12 chars.

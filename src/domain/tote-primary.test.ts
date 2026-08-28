@@ -15,8 +15,8 @@ describe("totePrimary", () => {
   it("makes Claim the primary after resolve even when the successor is callable", () => {
     const gate = nextGate(ready);
     expect(gate.action).toBe("call");
-    expect(totePrimary({ gate, claimable: 1 })).toEqual({ kind: "claim", count: 1 });
-    expect(totePrimaryCopy({ kind: "claim", count: 1 })).toBe("Claim winnings");
+    expect(totePrimary({ gate, claimable: 1 })).toEqual({ kind: "claim", windows: 1, payout: 0n });
+    expect(totePrimaryCopy({ kind: "claim", windows: 1, payout: 5_000_000n })).toBe("Claim 1 Window · 5 tUSDC");
   });
 
   it("asks to connect before Claim", () => {

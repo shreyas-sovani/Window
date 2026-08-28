@@ -7,7 +7,7 @@ Pure Event Contract domain: Grid, Lifecycle, CallTicket, Call session, Rest quot
 Encode venue rules (tick/lot, Trading-only writes, Finalized claims, four-state wallet, cadence snap) so UI and SDK adapters cannot drift.
 
 ## What This Controls
-Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas spent on losers or missed voids. Wrong Lifecycle → orders on Locked Windows. Wrong Cadence snap → 1h series missing when indexer reports 3598s. Wrong Claim primary → winnings stay behind a ghost button while the successor is Trading. Wrong Rest quote → a "post-only" control that actually IOC-takes. Wrong Series P&L → ETH 1h money mixed into BTC 15m. Wrong Board notice → stacked banners with no next action. Wrong `pulseReady` → last-window bars hidden behind "Collecting ticks…" until a spark has two samples. Wrong RevertCopy → `below-lot` or SignerRequired dumps as a generic STT toast. Wrong `crashNotice` → a stack in the banner and no Retry.
+Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas spent on losers or missed voids. Wrong Claim session preview → void counts as two "winnings" or the tote says "outcome balances". Wrong `executeClaims` abort → one reverted redeem hides later Windows. Wrong Lifecycle → orders on Locked Windows. Wrong Cadence snap → 1h series missing when indexer reports 3598s. Wrong Claim primary → winnings stay behind a ghost button while the successor is Trading. Wrong Rest quote → a "post-only" control that actually IOC-takes. Wrong Series P&L → ETH 1h money mixed into BTC 15m. Wrong Board notice → stacked banners with no next action. Wrong `pulseReady` → last-window bars hidden behind "Collecting ticks…" until a spark has two samples. Wrong RevertCopy → `below-lot` or SignerRequired dumps as a generic STT toast. Wrong `crashNotice` → a stack in the banner and no Retry.
 
 ## Connections
 - Depends on: `viem` (`parseUnits` in CallTicket / Window board), `src/exchange/port.ts` types only (`LiveWindow`, `BookTop`, `StakeQuote`, `PastWindow`, `WalletFill`, `PositionPnl`, `Sample`, `MarketFill`)
@@ -15,9 +15,21 @@ Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas 
 - External systems touched: none
 
 ## Current State
-Working. Covered by Vitest (Call session including Stake quote, IOC hash, and Rest quote, Claim session, Claim primary / totePrimary, Window board, Book depth, Series record, Series P&L, Board notice, Crash notice, Settle preview, Wallet P&L, Window phase including Locked fallback, fake ExchangeAdapter, cadence, RevertCopy Call-path throws, Pulse chart folds).
+Working. Covered by Vitest (Call session including Stake quote, IOC hash, and Rest quote, Claim session including Windows + payout copy and continue-after-fail, Claim primary / totePrimary, Window board, Book depth, Series record, Series P&L, Board notice, Crash notice, Settle preview, Wallet P&L, Window phase including Locked fallback, fake ExchangeAdapter, cadence, RevertCopy Call-path throws, Pulse chart folds).
 
 ## Decision Log
+
+### 2026-08-28 — Claim session continues after a failed Window
+- **Change**: `readClaimSession.held` is per-Window intents + payout. `executeClaims` redeems each Window independently; `failed` is how many did not finish. Receipt payout/windows count only successes. All-fail rethrows. `claimReceiptCopy` appends "N Window(s) could not be claimed."
+- **Reasoning**: PRD #32 Claim all. One reverted redeem used to abort the rest, so a bad row hid later winnings.
+- **Rejected alternative(s)**: Swallowing all-fail into an empty receipt (RevertCopy would never fire). Continuing remaining intents inside a failed void (the Window already reverted).
+- **Task/session**: Loop tick 31 — W-048.
+
+### 2026-08-28 — Claim session Windows + payout
+- **Change**: `readClaimSession` returns unique Windows, intents, and expected collateral (Settle preview math: winner fee-adjusted, void at half). `planClaimSession` is that intent list. `executeClaims` takes the session and returns `{ count, windows, payout, txHash }`. `claimSessionCopy` / `claimReceiptCopy` name Windows and tUSDC. `totePrimary` claim kind is `{ windows, payout }`.
+- **Reasoning**: Preview was an intent count, so a void looked like two Claims and the toast said "outcome balance(s)". PRD #29/#32 is Windows of winnings, in collateral.
+- **Rejected alternative(s)**: Keeping the tote as "Claim winnings" and only fixing the toast. Fetching `getMarketFees` per scanned row (40 RPC reads on a 60s poll; testnet fee is 0).
+- **Task/session**: Loop tick 30 — W-047.
 
 ### 2026-08-28 — Crash notice
 - **Change**: `crashNotice(message)` returns a BoardNotice with Retry. First line, 160 chars, no stack. ErrorBoundary remounts on Retry.

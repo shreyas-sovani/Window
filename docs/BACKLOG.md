@@ -50,5 +50,7 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-044 | RevertCopy maps below-lot, not Trading, SignerRequired, on-chain revert | RevertCopy | P1 | done | yes |
 | W-045 | Crash notice: Retry on render error, no stack dump | Board notice | P1 | done | yes |
 | W-046 | shorten: short hashes stay whole (no `0xabc…xabc`) | Explorer proof | P2 | done | yes |
+| W-047 | Claim session names Windows + expected tUSDC, not outcome-balance count | Claim session | P1 | done | yes |
+| W-048 | Claim session continues after a failed redeem; all-fail rethrows | Claim session | P1 | done | yes |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.

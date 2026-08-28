@@ -55,14 +55,14 @@ Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h.
 | Wallet P&L | Realized + unrealized per open position (avg-cost, marked to book) and a signed fill tape — all explorer-linked |
 | Pulse | Underlying price + implied-odds sparklines, last-12 outcome bars, and the pool's public fill tape — pure SVG, no chart lib |
 | Book drawer | Collapsed Up-depth ladder with size bars and spread |
-| Claim session | Scans finalized Windows, redeems winners (fee-adjusted) and voids (both sides at par) |
+| Claim session | Scans finalized Windows, redeems winners (fee-adjusted) and voids (both sides at par); preview is Windows · expected tUSDC; a failed redeem does not abort the rest |
 | Open tickets | IOC should leave none — if one rests, cancel frees the escrow |
 
 ## Architecture
 
 ```
 src/
-├── domain/        SDK-free pure logic — fully unit-tested (Vitest, 145 tests)
+├── domain/        SDK-free pure logic — fully unit-tested (Vitest, 151 tests)
 │   ├── pick-window, window-board     read models for the live series
 │   ├── call-ticket, call-session      sizing (tick/lot grids), Call/Exit intents
 │   ├── claim-plan, claim-session      what redeems, and how

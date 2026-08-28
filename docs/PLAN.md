@@ -2,6 +2,8 @@
 
 Date: 2026-08-28. Sources: dreamDEX GitBook MCP (`searchDocumentation`, `getPage`) and Somnia GitBook MCP (`searchDocumentation`), plus the published markdown those tools linked.
 
+> **Status: built.** This is the original build plan, kept as history. Current state lives in `docs/BACKLOG.md` (W-001–W-048 done), the per-directory `AGENTS.md` files, and `CONTEXT.md`. Deviations from this plan: the UI shipped as a light "paper ledger" theme (not the dark tote-board sketched below), and the product is three hash routes (`#/` landing, `#/docs` docs, `#/app` terminal), not a single page.
+
 ## Goal
 
 Ship a Shannon-testnet prototype that lets a user **Call** the live BTC/ETH **Window** (Up or Down), see implied odds and the **Line**, exit while **Trading**, and **Claim** after **Finalized**. Zero custom contracts.
@@ -54,7 +56,7 @@ Judged demo is **Shannon**. Fallback HTTP RPC seen in Somnia dApp tutorials: `ht
 
 ## UI
 
-Signature: a two-sided **Call** slip (Up | Down) with a countdown to lock, the **Line**, live index if available, implied %, and stake in tUSDC. Dark tote-board, not a generic DEX table. Advanced book is a drawer.
+Signature: a two-sided **Call** slip (Up | Down) with a countdown to lock, the **Line**, live index if available, implied %, and stake in tUSDC. *(Shipped as the light "paper ledger" theme — same composition.)* Advanced book is a drawer.
 
 Four-state onchain button per frontend-ux: Connect / Switch to Shannon / Approve tUSDC / Call Up|Down. Per-action pending until **receipt**.
 

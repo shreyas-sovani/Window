@@ -1,5 +1,5 @@
 import { planCall } from "../domain/call-ticket";
-import { planClaimSession } from "../domain/claim-session";
+import { readClaimSession } from "../domain/claim-session";
 import { impliedUp } from "../domain/implied";
 import type {
   AssetPrice,
@@ -47,11 +47,11 @@ export type FakeExchangeState = {
 
 const emptyHoldings = (): OutcomeHoldings => ({ up: 0n, down: 0n, decimals: 6 });
 
-function claimIntents(state: FakeExchangeState, venueId?: string) {
+function claimSession(state: FakeExchangeState, venueId?: string) {
   const scoped = state.claims.filter((row) => !venueId || !row.venueId || row.venueId === venueId);
   return {
     scoped,
-    intents: planClaimSession(
+    session: readClaimSession(
       scoped.map((row) => ({
         marketId: row.marketId,
         market: "0x00000000000000000000000000000000000000aa" as const,
@@ -179,15 +179,22 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
       return "0xfake";
     },
     async previewClaimSession(_account, venueId) {
-      return claimIntents(state, venueId).intents.length;
+      const { session } = claimSession(state, venueId);
+      return { count: session.intents.length, windows: session.windows, payout: session.payout };
     },
     async claimFinalized(_account, venueId) {
-      const { scoped, intents } = claimIntents(state, venueId);
+      const { scoped, session } = claimSession(state, venueId);
       for (const row of scoped) {
         row.up = 0n;
         row.down = 0n;
       }
-      return { count: intents.length, txHash: intents.length ? "0xfake" : undefined };
+      return {
+        count: session.intents.length,
+        windows: session.windows,
+        payout: session.payout,
+        failed: 0,
+        txHash: session.intents.length ? "0xfake" : undefined,
+      };
     },
     async listOpenTickets(symbol) {
       return state.tickets.filter((t) => !symbol || t.symbol === symbol);

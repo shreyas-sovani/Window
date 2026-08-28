@@ -7,7 +7,7 @@ ExchangeAdapter over `@somnia-chain/markets-sdk`.
 The only module allowed to talk to SomniaMarkets. Maps SDK rows to `LiveWindow`. IOC buy/sell, post-only Rest, faucet, Claim, Claim-session preview, open tickets, series history, Stake quote, venue settlement fee, fill tape, open-position P&L. Maps the live four-sided book to BookTop / BookDepth. A second adapter (`fake.ts`) satisfies the same ExchangePort.
 
 ## What This Controls
-If this is wrong, the UI shows the wrong Window, Calls the wrong symbol, or cannot Claim Finalized markets.
+If this is wrong, the UI shows the wrong Window, Calls the wrong symbol, or cannot Claim Finalized markets. If preview is an intent count, a void looks like two Claims.
 
 ## Connections
 - Depends on: `@somnia-chain/markets-sdk` ≥ 0.28.1, `src/domain/pick-window.ts`, `src/domain/claim-session.ts`, `src/domain/series.ts`, `src/domain/book-depth.ts`, `src/domain/settle-preview.ts`, `src/exchange/port.ts`
@@ -15,9 +15,21 @@ If this is wrong, the UI shows the wrong Window, Calls the wrong symbol, or cann
 - External systems touched: indexer `dev.smk.somnia.host`, Shannon WS RPC, BinaryMarketsModule
 
 ## Current State
-Working against SDK types. `npm test` uses `createFakeExchange`, not the live indexer.
+Working against SDK types. `npm test` uses `createFakeExchange`, not the live indexer. `previewClaimSession` / `claimFinalized` return `{ count, windows, payout }` (plus `failed` and hash on Claim). Somnia `claimFinalized` uses `executeClaims` so a failed Window does not abort later ones.
 
 ## Decision Log
+
+### 2026-08-28 — Claim receipt includes failed Windows
+- **Change**: Fake `claimFinalized` returns `failed: 0` (in-memory Claim is atomic). Live path inherits `executeClaims` continue-after-fail.
+- **Reasoning**: Receipt shape must match `ClaimReceipt` so App toast copy can name leftover Windows.
+- **Rejected alternative(s)**: Teaching the fake to inject a failing redeem (no product value; domain already covers it).
+- **Task/session**: Loop tick 31 — W-048.
+
+### 2026-08-28 — Claim preview is a session, not a count
+- **Change**: `previewClaimSession` returns `{ count, windows, payout }` from `readClaimSession`. `claimFinalized` returns the same plus `txHash`. Fake zeros balances only on Claim, not preview.
+- **Reasoning**: Tote and toast need unique Windows and expected tUSDC. Intent length made a void look like two Claims.
+- **Rejected alternative(s)**: Returning only `windows` (loses redeem count for execute). Fetching per-row `getMarketFees` on the 40-row scan.
+- **Task/session**: Loop tick 30 — W-047.
 
 ### 2026-08-28 — Market tape + price feed on the port
 - **Change**: `WindowFeed.listMarketFills(pool, decimals)` maps SDK `getLiveFills` (aggressor from `takerSide`, falling back to `takerIsBid`) and `watchAssetPrice`/`assetPrice` wrap `client.watchPrice` + `getLivePrice` (human `price`/`ema`). Fake stores `marketFills`/`prices`/`watchedAssets` seed state.

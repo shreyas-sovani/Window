@@ -9,7 +9,7 @@ import {
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import type { Address, WalletClient } from "viem";
 import type { BinarySide } from "@somnia-chain/markets-sdk";
-import { executeClaims, planClaimSession, type SettledWindow } from "../domain/claim-session";
+import { executeClaims, readClaimSession, type SettledWindow } from "../domain/claim-session";
 import { statusCode } from "../domain/lifecycle";
 import { pickWindow } from "../domain/pick-window";
 import { canonicalInterval } from "../domain/series";
@@ -414,11 +414,12 @@ async function listSettledSnapshots(account: Address, venueId?: string): Promise
 }
 
 export async function previewClaimSession(account: Address, venueId?: string) {
-  return planClaimSession(await listSettledSnapshots(account, venueId), 40).length;
+  const session = readClaimSession(await listSettledSnapshots(account, venueId), 40);
+  return { count: session.intents.length, windows: session.windows, payout: session.payout };
 }
 
 export async function claimFinalized(account: Address, venueId?: string) {
-  const intents = planClaimSession(await listSettledSnapshots(account, venueId), 40);
+  const session = readClaimSession(await listSettledSnapshots(account, venueId), 40);
   return executeClaims(
     {
       async redeem(intent) {
@@ -432,6 +433,6 @@ export async function claimFinalized(account: Address, venueId?: string) {
         return res.hash;
       },
     },
-    intents,
+    session,
   );
 }

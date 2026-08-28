@@ -96,7 +96,7 @@ describe("fake ExchangeAdapter", () => {
       ],
     });
     const receipt = await ex.claimFinalized("0x0000000000000000000000000000000000000001");
-    expect(receipt).toEqual({ count: 1, txHash: "0xfake" });
+    expect(receipt).toEqual({ count: 1, windows: 1, payout: 5n, failed: 0, txHash: "0xfake" });
   });
 
   it("claims both sides on a void", async () => {
@@ -114,6 +114,9 @@ describe("fake ExchangeAdapter", () => {
     });
     expect(await ex.claimFinalized("0x0000000000000000000000000000000000000001")).toEqual({
       count: 2,
+      windows: 1,
+      payout: 3n,
+      failed: 0,
       txHash: "0xfake",
     });
   });
@@ -132,10 +135,10 @@ describe("fake ExchangeAdapter", () => {
         },
       ],
     });
-    expect(await ex.previewClaimSession(account)).toBe(1);
+    expect(await ex.previewClaimSession(account)).toEqual({ count: 1, windows: 1, payout: 5n });
     expect(ex.state.claims[0]?.up).toBe(5n);
-    expect(await ex.claimFinalized(account)).toEqual({ count: 1, txHash: "0xfake" });
-    expect(await ex.previewClaimSession(account)).toBe(0);
+    expect(await ex.claimFinalized(account)).toEqual({ count: 1, windows: 1, payout: 5n, failed: 0, txHash: "0xfake" });
+    expect(await ex.previewClaimSession(account)).toEqual({ count: 0, windows: 0, payout: 0n });
   });
 
   it("sizes a stake quote from the resting book", async () => {

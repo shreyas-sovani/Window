@@ -21,6 +21,7 @@ import { revertCopy } from "../domain/revert-copy";
 import { approveAmount } from "../domain/wallet-gate";
 import { totePrimary, totePrimaryCopy } from "../domain/tote-primary";
 import { boardNotice } from "../domain/board-notice";
+import { claimReceiptCopy } from "../domain/claim-session";
 import { readBoard } from "../domain/window-board";
 import { bindWallet, somniaExchange } from "../exchange/somnia";
 import type { Sample } from "../exchange/port";
@@ -276,7 +277,8 @@ export function App() {
   );
 
   const live = board.live;
-  const primary = totePrimary({ gate: board.gate, claimable: claimsQ.data ?? 0 });
+  const claims = claimsQ.data ?? { count: 0, windows: 0, payout: 0n };
+  const primary = totePrimary({ gate: board.gate, claimable: claims.windows, payout: claims.payout });
   const primaryBusy =
     connecting || switching || writing || approveCooldown || approveWait.isLoading || busy !== null;
 
@@ -415,9 +417,7 @@ export function App() {
       const receipt = await somniaExchange.claimFinalized(address, live?.venueId);
       setBanner({
         kind: "ok",
-        text: receipt.count
-          ? `Claimed ${receipt.count} outcome balance(s).`
-          : "Nothing to claim on recent Finalized Windows.",
+        text: claimReceiptCopy(receipt, TUSDC.decimals),
         txHash: receipt.txHash,
       });
       void qc.invalidateQueries({ queryKey: ["fills"] });
@@ -548,6 +548,7 @@ export function App() {
             claiming: busy === "claim",
           },
           board.phase,
+          TUSDC.decimals,
         )}
         showPrimary={primary.kind !== "call"}
         claimDue={primary.kind === "claim"}

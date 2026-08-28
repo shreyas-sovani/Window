@@ -1,4 +1,5 @@
 import type { Address } from "viem";
+import type { ClaimPreview, ClaimReceipt } from "../domain/claim-session";
 
 export type LiveWindow = {
   marketId: `0x${string}`;
@@ -123,9 +124,9 @@ export type VenueWriter = {
   restBuy(symbol: string, contracts: number, price: number): Promise<string | undefined>;
   outcomeBalances(account: Address, marketId: `0x${string}`): Promise<OutcomeHoldings>;
   mintTestCollateral(): Promise<string | undefined>;
-  claimFinalized(account: Address, venueId?: string): Promise<{ count: number; txHash?: string }>;
-  /** Claim session intent count. Does not redeem. */
-  previewClaimSession(account: Address, venueId?: string): Promise<number>;
+  claimFinalized(account: Address, venueId?: string): Promise<ClaimReceipt>;
+  /** Claim session preview (Windows + expected collateral). Does not redeem. */
+  previewClaimSession(account: Address, venueId?: string): Promise<ClaimPreview>;
   listOpenTickets(symbol?: string): Promise<OpenTicket[]>;
   cancelOpenTicket(id: string, symbol: string): Promise<string | undefined>;
   listFills(account: Address): Promise<WalletFill[]>;

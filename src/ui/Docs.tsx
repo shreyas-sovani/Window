@@ -41,7 +41,7 @@ const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] 
     title: "Settlement & claiming",
     body: [
       { p: "Windows resolve on-chain against their oracle question. Winnings never auto-pay — press Claim." },
-      { p: "Winners redeem one-to-one minus the venue settlement fee (currently 0 on testnet). Voided Windows redeem both sides at half. The Claim scan reads finalized markets the indexer hides from the default market list." },
+      { p: "Winners redeem one-to-one minus the venue settlement fee (currently 0 on testnet). Voided Windows redeem both sides at half. The Claim button names unique Windows and expected tUSDC — not a count of outcome tokens. The scan reads finalized markets the indexer hides from the default market list." },
       { p: "Every settled Window links its public oracle receipt — the Line-versus-close trail." },
     ],
   },
