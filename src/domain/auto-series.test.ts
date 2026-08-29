@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LiveWindow } from "../exchange/port";
-import { autoSeries, seriesScore } from "./auto-series";
+import { autoSeries, hottestCadence, seriesScore } from "./auto-series";
 
 const win = (over: Partial<LiveWindow> = {}): LiveWindow => ({
   marketId: "0x" + "00".repeat(32),
@@ -54,5 +54,30 @@ describe("autoSeries", () => {
   it("sees through venue boundaries — opportunity beats the pin", () => {
     const otherVenue = win({ venueId: "0xother", asset: "ETH", intervalSec: 300, marketId: "0xe", expiry: 3_000 });
     expect(autoSeries([otherVenue], 1_000)).toEqual({ asset: "ETH", intervalSec: 300 });
+  });
+});
+
+describe("hottestCadence", () => {
+  it("returns the cadence with the highest live score for the asset", () => {
+    const m15 = win({ intervalSec: 900, expiry: 1_400 });
+    const h1 = win({ intervalSec: 3600, marketId: "0xh", expiry: 3_000 });
+    expect(hottestCadence([m15, h1], "BTC", 1_000)).toBe(3600);
+  });
+
+  it("ignores other assets and uncallable Windows", () => {
+    const eth = win({ asset: "ETH", intervalSec: 3600, marketId: "0xe", expiry: 3_000 });
+    const locked = win({ intervalSec: 900, status: 2, marketId: "0xl" });
+    expect(hottestCadence([eth, locked], "BTC", 1_000)).toBeNull();
+  });
+
+  it("breaks score ties to the shorter cadence", () => {
+    const a = win({ intervalSec: 900, marketId: "0xa", expiry: 3_000 });
+    const b = win({ intervalSec: 3600, marketId: "0xb", expiry: 3_000 });
+    expect(hottestCadence([a, b], "BTC", 1_000)).toBe(900);
+  });
+
+  it("snaps indexer interval drift to the canonical cadence", () => {
+    const drifted = win({ intervalSec: 3598, marketId: "0xd", expiry: 3_000 });
+    expect(hottestCadence([drifted], "BTC", 1_000)).toBe(3600);
   });
 });

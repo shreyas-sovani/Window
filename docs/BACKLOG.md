@@ -63,9 +63,9 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-057 | Question-first board + Risk→Win on each ticket side | ui | P1 | done | no |
 | W-058 | Liquidity-aware Call preview: est. fill, avg odds, unfilled, Use-max-fillable from top-5 depth | Liquidity | P1 | done | yes |
 | W-059 | Shareable proof card: witnessed-call receipt, settled variant + oracle link, clipboard/Web Share | Proof card | P1 | done | yes |
-| W-060 | Market-health indicator (spread + executable depth + time-to-lock) | ui | P2 | ready | no |
-| W-061 | Quick stake presets (5/10/25 tUSDC) | ui | P3 | ready | no |
-| W-062 | Chips ranked by live callability score | Window board | P3 | ready | no |
+| W-060 | Market-health indicator (spread + executable depth + time-to-lock) | Market health | P2 | done | yes |
+| W-061 | Quick stake presets (5/10/25 tUSDC) | ui | P3 | done | no |
+| W-062 | Chips ranked by live callability score (best badge) | Window board | P3 | done | yes |
 | W-063 | Wallet-write mutex: synchronous ref lock across all nine writes; blocked callback names the held action | Write guard | P0 | done | yes |
 | W-064 | Approve receipt failure/replacement handled: hash cleared, err banner, no stuck approving state | Wallet gate | P0 | done | no |
 | W-065 | Chain+account revalidation on the approve path; per-button disabled reasons via title | Wallet gate | P1 | done | no |

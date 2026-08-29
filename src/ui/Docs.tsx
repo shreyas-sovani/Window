@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { warmExchange } from "../exchange/somnia";
 import { Reveal } from "./kit";
 import { routeHref } from "./router";
 
@@ -68,12 +70,15 @@ const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] 
     id: "feedback",
     title: "SDK feedback",
     body: [
-      { p: "docs/SDK-FEEDBACK.md is our eight-item report back to the dreamDEX team, written while building this terminal." },
+      { p: "docs/SDK-FEEDBACK.md is our nine-item report back to the dreamDEX team, written while building this terminal." },
     ],
   },
 ];
 
 export function Docs() {
+  useEffect(() => {
+    warmExchange();
+  }, []);
   return (
     <div className="docs">
       <header className="d-mast">

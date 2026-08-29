@@ -1,13 +1,13 @@
 # AGENTS.md — src/domain
 
 ## Ownership
-Pure Event Contract domain: Grid, Lifecycle, CallTicket, Call session, Rest quote, Claim session, Claim primary, Window board, Book depth, Series record, Series P&L, Board notice, Pulse chart folds, Settle preview, Wallet P&L, Window phase, ClaimPlan, WalletGate, RevertCopy, pickWindow, Cadence, order expiry.
+Pure Event Contract domain: Grid, Lifecycle, CallTicket, Call session, Rest quote, Claim session, Claim primary, Window board, Book depth, Market health, Series record, Series P&L, Board notice, Pulse chart folds, Settle preview, Wallet P&L, Window phase, ClaimPlan, WalletGate, RevertCopy, pickWindow, Cadence, order expiry, Roll, auto-series/onboarding folds.
 
 ## Purpose
 Encode venue rules (tick/lot, Trading-only writes, Finalized claims, four-state wallet, cadence snap) so UI and SDK adapters cannot drift.
 
 ## What This Controls
-Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas spent on losers or missed voids. Wrong Claim session preview → void counts as two "winnings" or the tote says "outcome balances". Wrong `executeClaims` abort → one reverted redeem hides later Windows. Wrong Lifecycle → orders on Locked Windows. Wrong Cadence snap → 1h series missing when indexer reports 3598s. Wrong Claim primary → winnings stay behind a ghost button while the successor is Trading. Wrong Rest quote → a "post-only" control that actually IOC-takes. Wrong Series P&L → ETH 1h money mixed into BTC 15m. Wrong Board notice → stacked banners with no next action. Wrong `pulseReady` → last-window bars hidden behind "Collecting ticks…" until a spark has two samples. Wrong RevertCopy → `below-lot` or SignerRequired dumps as a generic STT toast. Wrong `crashNotice` → a stack in the banner and no Retry.
+Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas spent on losers or missed voids. Wrong Claim session preview → void counts as two "winnings" or the tote says "outcome balances". Wrong `executeClaims` abort → one reverted redeem hides later Windows. Wrong Lifecycle → orders on Locked Windows. Wrong Cadence snap → 1h series missing when indexer reports 3598s. Wrong Claim primary → winnings stay behind a ghost button while the successor is Trading. Wrong Rest quote → a "post-only" control that actually IOC-takes. Wrong Series P&L → ETH 1h money mixed into BTC 15m. Wrong Board notice → stacked banners with no next action. Wrong `pulseReady` → last-window bars hidden behind "Collecting ticks…" until a spark has two samples. Wrong RevertCopy → `below-lot` or SignerRequired dumps as a generic STT toast. Wrong `crashNotice` → a stack in the banner and no Retry. Wrong Market health → "No odds" beside enabled Call buttons, or a claimed depth the watch never saw. Wrong Roll → an offer to Call a side with no executable odds.
 
 ## Connections
 - Depends on: `viem` (`parseUnits` in CallTicket / Window board), `src/exchange/port.ts` types only (`LiveWindow`, `BookTop`, `StakeQuote`, `PastWindow`, `WalletFill`, `PositionPnl`, `Sample`, `MarketFill`)
@@ -15,9 +15,15 @@ Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas 
 - External systems touched: none
 
 ## Current State
-Working. Covered by Vitest (Call session including Stake quote, IOC hash, and Rest quote, Claim session including Windows + payout copy and continue-after-fail, Claim primary / totePrimary, Window board, Book depth, Series record, Series P&L, Board notice, Crash notice, Settle preview, Wallet P&L, Window phase including Locked fallback, fake ExchangeAdapter, cadence, RevertCopy Call-path throws, Pulse chart folds).
+Working. Covered by Vitest (Call session including Stake quote, IOC hash, and Rest quote, Claim session including Windows + payout copy and continue-after-fail, Claim primary / totePrimary, Window board, Book depth, Market health, Roll, auto-series incl. hottestCadence, Series record, Series P&L, Board notice, Crash notice, Settle preview, Wallet P&L, Window phase including Locked fallback, fake ExchangeAdapter, cadence, RevertCopy Call-path throws, Pulse chart folds).
 
 ## Decision Log
+
+### 2026-08-30 — Market health, hottest cadence, Roll
+- **Change**: W-060 `market-health.ts` — `marketHealth({book, depth, expirySec, intervalSec, nowSec})` grades strong/fair/thin/none from spread + min-side walked depth (`fillEstimate` at ∞), with `healthDetail` compact copy. W-062 `hottestCadence` in `auto-series.ts` (max `seriesScore` per cadence, tie → shorter). New `roll.ts` W-roll — `rollPrompt` offers the last witnessed Call on the successor of the same series, dismissed per-marketId.
+- **Reasoning**: The board needed one honest answer to "can I actually trade this?" — spread-only when the depth watch is cold (grades the spread, says "top of book", never claims depth), thin from the same `headroomSec` where Calls actually close (no "thin" beside live buttons). Roll is the consumer-safe roll companion: SDK-FEEDBACK #9 documents why a hot-key roll bot is not shippable (`placeBinaryOrderFor` exists on-chain but Trader exposes no binary place-for path), so the human presses and the wallet signs.
+- **Rejected alternative(s)**: Grading on the polled top alone (claims nothing about size); a fixed 120s near-lock cap (contradicted enabled Calls on 5m windows for 90s); gating roll on `upPlan.ok` only (offered a Down roll the ticket would then refuse — fixed side-aware in App); a real session-key bot (ADR-0001 + unprovable through the SDK).
+- **Task/session**: Hackathon enhancement pass — W-060/W-062/Roll.
 
 ### 2026-08-29 — Onboarding step + chip status
 - **Change**: `onboarding.ts` — `nextStep` folds connect/switch/gas/mint/approve/wait/call into one `{kind,title,action,explanation}` with honest copy (approve names the exact stake; gas only when STT provably zero; wait explains lock/roll). `chipStatus` per series: trading / waiting / none, cadence-snapped.

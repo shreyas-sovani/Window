@@ -14,7 +14,8 @@ import {
 } from "wagmi";
 import { shannonChain } from "../chain/chain";
 import { explorerTx, TUSDC } from "../chain/shannon";
-import { autoSeries } from "../domain/auto-series";
+import { autoSeries, hottestCadence } from "../domain/auto-series";
+import { marketHealth } from "../domain/market-health";
 import { chipStatus, nextStep } from "../domain/onboarding";
 import { callSkipCopy, executeCall, executeExit, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
 import { pickWindow } from "../domain/pick-window";
@@ -26,6 +27,7 @@ import { boardNotice } from "../domain/board-notice";
 import { claimReceiptCopy, claimSessionCopy } from "../domain/claim-session";
 import type { CallReceipt } from "../domain/proof-card";
 import { readBoard } from "../domain/window-board";
+import { rollPrompt, type LastCall } from "../domain/roll";
 import { bindWallet, somniaExchange } from "../exchange/somnia";
 import type { ExchangePort } from "../exchange/port";
 import { CallBoard } from "./CallBoard";
@@ -60,6 +62,8 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
   });
   const [copied, setCopied] = useState(false);
   const [receipts, setReceipts] = useState<CallReceipt[]>([]);
+  const [lastCall, setLastCall] = useState<LastCall | null>(null);
+  const [dismissedRoll, setDismissedRoll] = useState<string>();
 
   useEffect(() => {
     bindWallet(walletClient);
@@ -174,6 +178,23 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
     decimals: liveHint?.decimals ?? TUSDC.decimals,
     polled: bookQ.data,
   });
+
+  const health = useMemo(
+    () =>
+      marketHealth({
+        book,
+        depth,
+        expirySec: liveHint?.expiry,
+        intervalSec: liveHint?.intervalSec,
+        nowSec: now,
+      }),
+    [book, depth, liveHint?.expiry, liveHint?.intervalSec, now],
+  );
+
+  const hotCadence = useMemo(
+    () => hottestCadence(windowsQ.data ?? [], asset, now),
+    [windowsQ.data, asset, now],
+  );
 
   const stakeNum = Number(stake);
   const quoteDecimals = liveHint?.decimals ?? TUSDC.decimals;
@@ -448,6 +469,13 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
           },
           ...prev,
         ].slice(0, 8));
+        setLastCall({
+          asset: win.asset,
+          intervalSec: win.intervalSec,
+          side,
+          stake: Number(stake) || intent.plan.maxLoss,
+          marketId: win.marketId,
+        });
         void posQ.refetch().then(() => {
           void qc.invalidateQueries({ queryKey: ["fills"] });
           void qc.invalidateQueries({ queryKey: ["pnl"] });
@@ -565,6 +593,23 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
     }
   }
 
+  const roll = useMemo(
+    () => {
+      const callableSide = lastCall
+        ? lastCall.side === "up"
+          ? board.upPlan.ok
+          : board.downPlan.ok
+        : false;
+      return rollPrompt({
+        last: lastCall,
+        live,
+        callable: Boolean(live) && board.gate.canCall && callableSide,
+        dismissedMarketId: dismissedRoll,
+      });
+    },
+    [lastCall, live, board.gate.canCall, board.upPlan.ok, board.downPlan.ok, dismissedRoll],
+  );
+
   const loadErr = windowsQ.error ? revertCopy(windowsQ.error) : null;
   const notice = boardNotice({
     loadError: loadErr,
@@ -632,8 +677,13 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
         claimDue={primary.kind === "claim"}
         autoKey={autoTried.current || null}
         cadenceStates={cadenceStates}
+        hotCadence={hotCadence}
+        health={health}
         faucetEnabled={isConnected && chainId === shannonChain.id}
         onPrimary={() => void onPrimary()}
+        roll={roll}
+        onRoll={(side) => void callSide(side)}
+        onDismissRoll={() => live && setDismissedRoll(live.marketId)}
         onCall={(side) => void callSide(side)}
         onExit={(side) => void exitSide(side)}
         onClaim={() => void claimAll()}

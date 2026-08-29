@@ -28,6 +28,23 @@ const indexerUrl = import.meta.env.VITE_INDEXER_URL ?? "https://dev.smk.somnia.h
 const wsRpcUrl = import.meta.env.VITE_WS_RPC_URL ?? "wss://api.infra.testnet.somnia.network/ws";
 
 let exchange: SomniaMarkets | null = null;
+let lastFullLoad = 0;
+let inflight: Promise<void> | null = null;
+
+/** One loadMarkets(true) sweep at a time; the gate stamps only on success. */
+function fullLoad(): Promise<void> {
+  if (!inflight) {
+    inflight = getExchange()
+      .loadMarkets(true)
+      .then(() => {
+        lastFullLoad = Date.now();
+      })
+      .finally(() => {
+        inflight = null;
+      });
+  }
+  return inflight;
+}
 
 export function getExchange(): SomniaMarkets {
   if (!exchange) {
@@ -43,6 +60,18 @@ export function getExchange(): SomniaMarkets {
 
 export function bindWallet(walletClient: WalletClient | undefined) {
   getExchange().setSigner(walletClient ? { walletClient } : {});
+}
+
+/**
+ * Cold `loadMarkets` hydration takes ~10s against the Shannon indexer. Landing and
+ * docs fire this once on mount so the terminal's first query usually lands warm.
+ * Failures are swallowed — the app route runs its own query with real error UI.
+ */
+let warmed = false;
+export function warmExchange() {
+  if (warmed) return;
+  warmed = true;
+  void fullLoad().catch(() => undefined);
 }
 
 function asBinary(m: UnifiedMarket): BinaryMarket | null {
@@ -107,7 +136,12 @@ function seriesResult(voided: boolean, winningOutcome: number | null): SeriesRes
 export const somniaExchange: ExchangePort = {
   async listLiveWindows() {
     const ex = getExchange();
-    const markets = Object.values(await ex.loadMarkets(true));
+    // A full loadMarkets(true) sweep costs ~10s (registry page + per-pool grid
+    // reads). The SDK returns its warm store instantly on loadMarkets(false),
+    // so: reload at most every 45s — first paint is instant when landing or docs
+    // warmed the store, and successor Windows still appear within a roll.
+    if (Date.now() - lastFullLoad > 45_000) await fullLoad();
+    const markets = Object.values(await ex.loadMarkets(false));
     const fromLoad = await Promise.all(markets.filter((m) => m.type === "binary").map(toLive));
     let waiting: LiveWindow[] = [];
     try {

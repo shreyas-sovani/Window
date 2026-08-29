@@ -34,3 +34,22 @@ export function autoSeries(windows: LiveWindow[], nowSec: number): SeriesKey | n
   }
   return best?.key ?? null;
 }
+
+/**
+ * The most callable cadence for one asset right now: the highest live seriesScore.
+ * Ties break to the shorter cadence so the badge never flickers between equals.
+ * Null when no cadence has a callable Window with a Line.
+ */
+export function hottestCadence(windows: LiveWindow[], asset: string, nowSec: number): number | null {
+  let best: { cadence: number; score: number } | null = null;
+  for (const w of windows) {
+    if (w.asset !== asset) continue;
+    const score = seriesScore(w, nowSec);
+    if (score < 0) continue;
+    const cadence = canonicalInterval(w.intervalSec);
+    if (!best || score > best.score || (score === best.score && cadence < best.cadence)) {
+      best = { cadence, score };
+    }
+  }
+  return best?.cadence ?? null;
+}

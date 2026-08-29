@@ -142,18 +142,18 @@ export function ToggleGroup(props: {
   value: string;
   onValueChange: (v: string) => void;
   label: string;
-  itemStates?: Record<string, "on" | "off" | "auto" | "waiting">;
+  itemStates?: Record<string, "on" | "off" | "auto" | "waiting" | "hot">;
 }) {
   return (
     <div className="tgroup" role="group" aria-label={props.label}>
       {props.items.map((it) => {
         const state = props.itemStates?.[it.value];
-        const on = state === "on";
+        const on = state === "on" || state === "auto";
         return (
           <button
             key={it.value}
             type="button"
-            className={`tg-item${on ? " on" : ""}${state === "auto" ? " auto" : ""}${state === "waiting" ? " waiting" : ""}`}
+            className={`tg-item${on ? " on" : ""}${state === "auto" ? " auto" : ""}${state === "waiting" ? " waiting" : ""}${state === "hot" ? " hot" : ""}`}
             aria-pressed={on}
             title={it.hint}
             onClick={() => props.onValueChange(it.value)}
@@ -162,6 +162,11 @@ export function ToggleGroup(props: {
             {state === "auto" && (
               <span className="tg-badge" title="Selected automatically — this series has the best live Window">
                 auto
+              </span>
+            )}
+            {state === "hot" && (
+              <span className="tg-badge hot" title="Most callable cadence right now — best headroom with a live Line">
+                best
               </span>
             )}
           </button>

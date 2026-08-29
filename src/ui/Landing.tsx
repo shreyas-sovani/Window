@@ -1,5 +1,15 @@
+import { useEffect } from "react";
+import { warmExchange } from "../exchange/somnia";
 import { Badge, Button, Reveal } from "./kit";
 import { routeHref } from "./router";
+
+/** Warm the SDK's market hydration while the visitor reads — the terminal opens warm. */
+export function WarmExchange() {
+  useEffect(() => {
+    warmExchange();
+  }, []);
+  return null;
+}
 
 /** Hero SVG: the terminal as a line drawing — clock, line, and a drawn price path. */
 function HeroArt() {
@@ -38,6 +48,7 @@ function HeroArt() {
 export function Landing() {
   return (
     <div className="landing">
+      <WarmExchange />
       <header className="l-mast">
         <span className="l-brand">Window</span>
         <nav className="l-nav">

@@ -15,9 +15,15 @@ If this is wrong, the UI shows the wrong Window, Calls the wrong symbol, or cann
 - External systems touched: indexer `dev.smk.somnia.host`, Shannon WS RPC, BinaryMarketsModule
 
 ## Current State
-Working against SDK types. `npm test` uses `createFakeExchange`, not the live indexer. `previewClaimSession` / `claimFinalized` return `{ count, windows, payout }` (plus `failed` and hash on Claim). Somnia `claimFinalized` uses `executeClaims` so a failed Window does not abort later ones.
+Working against SDK types. `npm test` uses `createFakeExchange`, not the live indexer. `previewClaimSession` / `claimFinalized` return `{ count, windows, payout }` (plus `failed` and hash on Claim). Somnia `claimFinalized` uses `executeClaims` so a failed Window does not abort later ones. `listLiveWindows` warm-starts: one `loadMarkets(true)` sweep at most every 45s, `loadMarkets(false)` otherwise; landing/docs call `warmExchange()` on mount.
 
 ## Decision Log
+
+### 2026-08-30 — Warm start + 45s reload gate
+- **Change**: `fullLoad()` — single in-flight `loadMarkets(true)`, stamps `lastFullLoad` **on success only**. `listLiveWindows`: full sweep only when `Date.now() - lastFullLoad > 45_000`, else `loadMarkets(false)` (warm store, instant). `warmExchange()` (module-flagged) fired from `Landing` and `Docs` mounts.
+- **Reasoning**: Cold `loadMarkets(true)` costs ~10s (registry page + per-pool grid reads) — a judge clicking through from the landing saw 12s of skeleton. The SDK returns its warm store instantly on `loadMarkets(false)`; full reload still runs at most every 45s so successor Windows appear within a roll. Stamping on success means a failed sweep leaves the gate stale and the next poll retries instead of serving an empty store for 45s.
+- **Rejected alternative(s)**: `loadMarkets(false)` forever (store is frozen — successors never appear; the SDK only rebuilds `exchange.markets` inside `loadMarkets`). Reloading every 8s poll (12s+ per query forever). Stamping at sweep start (one indexer hiccup = 45s of "No live Window").
+- **Task/session**: Hackathon enhancement pass — live-browser QA finding (measured 15.8s cold → 5.8s warm to live question).
 
 ### 2026-08-28 — Multi-venue, deduped, fee-aware claim scan
 - **Change**: `listSettledSnapshots` dedupes by `marketId` (`seen` set). New `withHeldFees`: after a first `readClaimSession`, fetch `getMarketFees` only for held marketIds and re-read with `SettledWindow.feeBps` set — preview and execute share it. `previewClaimSession`/`claimFinalized` signatures unchanged (venueId stays optional but App passes none).

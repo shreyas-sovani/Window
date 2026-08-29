@@ -15,9 +15,15 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-PRD is `needs-triage` locally (no hosted tracker). Claim session continue-after-fail is done (W-048). Claim session Windows + tUSDC copy is done (W-047). Shorten-without-doubling is done (W-046). Crash notice Retry is done (W-045). SDK-FEEDBACK has 8 items. Default Call stays IOC.
+PRD is `needs-triage` locally (no hosted tracker). SDK-FEEDBACK has 9 items (new: operator/session-key gap for Event Contracts). W-060/W-061/W-062 done; Roll companion shipped. Default Call stays IOC.
 
 ## Decision Log
+
+### 2026-08-30 — Enhancement pass docs (W-060–W-062, Roll, SDK-FEEDBACK #9, restyle)
+- **Change**: BACKLOG W-060/W-061/W-062 marked done (market health, presets, best-badge ranking). SDK-FEEDBACK gained item 9 — the operator/session-key model is unreachable for Event Contracts through the SDK (`placeBinaryOrderFor` ships in `tradeAbi` but `Trader` exposes no binary place-for path; Bot Kit session keys are spot-only) — and every "eight-item" reference (README, DEMO, Docs.tsx) became nine. DEMO.md: the stale "empty book sizes at 50% mid" fallback replaced with the honest refusal; read-model beat now names the ring + Book cell; 165 → 219 tests; cold-load fallback added. CONTEXT gained Market health + Roll entries. README: capability rows for health/roll/ring/best-badge/presets, gate row now the full nextStep chain, arch tree current, ecosystem section says why no roll *bot*.
+- **Reasoning**: DEMO.md:26 was the repo's only hard falsehood (killed by W-049 two passes ago); counts drift silently so they were refreshed after the final `npm test` run. Item 9 is the brief's "judging bait" — a field report of exactly where the published surface stops, with the on-chain evidence.
+- **Rejected alternative(s)**: Wiring `signRedeemAuth`/`redeemFor` sponsored-claim UI for more surface (needs a second wallet to demo; risk over honesty). Re-badging the roll companion as "Bot Kit integration" (it is not — the kit has no EC operator mode).
+- **Task/session**: Hackathon enhancement pass.
 
 ### 2026-08-29 — Onboarding pass (W-069–W-074)
 - **Change**: BACKLOG W-069–W-074 added and done. CONTEXT gained Onboarding step + Chip status entries. No README/PRD change — the onboarding journey is covered by the CONTEXT entries and the terminal itself.

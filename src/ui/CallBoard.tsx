@@ -3,6 +3,8 @@ import { oracleReceipt, STT_FAUCET } from "../chain/shannon";
 import type { BookDepth } from "../domain/book-depth";
 import { callSkipCopy } from "../domain/call-session";
 import { fillEstimate, fillCopy } from "../domain/liquidity";
+import { healthDetail, type MarketHealth } from "../domain/market-health";
+import type { RollPrompt } from "../domain/roll";
 import { windowPhaseCopy } from "../domain/lifecycle";
 import { cadenceLabel } from "../domain/series";
 import { historyLine, readSeriesRecord, seriesRecordCopy } from "../domain/series-record";
@@ -13,6 +15,30 @@ import type { OpenTicket, OutcomeHoldings, PastWindow } from "../exchange/port";
 import { BookDrawer } from "./BookDrawer";
 import { countdown, fmt, historyLabel } from "./format";
 import { Button, ToggleGroup } from "./kit";
+
+/** The lock clock as a depleting ring: the arc is the Window's remaining fraction. */
+function LockRing(props: { frac: number; urgent: boolean; text: string }) {
+  const R = 56;
+  const C = 2 * Math.PI * R;
+  const frac = Math.min(1, Math.max(0, props.frac));
+  return (
+    <div className="ring">
+      <svg viewBox="0 0 132 132" aria-hidden="true">
+        <circle className="ring-track" cx="66" cy="66" r={R} />
+        <circle
+          className="ring-arc"
+          cx="66"
+          cy="66"
+          r={R}
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - frac)}
+          transform="rotate(-90 66 66)"
+        />
+      </svg>
+      <div className="ring-time">{props.text}</div>
+    </div>
+  );
+}
 
 export type Busy =
   | "up"
@@ -51,6 +77,11 @@ export function CallBoard(props: {
   claimDue: boolean;
   autoKey: string | null;
   cadenceStates: Record<string, ChipStatus>;
+  hotCadence: number | null;
+  health: MarketHealth;
+  roll: RollPrompt | null;
+  onRoll: (side: "up" | "down") => void;
+  onDismissRoll: () => void;
   faucetEnabled: boolean;
   onPrimary: () => void;
   onCall: (side: "up" | "down") => void;
@@ -85,12 +116,13 @@ export function CallBoard(props: {
   const CADENCES = [300, 900, 3600, 14400, 86400];
   const cadenceItems = CADENCES.map((c) => ({ value: String(c), label: cadenceLabel(c) }));
   const cadenceStates = Object.fromEntries(
-    CADENCES.map((c): [string, "on" | "off" | "auto" | "waiting"] => {
+    CADENCES.map((c): [string, "on" | "off" | "auto" | "waiting" | "hot"] => {
       const status = props.cadenceStates[String(c)] ?? "none";
       const on = props.intervalSec === c;
       const auto = on && props.autoKey === `${props.asset}:${c}`;
       if (on) return [String(c), auto ? "auto" : "on"];
       if (status === "waiting") return [String(c), "waiting"];
+      if (props.hotCadence === c) return [String(c), "hot"];
       return [String(c), "off"];
     }),
   );
@@ -142,7 +174,15 @@ export function CallBoard(props: {
         </h2>
         <div className={`clock${urgent ? " urgent" : ""}`}>
           <div className="kicker">{clockKicker}</div>
-          <div className="big">{live ? countdown(live.expiry, props.now) : "--:--"}</div>
+          {live ? (
+            <LockRing
+              frac={(live.expiry - props.now) / live.intervalSec}
+              urgent={urgent}
+              text={countdown(live.expiry, props.now)}
+            />
+          ) : (
+            <LockRing frac={0} urgent={false} text="--:--" />
+          )}
         </div>
         <div className="meta">
           <div>
@@ -158,6 +198,19 @@ export function CallBoard(props: {
           <div>
             Trades
             <strong className="mono">{live?.tradeCount ?? "—"}</strong>
+          </div>
+          <div>
+            Book
+            <strong className={`mono health ${props.health.grade}`} title={props.health.copy}>
+              {props.health.grade === "none"
+                ? "No odds"
+                : props.health.grade === "strong"
+                  ? "Strong"
+                  : props.health.grade === "fair"
+                    ? "Fair"
+                    : "Thin"}
+            </strong>
+            <small className="mono health-detail">{healthDetail(props.health)}</small>
           </div>
         </div>
       </section>
@@ -200,10 +253,40 @@ export function CallBoard(props: {
         </div>
       )}
 
+      {props.roll && (
+        <div className="rollbar" role="status">
+          <span>
+            <span className="kicker">Roll</span>
+            {props.roll.title}
+          </span>
+          <span className="rollbar-actions">
+            <Button variant="primary" disabled={props.primaryBusy} onClick={() => props.onRoll(props.roll!.side)}>
+              {props.busy === props.roll.side ? "Calling…" : props.roll.action}
+            </Button>
+            <button className="linklike" type="button" onClick={props.onDismissRoll}>
+              Not now
+            </button>
+          </span>
+        </div>
+      )}
+
       <div className="ticket">
         <div className="ticket-stake">
           <label htmlFor="stake">Stake (tUSDC)</label>
           <input id="stake" value={props.stake} onChange={(e) => props.onStake(e.target.value)} inputMode="decimal" />
+          <div className="presets" role="group" aria-label="Quick stake">
+            {[5, 10, 25].map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={`preset${props.stake === String(v) ? " on" : ""}`}
+                title={`Set the stake to ${v} tUSDC`}
+                onClick={() => props.onStake(String(v))}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
           <div className="preview">
             {board.upPlan.ok ? (
               board.downPlan.ok ? (
