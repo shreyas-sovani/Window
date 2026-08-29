@@ -109,7 +109,9 @@ describe("seriesPnl", () => {
     expect(t.realized).toBeCloseTo(-0.5);
     expect(t.unrealized).toBeCloseTo(1);
     expect(t.flow).toBe(-6);
-    expect(seriesPnlCopy(t, "BTC", 900)).toBe("BTC · 15m · P&L −0.50 unrealized +1.00 · net +0.50 tUSDC");
+    expect(seriesPnlCopy(t, "BTC", 900)).toBe(
+      "BTC 15m tape · P&L −0.50 unrealized +1.00 · net +0.50 tUSDC — fills only, Claim payouts not counted",
+    );
   });
 
   it("snaps indexer intervalSec onto the same series", () => {

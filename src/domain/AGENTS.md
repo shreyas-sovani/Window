@@ -19,6 +19,30 @@ Working. Covered by Vitest (Call session including Stake quote, IOC hash, and Re
 
 ## Decision Log
 
+### 2026-08-29 — Onboarding step + chip status
+- **Change**: `onboarding.ts` — `nextStep` folds connect/switch/gas/mint/approve/wait/call into one `{kind,title,action,explanation}` with honest copy (approve names the exact stake; gas only when STT provably zero; wait explains lock/roll). `chipStatus` per series: trading / waiting / none, cadence-snapped.
+- **Reasoning**: The guided panel is presentation, but the *order and copy* of the journey is product truth — testable, SDK-free, reusable if the UI changes again. WalletGate stays the write gate; this is its consumer-facing projection plus gas/mint steps WalletGate never owned.
+- **Rejected alternative(s)**: Extending WalletGate (its GateAction feeds write gating; mint/gas would pollute it). Deriving steps in CallBoard JSX (untestable, and copy would drift from gate truth).
+- **Task/session**: Onboarding redesign — W-069.
+
+### 2026-08-29 — RevertCopy stops leaking internals
+- **Change**: `stringify` uses `shortMessage`/`message`/`details` only, 240-char cap. No `err.stack`, no `JSON.stringify(err)` in the fallback path (W-066).
+- **Reasoning**: The audit found stack traces and serialized error objects reaching the toast — technical leakage with no user value.
+- **Rejected alternative(s)**: Truncating the stack instead of dropping it (still leaks paths/frames). A allowlist of known error shapes only (new pool errors would fall to generic copy — acceptable, but the field filter keeps newer viem shortMessages readable).
+- **Task/session**: Adversarial safety audit — W-066.
+
+### 2026-08-29 — Liquidity preview + proof cards
+- **Change**: W-058 `liquidity.ts` — `fillEstimate` walks top-5 depth per side (Up: YES asks asc; Down: NO asks = 1 − YES bids, best first) returning filled stake / avg odds / unfilled remainder / whole-book ceiling; `fillCopy` prefixes "est." and never promises. W-059 `proof-card.ts` — `proofCard` / `settledProofCard` format a witnessed `CallReceipt` (decision, Line, lock, stake → contracts @ avg odds, if-right/at-risk, explorer tx; settled variant appends result + oracle link).
+- **Reasoning**: The ticket showed sizing but not *how executable* it was at these odds; and every share of a receipt is distribution for dreamDEX with zero backend. Both folds are pure and SDK-free (ADR-0003).
+- **Rejected alternative(s)**: Reading liquidity from the SDK stake quote alone (one number, no avg-odds or ceiling; the quote also needs a live watch snapshot). Persisted receipts (localStorage) — session-witnessed only keeps the "we do not fabricate history" guarantee. Fake share counters.
+- **Task/session**: Product-innovation pass — W-058/W-059.
+
+### 2026-08-28 — Honesty pass: no fabricated prices, fee-aware claims, auto-select
+- **Change**: W-049 `prepareCall` returns `bad-price` when `impliedUp(book)` is undefined (the `?? 0.5` fallback is gone) and `prepareExit` gains `bad-price` for an empty book. W-050/051 `SettledWindow.feeBps` (per-Window fee over the session fallback) and the empty-scan copy names the 40-window bound. W-052 new `auto-series.ts`: `seriesScore` (Trading + real Line + headroom; -1 otherwise) and `autoSeries` (best series across assets/cadences, venue-blind). W-053 `seriesPnlCopy` says "tape · … fills only, Claim payouts not counted".
+- **Reasoning**: An invented 50% could size a Call at odds that do not exist; a venue-scoped claim hid winnings on the other Shannon venue; "Series P&L" overstated what fills can know (redeems are not fills).
+- **Rejected alternative(s)**: Keeping 50% as a "provisional" size with a warning (still a lie at sign time). Claim scanning both venues via two venue-scoped queries (one unscoped query + marketId dedupe is one round-trip). Estimating claimed P&L from history results + zero balances (needs per-market balance archaeology the SDK does not expose).
+- **Task/session**: Brutal-overhaul session — W-049–W-053.
+
 ### 2026-08-28 — Claim session continues after a failed Window
 - **Change**: `readClaimSession.held` is per-Window intents + payout. `executeClaims` redeems each Window independently; `failed` is how many did not finish. Receipt payout/windows count only successes. All-fail rethrows. `claimReceiptCopy` appends "N Window(s) could not be claimed."
 - **Reasoning**: PRD #32 Claim all. One reverted redeem used to abort the rest, so a bad row hid later winnings.

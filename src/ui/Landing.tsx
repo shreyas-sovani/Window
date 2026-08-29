@@ -50,7 +50,7 @@ export function Landing() {
         <div className="hero-copy">
           <h1>
             Up or down.<br />
-            On-chain. Every 15 minutes.
+            On-chain. Every few minutes.
           </h1>
           <p>The consumer terminal for dreamDEX Event Contracts on Somnia — live odds, one stake, two buttons.</p>
           <div className="hero-cta">

@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { erc20Abi, parseUnits, type Hex } from "viem";
 import {
   useAccount,
+  useBalance,
   useConnect,
   useDisconnect,
   useReadContract,
@@ -13,7 +14,8 @@ import {
 } from "wagmi";
 import { shannonChain } from "../chain/chain";
 import { explorerTx, TUSDC } from "../chain/shannon";
-import { pushSample } from "../domain/chart";
+import { autoSeries } from "../domain/auto-series";
+import { chipStatus, nextStep } from "../domain/onboarding";
 import { callSkipCopy, executeCall, executeExit, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
 import { pickWindow } from "../domain/pick-window";
 import { pnlCopy, pnlTotals, seriesPnl, seriesPnlCopy } from "../domain/pnl";
@@ -21,18 +23,23 @@ import { revertCopy } from "../domain/revert-copy";
 import { approveAmount } from "../domain/wallet-gate";
 import { totePrimary, totePrimaryCopy } from "../domain/tote-primary";
 import { boardNotice } from "../domain/board-notice";
-import { claimReceiptCopy } from "../domain/claim-session";
+import { claimReceiptCopy, claimSessionCopy } from "../domain/claim-session";
+import type { CallReceipt } from "../domain/proof-card";
 import { readBoard } from "../domain/window-board";
 import { bindWallet, somniaExchange } from "../exchange/somnia";
-import type { Sample } from "../exchange/port";
-import { CallBoard, type Busy } from "./CallBoard";
+import type { ExchangePort } from "../exchange/port";
+import { CallBoard } from "./CallBoard";
 import { fmt, shorten } from "./format";
+import { useBanner, useNow, usePulseSamples } from "./hooks";
 import { PnlStrip } from "./PnlStrip";
 import { Pulse } from "./Pulse";
+import { ReceiptStrip } from "./ReceiptStrip";
 import { useLiveOdds } from "./useLiveOdds";
+import { useWriteGuard } from "./write-guard";
 import { WalletBar } from "./WalletBar";
 
-export function App() {
+/** The terminal. `exchange` is injectable so integration tests run the real UI against the fake adapter. */
+export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) {
   const qc = useQueryClient();
   const { address, isConnected, chainId } = useAccount();
   const { connectors, connectAsync, isPending: connecting } = useConnect();
@@ -44,31 +51,23 @@ export function App() {
   const [asset, setAsset] = useState("BTC");
   const [intervalSec, setIntervalSec] = useState(900);
   const [stake, setStake] = useState("10");
-  const [now, setNow] = useState(() => Date.now() / 1000);
-  const [banner, setBanner] = useState<{ kind: "ok" | "err"; text: string; txHash?: string } | null>(null);
+  const now = useNow();
+  const [banner, setBanner] = useBanner();
   const [approveHash, setApproveHash] = useState<Hex>();
   const [approveCooldown, setApproveCooldown] = useState(false);
-  const [busy, setBusy] = useState<Busy>(null);
+  const { busy, run } = useWriteGuard((held) => {
+    setBanner({ kind: "err", text: `One wallet action at a time — ${held} is still running.` });
+  });
   const [copied, setCopied] = useState(false);
+  const [receipts, setReceipts] = useState<CallReceipt[]>([]);
 
   useEffect(() => {
     bindWallet(walletClient);
   }, [walletClient]);
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now() / 1000), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => {
-    if (!banner || banner.kind !== "ok") return;
-    const t = setTimeout(() => setBanner(null), 5000);
-    return () => clearTimeout(t);
-  }, [banner]);
-
   const windowsQ = useQuery({
     queryKey: ["windows"],
-    queryFn: () => somniaExchange.listLiveWindows(),
+    queryFn: () => exchange.listLiveWindows(),
     refetchInterval: 8_000,
     retry: 1,
   });
@@ -78,12 +77,28 @@ export function App() {
     [windowsQ.data, asset, intervalSec, now],
   );
 
+  // Opportunity-first: when the selected series has no Trading Window, jump to the
+  // best one (Line + safe headroom). One attempt per target so it never fights the roll.
+  const autoTried = useRef("");
+  useEffect(() => {
+    if (!windowsQ.data || windowsQ.data.length === 0) return;
+    if (liveHint && liveHint.status === 1 && liveHint.openingPrice) return;
+    const best = autoSeries(windowsQ.data, now);
+    if (!best) return;
+    if (best.asset === asset && best.intervalSec === intervalSec) return;
+    const key = `${best.asset}:${best.intervalSec}`;
+    if (autoTried.current === key) return;
+    autoTried.current = key;
+    setAsset(best.asset);
+    setIntervalSec(best.intervalSec);
+  }, [windowsQ.data, liveHint?.status, liveHint?.marketId, liveHint?.openingPrice, asset, intervalSec, now]);
+
   const posQ = useQuery({
     queryKey: ["pos", address, liveHint?.marketId],
     queryFn: () => {
       const h = liveHint;
       if (!address || !h?.marketId) throw new Error("No live Window for this series.");
-      return somniaExchange.outcomeBalances(address, h.marketId);
+      return exchange.outcomeBalances(address, h.marketId);
     },
     enabled: Boolean(address && liveHint?.marketId),
     refetchInterval: 8_000,
@@ -94,7 +109,7 @@ export function App() {
     queryFn: () => {
       const h = liveHint;
       if (!h?.upSymbol) throw new Error("No live Window for this series.");
-      return somniaExchange.book(h.upSymbol);
+      return exchange.book(h.upSymbol);
     },
     enabled: Boolean(liveHint?.upSymbol),
     refetchInterval: 4_000,
@@ -102,13 +117,13 @@ export function App() {
 
   const historyQ = useQuery({
     queryKey: ["history", asset, intervalSec, liveHint?.venueId],
-    queryFn: () => somniaExchange.listSeriesHistory(asset, intervalSec, liveHint?.venueId),
+    queryFn: () => exchange.listSeriesHistory(asset, intervalSec, liveHint?.venueId),
     refetchInterval: 30_000,
   });
 
   const openQ = useQuery({
     queryKey: ["open", address, liveHint?.upSymbol],
-    queryFn: () => somniaExchange.listOpenTickets(liveHint?.upSymbol),
+    queryFn: () => exchange.listOpenTickets(liveHint?.upSymbol),
     enabled: Boolean(address && liveHint?.upSymbol),
     refetchInterval: 8_000,
   });
@@ -142,6 +157,16 @@ export function App() {
       return () => clearTimeout(t);
     }
   }, [approveWait.isSuccess, approveHash, refetchAllowance]);
+  useEffect(() => {
+    if (approveWait.isError && approveHash) {
+      setApproveHash(undefined);
+      setBanner({
+        kind: "err",
+        text: "The approve transaction failed or was replaced. Nothing was approved — try again.",
+        txHash: approveHash,
+      });
+    }
+  }, [approveWait.isError, approveHash]);
 
   const { book, depth } = useLiveOdds({
     pool: liveHint?.pool,
@@ -160,7 +185,7 @@ export function App() {
     queryFn: () => {
       const h = liveHint;
       if (!h?.marketId) throw new Error("No live Window for this series.");
-      return somniaExchange.quoteStake(h.marketId, "up", quoteStakeRaw);
+      return exchange.quoteStake(h.marketId, "up", quoteStakeRaw);
     },
     enabled: Boolean(liveHint?.marketId && quoteStakeRaw > 0n),
     refetchInterval: 4_000,
@@ -170,7 +195,7 @@ export function App() {
     queryFn: () => {
       const h = liveHint;
       if (!h?.marketId) throw new Error("No live Window for this series.");
-      return somniaExchange.quoteStake(h.marketId, "down", quoteStakeRaw);
+      return exchange.quoteStake(h.marketId, "down", quoteStakeRaw);
     },
     enabled: Boolean(liveHint?.marketId && quoteStakeRaw > 0n),
     refetchInterval: 4_000,
@@ -181,7 +206,7 @@ export function App() {
     queryFn: () => {
       const h = liveHint;
       if (!h?.marketId) throw new Error("No live Window for this series.");
-      return somniaExchange.settlementFeeBps(h.marketId);
+      return exchange.settlementFeeBps(h.marketId);
     },
     enabled: Boolean(liveHint?.marketId),
     staleTime: 300_000,
@@ -191,7 +216,7 @@ export function App() {
     queryKey: ["fills", address],
     queryFn: () => {
       if (!address) throw new Error("Wallet not connected.");
-      return somniaExchange.listFills(address);
+      return exchange.listFills(address);
     },
     enabled: Boolean(address),
     refetchInterval: 15_000,
@@ -200,16 +225,16 @@ export function App() {
     queryKey: ["pnl", address],
     queryFn: () => {
       if (!address) throw new Error("Wallet not connected.");
-      return somniaExchange.listPositionPnl(address);
+      return exchange.listPositionPnl(address);
     },
     enabled: Boolean(address),
     refetchInterval: 15_000,
   });
   const claimsQ = useQuery({
-    queryKey: ["claims", address, liveHint?.venueId],
+    queryKey: ["claims", address],
     queryFn: () => {
       if (!address) throw new Error("Wallet not connected.");
-      return somniaExchange.previewClaimSession(address, liveHint?.venueId);
+      return exchange.previewClaimSession(address);
     },
     enabled: Boolean(address),
     refetchInterval: 60_000,
@@ -219,18 +244,18 @@ export function App() {
     queryFn: () => {
       const h = liveHint;
       if (!h?.pool) throw new Error("No live Window for this series.");
-      return somniaExchange.listMarketFills(h.pool, h.decimals);
+      return exchange.listMarketFills(h.pool, h.decimals);
     },
     enabled: Boolean(liveHint?.marketId),
     refetchInterval: 6_000,
   });
   const priceQ = useQuery({
     queryKey: ["price", asset],
-    queryFn: () => somniaExchange.assetPrice(asset),
+    queryFn: () => exchange.assetPrice(asset),
     refetchInterval: 2_000,
   });
   useEffect(() => {
-    void somniaExchange.watchAssetPrice(asset);
+    void exchange.watchAssetPrice(asset);
   }, [asset]);
   const totals = useMemo(
     () => pnlTotals(pnlQ.data ?? [], fillsQ.data ?? []),
@@ -282,62 +307,101 @@ export function App() {
   const primaryBusy =
     connecting || switching || writing || approveCooldown || approveWait.isLoading || busy !== null;
 
-  const [impliedSamples, setImpliedSamples] = useState<Sample[]>([]);
-  const [priceSamples, setPriceSamples] = useState<Sample[]>([]);
-  const implied = board.implied;
-  useEffect(() => {
-    setImpliedSamples([]);
-    setPriceSamples([]);
-  }, [asset, intervalSec]);
-  useEffect(() => {
-    if (implied === undefined) return;
-    setImpliedSamples((prev) => pushSample(prev, { t: Math.floor(now), v: implied }));
-  }, [implied, now]);
-  useEffect(() => {
-    const price = priceQ.data;
-    if (!price) return;
-    setPriceSamples((prev) => pushSample(prev, { t: Math.floor(now), v: price.price }));
-  }, [priceQ.data, now]);
+  const sttBal = useBalance({ address });
+  const hasGas = sttBal.data === undefined ? undefined : sttBal.data.value > 0n;
+  const step = useMemo(
+    () =>
+      nextStep(
+        {
+          connected: isConnected,
+          chainId,
+          expectedChainId: shannonChain.id,
+          hasGas,
+          collateral: bal,
+          stakeRaw: board.stakeRaw,
+          allowance: (allowance as bigint | undefined) ?? 0n,
+          callable: Boolean(live) && board.upPlan.ok,
+          claimable: claims.windows,
+        },
+        live?.decimals ?? TUSDC.decimals,
+      ),
+    [isConnected, chainId, hasGas, bal, board.stakeRaw, board.upPlan.ok, allowance, live, claims.windows],
+  );
+
+  const { impliedSamples, priceSamples } = usePulseSamples({
+    seriesKey: `${asset}:${intervalSec}`,
+    implied: board.implied,
+    price: priceQ.data,
+    now,
+  });
+
+  const CADENCE_KEYS = [300, 900, 3600, 14400, 86400];
+  const cadenceStates = useMemo(() => {
+    const out: Record<string, "trading" | "waiting" | "none"> = {};
+    for (const c of CADENCE_KEYS) {
+      out[String(c)] = chipStatus(windowsQ.data ?? [], asset, c, now);
+    }
+    return out;
+  }, [windowsQ.data, asset, now]);
 
   async function onPrimary() {
     setBanner(null);
-    try {
-      if (primary.kind === "claim") {
-        await claimAll();
-        return;
-      }
-      if (board.gate.action === "connect") {
-        const c = connectors[0];
-        if (!c) throw new Error("No injected wallet. Install MetaMask or Rabby.");
-        await connectAsync({ connector: c, chainId: shannonChain.id });
-        return;
-      }
-      if (board.gate.action === "switch") {
-        await switchChainAsync({ chainId: shannonChain.id });
-        return;
-      }
-      if (board.gate.action === "approve") {
-        if (!live) return;
-        const amount = approveAmount(board.stakeRaw);
-        if (amount === 0n) {
-          setBanner({ kind: "err", text: "Enter a stake before approving tUSDC." });
+    if (primary.kind === "claim") {
+      await claimAll();
+      return;
+    }
+    const kind =
+      board.gate.action === "connect"
+        ? ("connect" as const)
+        : board.gate.action === "switch"
+          ? ("switch" as const)
+          : ("approve" as const);
+    await run(kind, async () => {
+      try {
+        if (board.gate.action === "connect") {
+          const c = connectors[0];
+          if (!c) throw new Error("No injected wallet. Install MetaMask or Rabby.");
+          await connectAsync({ connector: c, chainId: shannonChain.id });
           return;
         }
-        const hash = await writeContractAsync({
-          address: TUSDC.address,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [live.pool, amount],
-        });
-        setApproveHash(hash);
+        if (board.gate.action === "switch") {
+          await switchChainAsync({ chainId: shannonChain.id });
+          return;
+        }
+        if (board.gate.action === "approve") {
+          if (!live) return;
+          if (chainId !== shannonChain.id || !address) {
+            setBanner({ kind: "err", text: "Wallet or network changed. Check Shannon and try again." });
+            return;
+          }
+          const amount = approveAmount(board.stakeRaw);
+          if (amount === 0n) {
+            setBanner({ kind: "err", text: "Enter a stake before approving tUSDC." });
+            return;
+          }
+          const hash = await writeContractAsync({
+            address: TUSDC.address,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [live.pool, amount],
+          });
+          setApproveHash(hash);
+        }
+      } catch (e) {
+        setBanner({ kind: "err", text: revertCopy(e) });
       }
-    } catch (e) {
-      setBanner({ kind: "err", text: revertCopy(e) });
-    }
+    });
+  }
+
+  async function mintCollateral() {
+    setBanner(null);
+    await run("faucet", async () => {
+      await faucet.mutateAsync(undefined).catch(() => undefined);
+    });
   }
 
   const faucet = useMutation({
-    mutationFn: () => somniaExchange.mintTestCollateral(),
+    mutationFn: () => exchange.mintTestCollateral(),
     onSuccess: (txHash) => {
       setBanner({ kind: "ok", text: "Minted up to 10,000 tUSDC.", txHash });
       void qc.invalidateQueries();
@@ -357,24 +421,41 @@ export function App() {
       setBanner({ kind: "err", text: "Not enough tUSDC in this wallet." });
       return;
     }
-    setBusy(side);
     setBanner(null);
-    try {
-      const txHash = await executeCall(somniaExchange, win, intent);
-      setBanner({
-        kind: "ok",
-        text: `Called ${side.toUpperCase()} · ${fmt(intent.plan.contracts, 3)} contracts`,
-        txHash,
-      });
-      void posQ.refetch().then(() => {
-        void qc.invalidateQueries({ queryKey: ["fills"] });
-        void qc.invalidateQueries({ queryKey: ["pnl"] });
-      });
-    } catch (e) {
-      setBanner({ kind: "err", text: revertCopy(e) });
-    } finally {
-      setBusy(null);
-    }
+    await run(side, async () => {
+      try {
+        const txHash = await executeCall(exchange, win, intent);
+        setBanner({
+          kind: "ok",
+          text: `Called ${side.toUpperCase()} · ${fmt(intent.plan.contracts, 3)} contracts`,
+          txHash,
+        });
+        setReceipts((prev) => [
+          {
+            asset: win.asset,
+            intervalSec: win.intervalSec,
+            side,
+            line: win.openingPrice,
+            expiry: win.expiry,
+            stake: Number(stake) || intent.plan.maxLoss,
+            contracts: intent.plan.contracts,
+            avgOdds: intent.plan.price,
+            payoutIfWin: intent.plan.payoutIfWin,
+            maxLoss: intent.plan.maxLoss,
+            txHash: txHash ?? "",
+            marketId: win.marketId,
+            ts: Math.floor(now),
+          },
+          ...prev,
+        ].slice(0, 8));
+        void posQ.refetch().then(() => {
+          void qc.invalidateQueries({ queryKey: ["fills"] });
+          void qc.invalidateQueries({ queryKey: ["pnl"] });
+        });
+      } catch (e) {
+        setBanner({ kind: "err", text: revertCopy(e) });
+      }
+    });
   }
 
   async function exitSide(side: "up" | "down") {
@@ -393,41 +474,39 @@ export function App() {
       setBanner({ kind: "err", text: "Nothing to exit on that side." });
       return;
     }
-    setBusy(side === "up" ? "exit-up" : "exit-down");
     setBanner(null);
-    try {
-      const txHash = await executeExit(somniaExchange, win, intent);
-      setBanner({ kind: "ok", text: `Exited ${side.toUpperCase()}`, txHash });
-      void posQ.refetch().then(() => {
-        void qc.invalidateQueries({ queryKey: ["fills"] });
-        void qc.invalidateQueries({ queryKey: ["pnl"] });
-      });
-    } catch (e) {
-      setBanner({ kind: "err", text: revertCopy(e) });
-    } finally {
-      setBusy(null);
-    }
+    await run(side === "up" ? "exit-up" : "exit-down", async () => {
+      try {
+        const txHash = await executeExit(exchange, win, intent);
+        setBanner({ kind: "ok", text: `Exited ${side.toUpperCase()}`, txHash });
+        void posQ.refetch().then(() => {
+          void qc.invalidateQueries({ queryKey: ["fills"] });
+          void qc.invalidateQueries({ queryKey: ["pnl"] });
+        });
+      } catch (e) {
+        setBanner({ kind: "err", text: revertCopy(e) });
+      }
+    });
   }
 
   async function claimAll() {
     if (!address) return;
-    setBusy("claim");
     setBanner(null);
-    try {
-      const receipt = await somniaExchange.claimFinalized(address, live?.venueId);
-      setBanner({
-        kind: "ok",
-        text: claimReceiptCopy(receipt, TUSDC.decimals),
-        txHash: receipt.txHash,
-      });
-      void qc.invalidateQueries({ queryKey: ["fills"] });
-      void qc.invalidateQueries({ queryKey: ["pnl"] });
-      void qc.invalidateQueries({ queryKey: ["claims"] });
-    } catch (e) {
-      setBanner({ kind: "err", text: revertCopy(e) });
-    } finally {
-      setBusy(null);
-    }
+    await run("claim", async () => {
+      try {
+        const receipt = await exchange.claimFinalized(address);
+        setBanner({
+          kind: "ok",
+          text: claimReceiptCopy(receipt, TUSDC.decimals),
+          txHash: receipt.txHash,
+        });
+        void qc.invalidateQueries({ queryKey: ["fills"] });
+        void qc.invalidateQueries({ queryKey: ["pnl"] });
+        void qc.invalidateQueries({ queryKey: ["claims"] });
+      } catch (e) {
+        setBanner({ kind: "err", text: revertCopy(e) });
+      }
+    });
   }
 
   async function restSide(side: "up" | "down") {
@@ -442,39 +521,37 @@ export function App() {
       setBanner({ kind: "err", text: "Not enough tUSDC in this wallet." });
       return;
     }
-    setBusy(side === "up" ? "rest-up" : "rest-down");
     setBanner(null);
-    try {
-      const txHash = await executeRest(somniaExchange, win, intent);
-      setBanner({
-        kind: "ok",
-        text: `Resting ${side.toUpperCase()} · ${fmt(intent.plan.contracts, 3)} @ ${fmt(intent.plan.price * 100, 1)}%`,
-        txHash,
-      });
-      void openQ.refetch();
-    } catch (e) {
-      setBanner({ kind: "err", text: revertCopy(e) });
-    } finally {
-      setBusy(null);
-    }
+    await run(side === "up" ? "rest-up" : "rest-down", async () => {
+      try {
+        const txHash = await executeRest(exchange, win, intent);
+        setBanner({
+          kind: "ok",
+          text: `Resting ${side.toUpperCase()} · ${fmt(intent.plan.contracts, 3)} @ ${fmt(intent.plan.price * 100, 1)}%`,
+          txHash,
+        });
+        void openQ.refetch();
+      } catch (e) {
+        setBanner({ kind: "err", text: revertCopy(e) });
+      }
+    });
   }
 
   async function cancelTicket(id: string, symbol: string) {
-    setBusy("cancel");
     setBanner(null);
-    try {
-      const txHash = await somniaExchange.cancelOpenTicket(id, symbol);
-      setBanner({
-        kind: "ok",
-        text: "Cancelled resting order. Escrow returns to this wallet.",
-        txHash,
-      });
-      void openQ.refetch();
-    } catch (e) {
-      setBanner({ kind: "err", text: revertCopy(e) });
-    } finally {
-      setBusy(null);
-    }
+    await run("cancel", async () => {
+      try {
+        const txHash = await exchange.cancelOpenTicket(id, symbol);
+        setBanner({
+          kind: "ok",
+          text: "Cancelled resting order. Escrow returns to this wallet.",
+          txHash,
+        });
+        void openQ.refetch();
+      } catch (e) {
+        setBanner({ kind: "err", text: revertCopy(e) });
+      }
+    });
   }
 
   async function copyAddress() {
@@ -539,7 +616,8 @@ export function App() {
         address={address}
         busy={busy}
         primaryBusy={primaryBusy}
-        primaryLabel={totePrimaryCopy(
+        step={step}
+        stepPending={totePrimaryCopy(
           primary,
           {
             connecting,
@@ -550,17 +628,16 @@ export function App() {
           board.phase,
           TUSDC.decimals,
         )}
-        showPrimary={primary.kind !== "call"}
+        claimCopy={claimSessionCopy(claims, live?.decimals ?? TUSDC.decimals)}
         claimDue={primary.kind === "claim"}
+        autoKey={autoTried.current || null}
+        cadenceStates={cadenceStates}
         faucetEnabled={isConnected && chainId === shannonChain.id}
         onPrimary={() => void onPrimary()}
         onCall={(side) => void callSide(side)}
         onExit={(side) => void exitSide(side)}
         onClaim={() => void claimAll()}
-        onFaucet={() => {
-          setBusy("faucet");
-          faucet.mutate(undefined, { onSettled: () => setBusy(null) });
-        }}
+        onFaucet={() => void mintCollateral()}
         onCancel={(id, symbol) => void cancelTicket(id, symbol)}
         onRest={(side) => void restSide(side)}
         depth={depth}
@@ -568,6 +645,8 @@ export function App() {
       />
 
       {address && <PnlStrip fills={fillsQ.data} positions={pnlQ.data} />}
+
+      <ReceiptStrip receipts={receipts} history={historyQ.data} />
 
       <Pulse
         asset={asset}
@@ -602,15 +681,7 @@ export function App() {
             </button>
           )}
           {notice.action === "Mint tUSDC" && isConnected && chainId === shannonChain.id && (
-            <button
-              className="ghost"
-              type="button"
-              disabled={busy !== null}
-              onClick={() => {
-                setBusy("faucet");
-                faucet.mutate(undefined, { onSettled: () => setBusy(null) });
-              }}
-            >
+            <button className="ghost" type="button" disabled={busy !== null} onClick={() => void mintCollateral()}>
               Mint tUSDC
             </button>
           )}

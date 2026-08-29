@@ -19,6 +19,12 @@ Working against SDK types. `npm test` uses `createFakeExchange`, not the live in
 
 ## Decision Log
 
+### 2026-08-28 — Multi-venue, deduped, fee-aware claim scan
+- **Change**: `listSettledSnapshots` dedupes by `marketId` (`seen` set). New `withHeldFees`: after a first `readClaimSession`, fetch `getMarketFees` only for held marketIds and re-read with `SettledWindow.feeBps` set — preview and execute share it. `previewClaimSession`/`claimFinalized` signatures unchanged (venueId stays optional but App passes none).
+- **Reasoning**: Winnings must not hide behind the live Window's venue (two venues share the indexer). Per-market fees on all 40 rows would be 40 extra reads; fees only matter where a redeem is pending (usually 0–3 rows).
+- **Rejected alternative(s)**: Two venue-scoped scans merged client-side (doubles indexer round-trips). Passing a per-row fee map into `readClaimSession` (the row carrying its own fee keeps the domain fold pure).
+- **Task/session**: Brutal-overhaul session — W-050/W-051.
+
 ### 2026-08-28 — Claim receipt includes failed Windows
 - **Change**: Fake `claimFinalized` returns `failed: 0` (in-memory Claim is atomic). Live path inherits `executeClaims` continue-after-fail.
 - **Reasoning**: Receipt shape must match `ClaimReceipt` so App toast copy can name leftover Windows.

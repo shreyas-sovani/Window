@@ -47,22 +47,37 @@ Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h.
 
 | Capability | Detail |
 |---|---|
-| Live Window board | Line (opening price), countdown with lock urgency, implied Up/Down from the live book, on-chain volume + trade count |
-| Two-sided Call slip | Stake in tUSDC → contract sizing via live-book stake quotes; IOC take with protective limit |
-| Wallet gate | Connect → Switch to Shannon → Approve tUSDC → Call, each state on one primary button |
-| Series history + record | Last 12 finalized Windows per cadence with Up/Down/Void chips and running tally |
+| Question-first board | "Will BTC close above 67,214.5?" — the Line and the lock countdown as one question, with implied odds, volume, trades |
+| Opportunity-first selection | When the selected series has no live Trading Window, the terminal auto-jumps to the best one (real Line + safe headroom) |
+| Honest execution | Calls size from live stake quotes or the top of book — **no book, no Call**; never an invented 50% price. Explicit Risk → Win on each side |
+| Liquidity preview | Estimated fill, average execution odds, and unfilled remainder from the visible book — with one-tap **Use max fillable** (an estimate, never a promise) |
+| Proof cards | Every witnessed Call becomes a plain-text receipt — settled variant adds result + oracle link — shareable via clipboard or Web Share, no backend |
+| Two-sided Call slip | Stake in tUSDC → IOC take with protective limit; leftovers cancel, nothing rests |
+| Wallet gate | Connect → Switch to Shannon → Approve exactly the stake → Call, one primary action at a time |
+| Series history + record | Last 12 finalized Windows per cadence with Up/Down/Void chips, running tally, oracle receipts, and Lines |
+| Series tape P&L | Signed per-series P&L from fills — labeled fills-only, because Claim payouts are not fills |
 | Settle preview | If-Up / If-Down / If-Void payout of the live position, venue fee aware |
 | Wallet P&L | Realized + unrealized per open position (avg-cost, marked to book) and a signed fill tape — all explorer-linked |
 | Pulse | Underlying price + implied-odds sparklines, last-12 outcome bars, and the pool's public fill tape — pure SVG, no chart lib |
-| Book drawer | Collapsed Up-depth ladder with size bars and spread |
-| Claim session | Scans finalized Windows, redeems winners (fee-adjusted) and voids (both sides at par); preview is Windows · expected tUSDC; a failed redeem does not abort the rest |
+| Book drawer | Collapsed Up-depth ladder; post-only Rest that **expires at Window lock** (pool-enforced) |
+| Claim session | Scans the 40 most recent finalized Windows **across every venue**, deduped by market, fee-aware per Window; preview is Windows · expected tUSDC; a failed redeem does not abort the rest |
 | Open tickets | IOC should leave none — if one rests, cancel frees the escrow |
+
+## Why the ecosystem needs this
+
+dreamDEX Event Contracts roll a fresh market every few minutes, but the exchange UI is a CLOB — it asks "at what price and size?", not "up or down?". That gap is lost volume: the natural trader for a 15-minute binary is a consumer with a view and ten tUSDC, not a market maker.
+
+Window is the demand side that ecosystem is missing:
+
+- **Recurring Windows → repeat usage.** Every interval is a new decision on one screen. The Claim primary, the rolled successor, and the auto-selected best Window pull the user back into the next trade the moment the last one settles — compounding taker flow into every venue the indexer serves.
+- **Honest odds grow trust, not churn.** No executable book means no Call — Window refuses to fake a price, and every fill, approve, claim, and window carries a Shannon explorer link. On-chain proof is one click from every number on the screen.
+- **Composability, zero contracts.** The whole product is the `@somnia-chain/markets-sdk` surface exercised end-to-end — portfolio reads, live books, stake quotes, post-only rests, multi-venue claims, the price feed — with no deployed bytecode of our own (ADR-0001). Anything dreamDEX ships next (builder fees, new venues, new cadences) composes into this terminal for free, and `docs/SDK-FEEDBACK.md` is the eight-item field report that came out of exercising it.
 
 ## Architecture
 
 ```
 src/
-├── domain/        SDK-free pure logic — fully unit-tested (Vitest, 151 tests)
+├── domain/        SDK-free pure logic — fully unit-tested (Vitest, 165 tests)
 │   ├── pick-window, window-board     read models for the live series
 │   ├── call-ticket, call-session      sizing (tick/lot grids), Call/Exit intents
 │   ├── claim-plan, claim-session      what redeems, and how

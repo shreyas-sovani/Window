@@ -10,6 +10,8 @@ export type SettledWindow = {
   winningOutcome: number | null;
   up: bigint;
   down: bigint;
+  /** Per-Window venue fee; overrides the session-wide fallback when present. */
+  feeBps?: bigint;
 };
 
 export type ClaimIntent = {
@@ -49,7 +51,7 @@ function asOutcome(n: number | null): OutcomeIdx | null {
 }
 
 function rowPayout(row: SettledWindow, feeBps: bigint): bigint {
-  const preview = settlePreview({ up: row.up, down: row.down, feeBps });
+  const preview = settlePreview({ up: row.up, down: row.down, feeBps: row.feeBps ?? feeBps });
   if (row.isVoided) return preview.ifVoid;
   if (row.winningOutcome === 0) return preview.ifUp;
   if (row.winningOutcome === 1) return preview.ifDown;
@@ -123,7 +125,7 @@ function windowNoun(windows: number): string {
   return windows === 1 ? "1 Window" : `${windows} Windows`;
 }
 
-const EMPTY_CLAIM = "Nothing to claim on recent Finalized Windows.";
+const EMPTY_CLAIM = "Nothing to claim in the 40 most recently finalized Windows.";
 
 /** Tote primary: Windows + expected tUSDC. Empty scan is a sentence, not a button label. */
 export function claimSessionCopy(session: { windows: number; payout: bigint }, decimals = 6): string {

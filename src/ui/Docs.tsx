@@ -32,8 +32,12 @@ const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] 
       { p: "Enter a tUSDC stake. Sizing runs through a live stake quote; the Call is an IOC take at a protective limit — leftovers cancel, nothing rests." },
       { h: "Locking" },
       { p: "Inside the final stretch the clock turns red: new Calls close, Exit stays open until lock." },
+      { h: "No book, no Call" },
+      { p: "Odds come from the live book. If there is no executable quote, the Call button stays off — Window never sizes an order at an invented 50%." },
       { h: "Exiting" },
       { p: "Exit Up / Exit Down sells that side's outcome tokens back into the book before settlement." },
+      { h: "Resting (power users)" },
+      { p: "The Book drawer can place a post-only bid. It expires when its Window locks — the pool enforces it — so a Rest can never outlive the market." },
     ],
   },
   {
@@ -41,7 +45,7 @@ const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] 
     title: "Settlement & claiming",
     body: [
       { p: "Windows resolve on-chain against their oracle question. Winnings never auto-pay — press Claim." },
-      { p: "Winners redeem one-to-one minus the venue settlement fee (currently 0 on testnet). Voided Windows redeem both sides at half. The Claim button names unique Windows and expected tUSDC — not a count of outcome tokens. The scan reads finalized markets the indexer hides from the default market list." },
+      { p: "Claim scans the 40 most recently finalized Windows across every venue on the indexer, deduplicated by market. Winners redeem one-to-one minus the venue settlement fee (fetched per held Window); voids redeem both sides at half. The button names unique Windows and expected tUSDC — not a count of outcome tokens." },
       { p: "Every settled Window links its public oracle receipt — the Line-versus-close trail." },
     ],
   },

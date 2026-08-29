@@ -38,6 +38,17 @@ describe("prepareCall", () => {
     });
   });
 
+  it("refuses a Call when the book has no tradable price — never invents 50%", () => {
+    expect(prepareCall({ live: live(), book: undefined, stake: 10, side: "up", nowSec: 1_000 })).toEqual({
+      ok: false,
+      reason: "bad-price",
+    });
+    expect(prepareCall({ live: live(), book: {}, stake: 10, side: "down", nowSec: 1_000 })).toEqual({
+      ok: false,
+      reason: "bad-price",
+    });
+  });
+
   it("sizes a 10 tUSDC Up Call at 0.50", () => {
     const got = prepareCall({ live: live(), book: { ask: 0.5 }, stake: 10, side: "up", nowSec: 1_000 });
     expect(got.ok).toBe(true);
@@ -77,6 +88,15 @@ describe("prepareExit", () => {
     expect(
       prepareExit({ live: live(), book: { bid: 0.4 }, side: "up", up: 0n, down: 5n, decimals: 6 }),
     ).toEqual({ ok: false, reason: "empty" });
+  });
+
+  it("refuses an Exit with no book at all — never invents 50%", () => {
+    expect(
+      prepareExit({ live: live(), book: undefined, side: "up", up: 2n, down: 0n, decimals: 6 }),
+    ).toEqual({ ok: false, reason: "bad-price" });
+    expect(
+      prepareExit({ live: live(), book: {}, side: "down", up: 0n, down: 2n, decimals: 6 }),
+    ).toEqual({ ok: false, reason: "bad-price" });
   });
 
   it("sells Down at 1 minus the Up bid", () => {

@@ -71,5 +71,5 @@ export function seriesPnl(
 }
 
 export function seriesPnlCopy(t: PnlTotals, asset: string, intervalSec: number): string {
-  return `${asset} · ${cadenceLabel(intervalSec)} · ${pnlCopy(t)}`;
+  return `${asset} ${cadenceLabel(intervalSec)} tape · ${pnlCopy(t)} — fills only, Claim payouts not counted`;
 }

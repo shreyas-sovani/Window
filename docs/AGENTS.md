@@ -19,6 +19,24 @@ PRD is `needs-triage` locally (no hosted tracker). Claim session continue-after-
 
 ## Decision Log
 
+### 2026-08-29 — Onboarding pass (W-069–W-074)
+- **Change**: BACKLOG W-069–W-074 added and done. CONTEXT gained Onboarding step + Chip status entries. No README/PRD change — the onboarding journey is covered by the CONTEXT entries and the terminal itself.
+- **Reasoning**: Same doc rule as before: glossary truth lands in CONTEXT; feature rows in README only when a judge-facing capability changes name (this is a UX re-hierarchy of existing capabilities).
+- **Rejected alternative(s)**: A new PRD section for the journey (duplicates nextStep copy).
+- **Task/session**: Onboarding redesign session.
+
+### 2026-08-29 — Innovation pass (W-058–W-062)
+- **Change**: BACKLOG W-058/W-059 done (liquidity preview, proof cards); W-060 market-health indicator, W-061 stake presets, W-062 callability-ranked chips filed `ready` with priorities, not built. CONTEXT gained Liquidity preview + Proof card entries. README capability rows updated.
+- **Reasoning**: Two-feature cap from the brief; the three `ready` items are small follow-ups with clear specs so a later session can pick them up without re-deriving.
+- **Rejected alternative(s)**: Building all five (scope risk before demo). Filing the follow-ups without priority labels.
+- **Task/session**: Product-innovation pass.
+
+### 2026-08-28 — Honesty pass on product claims (W-049–W-057)
+- **Change**: BACKLOG W-049–W-057 added and done. SDK-FEEDBACK item 8 rewritten: binary orders are pool-bounded by market expiry (default = market expiry, `OrderExpiryBeyondMarket` rejects beyond it), so a post-only Rest cannot outlive its Window — the earlier "cannot age off" claim was wrong; the remaining gap is only setting a *shorter* TTL. README gained "Why the ecosystem needs this" (recurring Windows → repeat volume; honest odds → trust; SDK-only composability) and the capability table now states no-book/no-Call, multi-venue deduped fee-aware Claim, Rest expiry, and fills-only Series tape P&L. DEMO close cites 165 tests incl. the UI integration run.
+- **Reasoning**: Judges should be able to verify every claim in the repo; two claims (Rest aging, Series P&L completeness) did not survive contact with the SDK types and were corrected in code first, docs second.
+- **Rejected alternative(s)**: Deleting SDK-FEEDBACK item 8 (the corrected nuance is itself useful feedback). Marketing the ecosystem section without the honesty fixes landing first.
+- **Task/session**: Brutal-overhaul session.
+
 ### 2026-08-28 — Doc sweep: PLAN status banner
 - **Change**: PLAN.md opens with a "Status: built" note pointing at BACKLOG/AGENTS/CONTEXT, and its UI section notes the shipped light theme + three routes. No other PLAN edits — it stays the original plan, as history.
 - **Reasoning**: PLAN described the pre-build intent (dark tote-board, single page); readers were landing on it with no signal that every item shipped differently-later-better.

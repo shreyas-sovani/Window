@@ -13,7 +13,7 @@ export type PreparedRest =
   | { ok: true; symbol: string; plan: Extract<RestPlan, { ok: true }> };
 
 export type PreparedExit =
-  | { ok: false; reason: "no-window" | "empty" }
+  | { ok: false; reason: "no-window" | "empty" | "bad-price" }
   | { ok: true; symbol: string; contracts: number; price: number };
 
 /** Writes the Call session needs immediately before an IOC. */
@@ -43,9 +43,11 @@ export function prepareCall(input: {
     intervalSec: input.live.intervalSec,
   });
   if (!gate.callable) return { ok: false, reason: gate.reason };
+  const upPrice = impliedUp(input.book);
+  if (upPrice === undefined) return { ok: false, reason: "bad-price" };
   const plan = planCall({
     stake: input.stake,
-    upPrice: impliedUp(input.book) ?? 0.5,
+    upPrice,
     side: input.side,
     decimals: input.live.decimals,
     tick: input.live.tick,
@@ -127,7 +129,8 @@ export function prepareExit(input: {
   if (!input.live) return { ok: false, reason: "no-window" };
   const raw = input.side === "up" ? input.up : input.down;
   if (raw === 0n) return { ok: false, reason: "empty" };
-  const upPx = input.book?.bid ?? input.book?.ask ?? 0.5;
+  const upPx = input.book?.bid ?? input.book?.ask;
+  if (upPx === undefined) return { ok: false, reason: "bad-price" };
   return {
     ok: true,
     symbol: outcomeSymbol(input.live, input.side),

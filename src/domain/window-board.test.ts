@@ -71,7 +71,7 @@ describe("readBoard", () => {
     });
     expect(board.implied).toBeUndefined();
     expect(board.thinBook).toBe(true);
-    expect(board.upPlan.ok).toBe(true);
+    expect(board.upPlan).toEqual({ ok: false, reason: "bad-price" });
   });
 
   it("marks short collateral when the wallet cannot cover the stake", () => {

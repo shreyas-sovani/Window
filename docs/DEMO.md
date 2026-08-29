@@ -16,7 +16,7 @@ Setup before hitting record: wallet on Shannon with STT gas + a little tUSDC alr
 
 **1:05 — Claim.** If a finalized position exists: press the Claim primary (`Claim 1 Window · N tUSDC`). "Winnings never auto-pay. Window scans finalized markets the indexer hides from loadMarkets, redeems winners fee-adjusted, voids at half. One button — Windows of collateral, not outcome tokens."
 
-**1:15 — Close.** "Zero custom contracts. Every trade is the dreamDEX SDK on Somnia Shannon. Domain layer is pure TypeScript, 151 tests, adapters swappable — there's a deterministic fake exchange the whole suite runs against. docs/SDK-FEEDBACK.md is our eight-item report back to the dreamDEX team."
+**1:15 — Close.** "Zero custom contracts. Every trade is the dreamDEX SDK on Somnia Shannon. Domain layer is pure TypeScript, 165 tests including a full-UI integration run against a deterministic fake exchange, adapters swappable. docs/SDK-FEEDBACK.md is our eight-item report back to the dreamDEX team."
 
 ## Fallbacks
 

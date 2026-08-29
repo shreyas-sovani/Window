@@ -53,7 +53,10 @@ export function BookDrawer(props: {
       )}
       {props.canRest && (
         <div className="rest">
-          <p>Post-only · joins the bid. Escrow stays until fill or cancel. Not a Call.</p>
+          <p>
+            Post-only · joins the bid. Escrow stays until fill or cancel. Expires when the Window locks — it cannot
+            outlive the market. Not a Call.
+          </p>
           <div className="actions">
             <button
               className="ghost"

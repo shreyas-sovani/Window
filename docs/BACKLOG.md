@@ -52,5 +52,31 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-046 | shorten: short hashes stay whole (no `0xabc…xabc`) | Explorer proof | P2 | done | yes |
 | W-047 | Claim session names Windows + expected tUSDC, not outcome-balance count | Claim session | P1 | done | yes |
 | W-048 | Claim session continues after a failed redeem; all-fail rethrows | Claim session | P1 | done | yes |
+| W-049 | No fabricated 50%: Call/Exit refuse without a real book price | Call session | P0 | done | yes |
+| W-050 | Claim scans every venue, dedupes by marketId, names the 40-window bound | Claim session | P0 | done | yes |
+| W-051 | Claim preview fee-aware per held Window (`SettledWindow.feeBps`) | Claim session | P1 | done | yes |
+| W-052 | Opportunity-first auto-select (`autoSeries`: Line + headroom score) | Window board | P0 | done | yes |
+| W-053 | Series tape P&L labeled fills-only (Claim payouts excluded, said so) | Series P&L | P1 | done | yes |
+| W-054 | Rest expiry truth: pool bounds rest at market expiry; copy + SDK-FEEDBACK corrected | Rest quote | P1 | done | no |
+| W-055 | App takes an injectable exchange; useNow/useBanner/usePulseSamples hooks | ui | P1 | done | yes |
+| W-056 | Adapter parity contract test + full-UI integration test against the fake adapter | tests | P0 | done | yes |
+| W-057 | Question-first board + Risk→Win on each ticket side | ui | P1 | done | no |
+| W-058 | Liquidity-aware Call preview: est. fill, avg odds, unfilled, Use-max-fillable from top-5 depth | Liquidity | P1 | done | yes |
+| W-059 | Shareable proof card: witnessed-call receipt, settled variant + oracle link, clipboard/Web Share | Proof card | P1 | done | yes |
+| W-060 | Market-health indicator (spread + executable depth + time-to-lock) | ui | P2 | ready | no |
+| W-061 | Quick stake presets (5/10/25 tUSDC) | ui | P3 | ready | no |
+| W-062 | Chips ranked by live callability score | Window board | P3 | ready | no |
+| W-063 | Wallet-write mutex: synchronous ref lock across all nine writes; blocked callback names the held action | Write guard | P0 | done | yes |
+| W-064 | Approve receipt failure/replacement handled: hash cleared, err banner, no stuck approving state | Wallet gate | P0 | done | no |
+| W-065 | Chain+account revalidation on the approve path; per-button disabled reasons via title | Wallet gate | P1 | done | no |
+| W-066 | RevertCopy stops leaking stacks/JSON internals (shortMessage/message/details, 240-char cap) | RevertCopy | P1 | done | yes |
+| W-067 | prefers-reduced-motion disables all animation | ui | P2 | done | no |
+| W-068 | Full write-lifecycle integration test: connect → double-fire + Enter spam → exactly one faucet write | tests | P0 | done | yes |
+| W-069 | Onboarding domain: nextStep chain (connect→switch→gas→mint→approve→wait→call) with title/explanation/action copy | Onboarding | P0 | done | yes |
+| W-070 | Guided onboarding panel replaces the utility-row primary; approve action beside the stake preview | ui | P0 | done | yes |
+| W-071 | Rewards section elevates Claim (Windows · tUSDC) out of the utility row | ui | P1 | done | no |
+| W-072 | Account dropdown (balance/P&L trigger, copy/explorer/disconnect) replaces the cramped wallet corner | ui | P1 | done | no |
+| W-073 | Series nav split: asset + cadence ToggleGroups, waiting/auto states, mobile scroll row | ui | P1 | done | no |
+| W-074 | shadcn-style kit primitives in-repo: DropdownMenu, ToggleGroup, Tooltip (+ Button className merge) | kit | P1 | done | yes |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.

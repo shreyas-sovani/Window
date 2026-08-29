@@ -395,7 +395,10 @@ async function listSettledSnapshots(account: Address, venueId?: string): Promise
   });
   settled.sort((a, b) => Number(b.expiry ?? 0) - Number(a.expiry ?? 0));
   const snapshots: SettledWindow[] = [];
+  const seen = new Set<string>();
   for (const row of settled.slice(0, 40)) {
+    if (seen.has(row.marketId)) continue;
+    seen.add(row.marketId);
     const oc = await ex.client.getMarketOnchain(row.marketId);
     const up = await ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.yesId });
     const down = await ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.noId });
@@ -413,13 +416,36 @@ async function listSettledSnapshots(account: Address, venueId?: string): Promise
   return snapshots;
 }
 
+/** Fees only for Windows with a redeem pending — the 40-row scan stays cheap. */
+async function withHeldFees(rows: SettledWindow[]): Promise<SettledWindow[]> {
+  const held = readClaimSession(rows, 40).held;
+  if (held.length === 0) return rows;
+  const fees = await Promise.all(
+    held.map(async (h) => {
+      try {
+        const f = await getExchange().client.getMarketFees(h.marketId);
+        return [h.marketId, parseSettlementFeeBps(f?.settlementFeeBps)] as const;
+      } catch {
+        return [h.marketId, 0n] as const;
+      }
+    }),
+  );
+  const byMarket = new Map(fees);
+  return rows.map((r) => {
+    const feeBps = byMarket.get(r.marketId);
+    return feeBps === undefined || feeBps === 0n ? r : { ...r, feeBps };
+  });
+}
+
 export async function previewClaimSession(account: Address, venueId?: string) {
-  const session = readClaimSession(await listSettledSnapshots(account, venueId), 40);
+  const rows = await withHeldFees(await listSettledSnapshots(account, venueId));
+  const session = readClaimSession(rows, 40);
   return { count: session.intents.length, windows: session.windows, payout: session.payout };
 }
 
 export async function claimFinalized(account: Address, venueId?: string) {
-  const session = readClaimSession(await listSettledSnapshots(account, venueId), 40);
+  const rows = await withHeldFees(await listSettledSnapshots(account, venueId));
+  const session = readClaimSession(rows, 40);
   return executeClaims(
     {
       async redeem(intent) {

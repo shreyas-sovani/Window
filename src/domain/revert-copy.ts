@@ -20,10 +20,11 @@ export function revertCopy(err: unknown): string {
 
 function stringify(err: unknown): string {
   if (typeof err === "string") return err;
-  if (err instanceof Error) return `${err.name} ${err.message} ${err.stack ?? ""}`;
+  if (err instanceof Error) return `${err.name} ${err.message}`;
   if (err && typeof err === "object") {
     const o = err as { shortMessage?: string; message?: string; details?: string };
-    return `${o.shortMessage ?? ""} ${o.message ?? ""} ${o.details ?? ""} ${JSON.stringify(err)}`;
+    // shortMessage/message/details only — stacks and serialized internals never reach the banner.
+    return `${o.shortMessage ?? ""} ${o.message ?? ""} ${o.details ?? ""}`.slice(0, 240);
   }
   return String(err);
 }

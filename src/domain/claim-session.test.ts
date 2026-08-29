@@ -46,6 +46,12 @@ describe("planClaimSession", () => {
 });
 
 describe("readClaimSession", () => {
+  it("applies a per-Window fee to the winner payout over the session fallback", () => {
+    const session = readClaimSession([row({ up: 10_000n, feeBps: 100n })]);
+    expect(session.windows).toBe(1);
+    expect(session.payout).toBe(9_900n);
+  });
+
   it("counts a void as one Window and pays half on each side", () => {
     const session = readClaimSession([
       row({ isVoided: true, isResolved: false, winningOutcome: null, up: 2_000_000n, down: 4_000_000n }),
@@ -139,11 +145,11 @@ describe("executeClaims", () => {
 
 describe("claimSessionCopy", () => {
   it("names Windows and tUSDC, not outcome balances", () => {
-    expect(claimSessionCopy({ windows: 0, payout: 0n })).toBe("Nothing to claim on recent Finalized Windows.");
+    expect(claimSessionCopy({ windows: 0, payout: 0n })).toBe("Nothing to claim in the 40 most recently finalized Windows.");
     expect(claimSessionCopy({ windows: 1, payout: 5_000_000n })).toBe("Claim 1 Window · 5 tUSDC");
     expect(claimSessionCopy({ windows: 2, payout: 12_400_000n })).toBe("Claim 2 Windows · 12.4 tUSDC");
     expect(claimReceiptCopy({ windows: 1, payout: 5_000_000n })).toBe("Claimed 1 Window · 5 tUSDC.");
-    expect(claimReceiptCopy({ windows: 0, payout: 0n })).toBe("Nothing to claim on recent Finalized Windows.");
+    expect(claimReceiptCopy({ windows: 0, payout: 0n })).toBe("Nothing to claim in the 40 most recently finalized Windows.");
     expect(claimReceiptCopy({ windows: 1, payout: 5_000_000n, failed: 1 })).toBe(
       "Claimed 1 Window · 5 tUSDC. 1 Window could not be claimed.",
     );
