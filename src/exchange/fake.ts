@@ -43,6 +43,10 @@ export type FakeExchangeState = {
   marketFills: Record<string, MarketFill[]>;
   prices: Record<string, AssetPrice>;
   watchedAssets: string[];
+  /** Set false to simulate an IOC that lands on-chain but fills nothing (empty book crossing). */
+  iocFills: boolean;
+  /** Wallet whose IOC writes are stamped as the taker on the pool tape (duel verification). */
+  actingAccount?: string;
 };
 
 const emptyHoldings = (): OutcomeHoldings => ({ up: 0n, down: 0n, decimals: 6 });
@@ -72,9 +76,21 @@ function recordFill(
   contracts: number,
   price: number,
   direction: "buy" | "sell",
+  txHash: string,
 ) {
   const w = state.windows.find((row) => row.upSymbol === symbol || row.downSymbol === symbol);
   if (!w) return;
+  (state.marketFills[w.pool] ??= []).push({
+    id: `mk_${state.fills.length + 1}`,
+    price,
+    quantity: contracts,
+    quote: contracts * price,
+    aggressor: w.upSymbol === symbol ? "up" : "down",
+    ts: Date.now() / 1000,
+    txHash,
+    marketId: w.marketId,
+    taker: state.actingAccount ?? null,
+  });
   state.fills.push({
     id: `fake_${state.fills.length + 1}`,
     asset: w.asset,
@@ -85,7 +101,8 @@ function recordFill(
     quantity: contracts,
     quote: contracts * price,
     timestamp: Date.now() / 1000,
-    txHash: "0xfake",
+    txHash,
+    marketId: w.marketId,
   });
 }
 
@@ -111,7 +128,12 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     marketFills: seed.marketFills ?? {},
     prices: seed.prices ?? {},
     watchedAssets: seed.watchedAssets ?? [],
+    iocFills: seed.iocFills ?? true,
+    actingAccount: seed.actingAccount,
   };
+
+  let txSeq = 0;
+  const nextTx = (): string => `0xfake${(txSeq += 1)}`;
 
   const port: ExchangePort = {
     async listLiveWindows() {
@@ -154,29 +176,37 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     assetPrice(asset) {
       return state.prices[asset] ?? null;
     },
+    async marketById(marketId) {
+      return state.windows.find((w) => w.marketId === marketId) ?? null;
+    },
+    async fillsByPool(pool) {
+      return [...(state.marketFills[pool] ?? [])].sort((a, b) => b.ts - a.ts);
+    },
     async onchainStatus(marketId) {
       return state.statusByMarket[marketId] ?? 1;
     },
     async iocBuy(symbol, contracts, price) {
       state.buys.push({ symbol, contracts, price });
-      recordFill(state, symbol, contracts, price, "buy");
-      return "0xfake";
+      const hash = nextTx();
+      if (state.iocFills) recordFill(state, symbol, contracts, price, "buy", hash);
+      return hash;
     },
     async iocSell(symbol, contracts, price) {
       state.sells.push({ symbol, contracts, price });
-      recordFill(state, symbol, contracts, price, "sell");
-      return "0xfake";
+      const hash = nextTx();
+      if (state.iocFills) recordFill(state, symbol, contracts, price, "sell", hash);
+      return hash;
     },
     async restBuy(symbol, contracts, price) {
       state.rests.push({ symbol, contracts, price });
-      return "0xfake";
+      return nextTx();
     },
     async outcomeBalances(account, marketId) {
       return state.holdings[`${account}:${marketId}`] ?? emptyHoldings();
     },
     async mintTestCollateral() {
       state.faucetCalls += 1;
-      return "0xfake";
+      return nextTx();
     },
     async previewClaimSession(_account, venueId) {
       const { session } = claimSession(state, venueId);
@@ -193,7 +223,7 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
         windows: session.windows,
         payout: session.payout,
         failed: 0,
-        txHash: session.intents.length ? "0xfake" : undefined,
+        txHash: session.intents.length ? nextTx() : undefined,
       };
     },
     async listOpenTickets(symbol) {
@@ -202,7 +232,7 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     async cancelOpenTicket(id, symbol) {
       state.cancelled.push({ id, symbol });
       state.tickets = state.tickets.filter((t) => t.id !== id);
-      return "0xfake";
+      return nextTx();
     },
     async listFills() {
       return [...state.fills].sort((a, b) => b.timestamp - a.timestamp);

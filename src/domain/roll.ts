@@ -17,9 +17,10 @@ export type RollPrompt = {
 };
 
 /**
- * The roll companion: after a Window this terminal witnessed a Call on locks,
- * offer the same Call on its successor — same asset, same cadence, same stake,
- * one press. The wallet still signs; nothing repeats on its own.
+ * The rematch companion (was Roll): after a Window this terminal witnessed a
+ * Call on locks, offer the same Call on its successor — same asset, same
+ * cadence, same side, same stake, one press. Never the dead marketId. The
+ * wallet still signs; nothing repeats on its own.
  */
 export function rollPrompt(input: {
   last: LastCall | null;
@@ -36,7 +37,7 @@ export function rollPrompt(input: {
   if (input.dismissedMarketId === live.marketId) return null;
   const side = last.side === "up" ? "Up" : "Down";
   return {
-    title: `Rolled — next ${last.asset} ${cadenceLabel(canonicalInterval(last.intervalSec))} Window is open`,
+    title: `Rematch — next ${last.asset} ${cadenceLabel(canonicalInterval(last.intervalSec))} Window is open`,
     action: `Call ${side} · ${last.stake.toFixed(2)} tUSDC again`,
     side: last.side,
   };

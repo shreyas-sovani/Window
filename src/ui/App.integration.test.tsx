@@ -7,6 +7,7 @@ import { WagmiProvider, createConfig, fallback, http } from "wagmi";
 import { mock } from "wagmi/connectors";
 import { afterEach, expect, it } from "vitest";
 import { shannonChain } from "../chain/chain";
+import { challengeHref, encodeChallenge } from "../domain/challenge-link";
 import { createFakeExchange } from "../exchange/fake";
 import { getExchange } from "../exchange/somnia";
 import type { LiveWindow } from "../exchange/port";
@@ -130,4 +131,189 @@ it("write lifecycle: connect, then rapid double-fire of Mint tUSDC lands one wri
 
   await waitFor(() => expect(fake.state.faucetCalls).toBe(1), { timeout: 5_000 });
   await waitFor(() => expect(screen.getByText(/Minted up to 10,000 tUSDC/i)).toBeTruthy(), { timeout: 5_000 });
+});
+
+const CHALLENGER = "0x00000000000000000000000000000000000000aa";
+
+it("an incoming challenge link pins that Window and shows the verified challenger fill", async () => {
+  const fake = createFakeExchange({
+    windows: [window],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+    statusByMarket: { [M]: 1 },
+    marketFills: {
+      "0x0000000000000000000000000000000000000001": [
+        {
+          id: "seed1",
+          price: 0.55,
+          quantity: 18,
+          quote: 9.9,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 60,
+          txHash: "0xchallengerproof",
+          marketId: M,
+          taker: CHALLENGER,
+        },
+      ],
+    },
+  });
+  globalThis.window.location.hash = challengeHref({
+    marketId: M as `0x${string}`,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xchallengerproof",
+    expiry: window.expiry,
+  });
+  render(<Terminal fake={fake} />);
+  await waitFor(
+    () => {
+      expect(screen.getByLabelText("Incoming challenge")).toBeTruthy();
+      expect(screen.getByText(/Called UP/i)).toBeTruthy();
+      expect(screen.getByRole("button", { name: /call down to accept/i })).toBeTruthy();
+    },
+    { timeout: 5_000 },
+  );
+  // The challenge stage is the first body block — before the ticket and its extras.
+  const stage = screen.getByLabelText("Incoming challenge");
+  const stake = screen.getByLabelText("Stake (tUSDC)");
+  expect(stage.compareDocumentPosition(stake) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  // One h1 on the page and it belongs to the challenge.
+  expect(document.querySelector("h1")?.textContent).toBe("Challenge");
+  // The ticket shows only the opposite side — the same-side Call is hidden.
+  const ticketCalls = screen
+    .getAllByRole("button")
+    .filter((b) => /^Call (Up|Down)( to accept.*)?$/.test(b.textContent ?? ""));
+  expect(ticketCalls).toHaveLength(1);
+  expect(ticketCalls[0]?.textContent).toMatch(/down/i);
+  globalThis.window.location.hash = "#/app";
+});
+
+it("a broken challenge link is refused, not guessed from", async () => {
+  const fake = createFakeExchange({ windows: [window], books: { "BTC#YES": { bid: 0.55, ask: 0.6 } } });
+  globalThis.window.location.hash = "#/app?d=garbage";
+  render(<Terminal fake={fake} />);
+  await waitFor(
+    () => {
+      expect(screen.getByLabelText("Challenge refused")).toBeTruthy();
+      expect(screen.getByText(/no challenge in this link/i)).toBeTruthy();
+    },
+    { timeout: 5_000 },
+  );
+  globalThis.window.location.hash = "#/app";
+});
+
+it("an unknown market in the link is refused with its reason", async () => {
+  const fake = createFakeExchange({ windows: [window], books: { "BTC#YES": { bid: 0.55, ask: 0.6 } } });
+  const other = "0x" + "cc".repeat(32);
+  globalThis.window.location.hash = `#/app?d=${encodeChallenge({
+    marketId: other,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xchallengerproof",
+    expiry: window.expiry,
+  })}`;
+  render(<Terminal fake={fake} />);
+  await waitFor(
+    () => {
+      expect(screen.getByLabelText("Challenge refused")).toBeTruthy();
+      expect(screen.getByText(/not on this chain/i)).toBeTruthy();
+    },
+    { timeout: 5_000 },
+  );
+  globalThis.window.location.hash = "#/app";
+});
+
+it("a challenge link on a Finalized Window still renders — expired, not unknown", async () => {
+  const dead = { ...window, marketId: ("0x" + "dd".repeat(32)) as `0x${string}`, status: 4, upSymbol: "BTC#D1", expiry: Math.floor(Date.now() / 1000) - 300 };
+  const fake = createFakeExchange({
+    windows: [window, dead],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+    marketFills: {
+      "0x0000000000000000000000000000000000000001": [
+        {
+          id: "d1",
+          price: 0.55,
+          quantity: 18,
+          quote: 9.9,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 900,
+          txHash: "0xchallengerproof",
+          marketId: dead.marketId,
+          taker: CHALLENGER,
+        },
+      ],
+    },
+  });
+  globalThis.window.location.hash = challengeHref({
+    marketId: dead.marketId,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xchallengerproof",
+    expiry: dead.expiry,
+  });
+  render(<Terminal fake={fake} />);
+  await waitFor(
+    () => {
+      expect(screen.getByLabelText("Challenge expired")).toBeTruthy();
+      expect(screen.getByText(/not a win/i)).toBeTruthy();
+    },
+    { timeout: 5_000 },
+  );
+  globalThis.window.location.hash = "#/app";
+});
+
+it("a settled duel renders from a Finalized Window, its settlement row, and both tape proofs", async () => {
+  const done = { ...window, marketId: ("0x" + "ee".repeat(32)) as `0x${string}`, status: 4, upSymbol: "BTC#S1", expiry: Math.floor(Date.now() / 1000) - 300 };
+  const fake = createFakeExchange({
+    windows: [window, done],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+    marketFills: {
+      "0x0000000000000000000000000000000000000001": [
+        {
+          id: "s1",
+          price: 0.55,
+          quantity: 18,
+          quote: 9.9,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 900,
+          txHash: "0xta",
+          marketId: done.marketId,
+          taker: CHALLENGER,
+        },
+        {
+          id: "s2",
+          price: 0.42,
+          quantity: 22,
+          quote: 9.24,
+          aggressor: "down",
+          ts: Math.floor(Date.now() / 1000) - 600,
+          txHash: "0xtb",
+          marketId: done.marketId,
+          taker: "0x00000000000000000000000000000000000000bb",
+        },
+      ],
+    },
+    history: [{ marketId: done.marketId, expiry: done.expiry, result: "up" }],
+  });
+  globalThis.window.location.hash = challengeHref({
+    marketId: done.marketId,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xta",
+    expiry: done.expiry,
+  });
+  render(<Terminal fake={fake} />);
+  await waitFor(
+    () => {
+      expect(screen.getByLabelText("Duel settled")).toBeTruthy();
+      expect(screen.getAllByText(/…00aa/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/UP wins/i)).toBeTruthy();
+      expect(screen.getByText(/Line 67214\.50/)).toBeTruthy();
+    },
+    { timeout: 5_000 },
+  );
+  globalThis.window.location.hash = "#/app";
 });

@@ -15,9 +15,15 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-PRD is `needs-triage` locally (no hosted tracker). SDK-FEEDBACK has 9 items (new: operator/session-key gap for Event Contracts). W-060/W-061/W-062 done; Roll companion shipped. Default Call stays IOC.
+PRD is `needs-triage` locally (no hosted tracker). SDK-FEEDBACK has 9 items (new: operator/session-key gap for Event Contracts). W-060/W-061/W-062 done; Roll companion shipped as Rematch. Default Call stays IOC. DEMO.md is the 90-second Window Duel script (live two-wallet path, replay fallback, explicit DEMO HOLE until real Shannon duel hashes are pinned — fills are never invented).
 
 ## Decision Log
+
+### 2026-08-31 — DEMO.md rewritten for Window Duel
+- **Change**: 90-second script is now the duel loop: Call (tape-verified receipt) → Challenge a wallet link → second browser accepts on the pinned Window (unequal stakes) → result from settlement + two proofs → Rematch. Replay fallback section (`#/docs` judge tool, fail-closed), a live two-wallet path for short cadences, and fallbacks for self-accept/tampered-link/Locking refusals. Ecosystem line: one invite attempts two IOC takes on one canonical Window; volume is measured fills, not links sent.
+- **Reasoning**: Duel is the product; the demo must show the two-wallet social loop and its honest failure modes, and must name the DEMO HOLE (no pinned real hashes yet) rather than fabricate a replay.
+- **Rejected alternative(s)**: Keeping the solo-terminal script (misses the product); inventing pinned hashes for the replay (forbidden — fail-closed is the feature).
+- **Task/session**: Window Duel identity pass — item 13.
 
 ### 2026-08-30 — Enhancement pass docs (W-060–W-062, Roll, SDK-FEEDBACK #9, restyle)
 - **Change**: BACKLOG W-060/W-061/W-062 marked done (market health, presets, best-badge ranking). SDK-FEEDBACK gained item 9 — the operator/session-key model is unreachable for Event Contracts through the SDK (`placeBinaryOrderFor` ships in `tradeAbi` but `Trader` exposes no binary place-for path; Bot Kit session keys are spot-only) — and every "eight-item" reference (README, DEMO, Docs.tsx) became nine. DEMO.md: the stale "empty book sizes at 50% mid" fallback replaced with the honest refusal; read-model beat now names the ring + Book cell; 165 → 219 tests; cold-load fallback added. CONTEXT gained Market health + Roll entries. README: capability rows for health/roll/ring/best-badge/presets, gate row now the full nextStep chain, arch tree current, ecosystem section says why no roll *bot*.

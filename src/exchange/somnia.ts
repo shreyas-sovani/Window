@@ -78,9 +78,13 @@ function asBinary(m: UnifiedMarket): BinaryMarket | null {
   return isBinaryMarket(m.info) ? m.info : null;
 }
 
-async function liveFromBinary(info: BinaryMarket, unified?: UnifiedMarket): Promise<LiveWindow | null> {
+async function liveFromBinary(
+  info: BinaryMarket,
+  unified?: UnifiedMarket,
+  opts: { finalizedOk?: boolean } = {},
+): Promise<LiveWindow | null> {
   const code = statusCode(info.status);
-  if (code !== 1 && code !== 2 && code !== 3) return null;
+  if (code !== 1 && code !== 2 && code !== 3 && !opts.finalizedOk) return null;
   const symbol = unified?.symbol ?? `${info.asset}-${info.interval ?? "15m"}`;
   const upSymbol =
     unified?.outcomes?.find((o) => o.index === 0)?.symbol ?? `${symbol}#YES`;
@@ -266,6 +270,48 @@ export const somniaExchange: ExchangePort = {
   assetPrice(asset) {
     const p = getExchange().client.getLivePrice(asset);
     return p ? { asset: p.asset, price: p.price, ema: p.ema } : null;
+  },
+  async marketById(marketId) {
+    try {
+      const m = await getExchange().client.getMarket(marketId);
+      const info = m && isBinaryMarket(m) ? m : null;
+      if (!info) return null;
+      return liveFromBinary(info, undefined, { finalizedOk: true });
+    } catch {
+      return null;
+    }
+  },
+  async fillsByPool(pool, decimals, limit = 400) {
+    const dec = decimals || 6;
+    try {
+      const rows = await getExchange().client.getFills(pool, { limit });
+      return rows.map((f) => ({
+        id: f.id,
+        price: Number(f.fillPrice) / 10 ** dec,
+        quantity: Number(f.quantity) / 10 ** dec,
+        quote: Number(f.quoteQuantity) / 10 ** dec,
+        aggressor: f.takerOrder?.side
+          ? f.takerOrder.side.endsWith("YES")
+            ? ("up" as const)
+            : ("down" as const)
+          : f.takerSide
+            ? f.takerSide.endsWith("YES")
+              ? ("up" as const)
+              : ("down" as const)
+            : f.takerIsBid === true
+              ? ("up" as const)
+              : f.takerIsBid === false
+                ? ("down" as const)
+                : null,
+        ts: Number(f.timestamp),
+        txHash: f.txHash,
+        marketId: f.market,
+        taker: f.taker,
+        maker: f.maker,
+      }));
+    } catch {
+      return [];
+    }
   },
   async onchainStatus(marketId) {
     const oc = await getExchange().client.getMarketOnchain(marketId);

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { erc20Abi, parseUnits, type Hex } from "viem";
+import { erc20Abi, formatUnits, parseUnits, type Hex } from "viem";
 import {
   useAccount,
   useBalance,
@@ -13,30 +13,41 @@ import {
   useWriteContract,
 } from "wagmi";
 import { shannonChain } from "../chain/chain";
-import { explorerTx, TUSDC } from "../chain/shannon";
+import { explorerTx, oracleReceipt, STT_FAUCET, TUSDC } from "../chain/shannon";
 import { autoSeries, hottestCadence } from "../domain/auto-series";
-import { marketHealth } from "../domain/market-health";
+import { decodeChallengeLink } from "../domain/challenge-link";
+import { readDuel, tapeDuelFill, type Duel as DuelState } from "../domain/duel";
+import { healthDetail, marketHealth } from "../domain/market-health";
 import { chipStatus, nextStep } from "../domain/onboarding";
 import { callSkipCopy, executeCall, executeExit, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
+import { callReceiptFromFill, filledCall } from "../domain/filled-call";
 import { pickWindow } from "../domain/pick-window";
 import { pnlCopy, pnlTotals, seriesPnl, seriesPnlCopy } from "../domain/pnl";
+import { settlePreview, settlePreviewCopy } from "../domain/settle-preview";
+import { historyLine, readSeriesRecord, seriesRecordCopy } from "../domain/series-record";
 import { revertCopy } from "../domain/revert-copy";
 import { approveAmount } from "../domain/wallet-gate";
 import { totePrimary, totePrimaryCopy } from "../domain/tote-primary";
 import { boardNotice } from "../domain/board-notice";
 import { claimReceiptCopy, claimSessionCopy } from "../domain/claim-session";
 import type { CallReceipt } from "../domain/proof-card";
-import { readBoard } from "../domain/window-board";
+import { readBoard, windowTickets } from "../domain/window-board";
 import { rollPrompt, type LastCall } from "../domain/roll";
 import { bindWallet, somniaExchange } from "../exchange/somnia";
 import type { ExchangePort } from "../exchange/port";
 import { CallBoard } from "./CallBoard";
+import { ChallengeGate } from "./ChallengeStrip";
+import { Duel } from "./Duel";
+import { BookDrawer } from "./BookDrawer";
 import { fmt, shorten } from "./format";
+import { historyLabel } from "./format";
 import { useBanner, useNow, usePulseSamples } from "./hooks";
 import { PnlStrip } from "./PnlStrip";
 import { Pulse } from "./Pulse";
 import { ReceiptStrip } from "./ReceiptStrip";
+import { useHashParam } from "./router";
 import { useLiveOdds } from "./useLiveOdds";
+import { Button } from "./kit";
 import { useWriteGuard } from "./write-guard";
 import { WalletBar } from "./WalletBar";
 
@@ -97,6 +108,33 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
     setIntervalSec(best.intervalSec);
   }, [windowsQ.data, liveHint?.status, liveHint?.marketId, liveHint?.openingPrice, asset, intervalSec, now]);
 
+  // A challenge link pins its Window: select that series once so the board, book,
+  // and history all face the market the duel is judged on.
+  const duelRaw = useHashParam("d");
+  const duelHint = duelRaw ? decodeChallengeLink(duelRaw) : null;
+  const duelLiveWindow = useMemo(
+    () => (duelHint ? (windowsQ.data ?? []).find((w) => w.marketId === duelHint.marketId) ?? null : null),
+    [duelHint?.marketId, windowsQ.data],
+  );
+  // Finalized Windows leave listLiveWindows — a challenge link on a settled or
+  // expired market still resolves through the by-id read.
+  const duelMarketQ = useQuery({
+    queryKey: ["duelmarket", duelHint?.marketId],
+    queryFn: () => exchange.marketById(duelHint!.marketId as `0x${string}`),
+    enabled: Boolean(duelHint?.marketId) && !duelLiveWindow,
+    retry: 1,
+  });
+  const duelWindow = duelLiveWindow ?? (duelMarketQ.data ?? null);
+  const duelPinned = useRef("");
+  useEffect(() => {
+    if (!duelHint || !duelWindow) return;
+    if (duelPinned.current === duelWindow.marketId) return;
+    if (liveHint?.marketId === duelWindow.marketId) return;
+    duelPinned.current = duelWindow.marketId;
+    setAsset(duelWindow.asset);
+    setIntervalSec(duelWindow.intervalSec);
+  }, [duelHint, duelWindow, liveHint?.marketId]);
+
   const posQ = useQuery({
     queryKey: ["pos", address, liveHint?.marketId],
     queryFn: () => {
@@ -126,11 +164,15 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
   });
 
   const openQ = useQuery({
-    queryKey: ["open", address, liveHint?.upSymbol],
-    queryFn: () => exchange.listOpenTickets(liveHint?.upSymbol),
-    enabled: Boolean(address && liveHint?.upSymbol),
+    queryKey: ["open", address, liveHint?.marketId],
+    queryFn: () => exchange.listOpenTickets(),
+    enabled: Boolean(address),
     refetchInterval: 8_000,
   });
+  const openTickets = useMemo(
+    () => windowTickets(openQ.data ?? [], liveHint?.upSymbol, liveHint?.downSymbol),
+    [openQ.data, liveHint?.upSymbol, liveHint?.downSymbol],
+  );
 
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: TUSDC.address,
@@ -242,6 +284,27 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
     enabled: Boolean(address),
     refetchInterval: 15_000,
   });
+  const duelStatusQ = useQuery({
+    queryKey: ["duelstatus", duelHint?.marketId],
+    queryFn: () => exchange.onchainStatus(duelHint!.marketId as `0x${string}`),
+    enabled: Boolean(duelHint?.marketId),
+    refetchInterval: 8_000,
+    retry: 1,
+  });
+  const duelHistoryQ = useQuery({
+    queryKey: ["duelhistory", duelWindow?.asset, duelWindow?.intervalSec, duelWindow?.venueId],
+    queryFn: () => exchange.listSeriesHistory(duelWindow!.asset, duelWindow!.intervalSec, duelWindow!.venueId),
+    enabled: Boolean(duelWindow),
+    refetchInterval: 30_000,
+    retry: 1,
+  });
+  const duelTapeQ = useQuery({
+    queryKey: ["dueltape", duelWindow?.marketId],
+    queryFn: () => exchange.fillsByPool(duelWindow!.pool, duelWindow!.decimals),
+    enabled: Boolean(duelWindow),
+    refetchInterval: 8_000,
+    retry: 1,
+  });
   const pnlQ = useQuery({
     queryKey: ["pnl", address],
     queryFn: () => {
@@ -286,6 +349,58 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
     () => seriesPnl(pnlQ.data ?? [], fillsQ.data ?? [], asset, intervalSec),
     [pnlQ.data, fillsQ.data, asset, intervalSec],
   );
+
+  const duel: DuelState | null = useMemo(() => {
+    if (duelRaw === null) return null;
+    if (!duelHint) return { kind: "invalid", reason: "no-challenge" };
+    if (!duelWindow) {
+      return readDuel({
+        hint: duelHint,
+        window: null,
+        windowStatus: 0,
+        challengerFill: null,
+        acceptor: address,
+        acceptorFill: null,
+        settlement: null,
+        nowSec: now,
+      });
+    }
+    // The chain decides: the pool's public tape must show the challenger's named
+    // tx as a fill on this market, and this wallet's own take on the same market.
+    const tape = duelTapeQ.data ?? [];
+    const challengerProof = tapeDuelFill(tape, {
+      marketId: duelWindow.marketId,
+      txHash: duelHint.txHash,
+      taker: duelHint.challenger,
+      side: duelHint.side,
+    });
+    // Opposite side accepts; a same-side fill still refuses honestly. This
+    // wallet's own take comes first; otherwise the acceptor is whoever else
+    // filled the opposite side — the result view must render for any viewer.
+    const opposite = (challengerProof?.side ?? duelHint.side) === "up" ? ("down" as const) : ("up" as const);
+    const acceptorProof =
+      (address
+        ? (tapeDuelFill(tape, { marketId: duelWindow.marketId, taker: address, side: opposite }) ??
+          tapeDuelFill(tape, { marketId: duelWindow.marketId, taker: address, side: duelHint.side }))
+        : null) ??
+      (challengerProof
+        ? tapeDuelFill(tape, { marketId: duelWindow.marketId, side: opposite, notTaker: challengerProof.account })
+        : null);
+    const settledRow = (duelHistoryQ.data ?? []).find((h) => h.marketId === duelWindow.marketId && h.result !== "unknown");
+    return readDuel({
+      hint: duelHint,
+      // DuelWindow reads the Line from `line`; LiveWindow carries it as openingPrice.
+      window: { ...duelWindow, line: duelWindow.openingPrice },
+      windowStatus: duelStatusQ.data ?? duelWindow.status,
+      challengerFill: challengerProof,
+      acceptor: address,
+      acceptorFill: acceptorProof,
+      settlement: settledRow ?? null,
+      nowSec: now,
+    });
+  }, [duelRaw, duelHint, duelWindow, duelTapeQ.data, duelHistoryQ.data, duelStatusQ.data, address, now]);
+
+  const duelAcceptSide = duel?.kind === "challenge" ? (duel.challenge.side === "up" ? ("down" as const) : ("up" as const)) : null;
 
   const board = useMemo(
     () =>
@@ -341,12 +456,12 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
           collateral: bal,
           stakeRaw: board.stakeRaw,
           allowance: (allowance as bigint | undefined) ?? 0n,
-          callable: Boolean(live) && board.upPlan.ok,
+          callable: Boolean(live) && (board.upPlan.ok || board.downPlan.ok),
           claimable: claims.windows,
         },
         live?.decimals ?? TUSDC.decimals,
       ),
-    [isConnected, chainId, hasGas, bal, board.stakeRaw, board.upPlan.ok, allowance, live, claims.windows],
+    [isConnected, chainId, hasGas, bal, board.stakeRaw, board.upPlan.ok, board.downPlan.ok, allowance, live, claims.windows],
   );
 
   const { impliedSamples, priceSamples } = usePulseSamples({
@@ -443,37 +558,42 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
       return;
     }
     setBanner(null);
+    const writeStartSec = Math.floor(Date.now() / 1000);
     await run(side, async () => {
       try {
         const txHash = await executeCall(exchange, win, intent);
+        // The write result alone is not a fill. Read the wallet's tape back and
+        // size the receipt, the roll, and any challenge from what actually filled.
+        const tape = address ? await exchange.listFills(address) : [];
+        const filled = filledCall(tape, {
+          side,
+          asset: win.asset,
+          intervalSec: win.intervalSec,
+          txHash,
+          sinceSec: writeStartSec,
+        });
+        if (!filled) {
+          setBanner({
+            kind: "err",
+            text: txHash
+              ? "Sent, but nothing filled — leftovers cancelled, nothing resting, nothing at risk. No receipt, no challenge."
+              : "Call was sent but the fill could not be verified. No receipt, no challenge.",
+            txHash,
+          });
+          return;
+        }
+        const receipt = callReceiptFromFill(win, filled, Math.floor(now));
         setBanner({
           kind: "ok",
-          text: `Called ${side.toUpperCase()} · ${fmt(intent.plan.contracts, 3)} contracts`,
-          txHash,
+          text: `Called ${side.toUpperCase()} · filled ${fmt(filled.contracts, 3)} contracts @ ${fmt(filled.avgOdds * 100, 1)}%`,
+          txHash: filled.txHash,
         });
-        setReceipts((prev) => [
-          {
-            asset: win.asset,
-            intervalSec: win.intervalSec,
-            side,
-            line: win.openingPrice,
-            expiry: win.expiry,
-            stake: Number(stake) || intent.plan.maxLoss,
-            contracts: intent.plan.contracts,
-            avgOdds: intent.plan.price,
-            payoutIfWin: intent.plan.payoutIfWin,
-            maxLoss: intent.plan.maxLoss,
-            txHash: txHash ?? "",
-            marketId: win.marketId,
-            ts: Math.floor(now),
-          },
-          ...prev,
-        ].slice(0, 8));
+        setReceipts((prev) => [receipt, ...prev].slice(0, 8));
         setLastCall({
           asset: win.asset,
           intervalSec: win.intervalSec,
           side,
-          stake: Number(stake) || intent.plan.maxLoss,
+          stake: filled.escrow,
           marketId: win.marketId,
         });
         void posQ.refetch().then(() => {
@@ -623,8 +743,12 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
     <div className="app">
       <header className="mast">
         <div>
-          <div className="wordmark">Window</div>
-          <p>Call the next interval. The Line is the open.</p>
+          <div className="wordmark">Window Duel</div>
+          <p className="usp">
+            Challenge another wallet on the same Window. Two opposite Calls, two verified fills, one Line,
+            one on-chain winner.
+          </p>
+          <p className="usp-note">Opponents are not counterparties — each Call is its own take.</p>
           <div className={`status${windowsQ.isSuccess ? "" : " sync"}`}>
             <span className="dot" aria-hidden />
             {windowsQ.isSuccess ? "Indexer live" : "Syncing…"}
@@ -642,6 +766,16 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
         </div>
       </header>
 
+      {duel && (
+        <Duel
+          duel={duel}
+          acceptBusy={primaryBusy || (duelAcceptSide !== null && busy === duelAcceptSide)}
+          onAccept={() => {
+            if (duelAcceptSide) void callSide(duelAcceptSide);
+          }}
+        />
+      )}
+
       <CallBoard
         board={board}
         asset={asset}
@@ -653,12 +787,9 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
           setIntervalSec(nextInterval);
         }}
         onStake={setStake}
+        subordinate={Boolean(duel)}
+        onlySide={duelAcceptSide ?? undefined}
         loading={windowsQ.isLoading}
-        history={historyQ.data}
-        seriesPnl={address ? seriesPnlCopy(seriesTotals, asset, intervalSec) : undefined}
-        holdings={posQ.data}
-        tickets={openQ.data}
-        address={address}
         busy={busy}
         primaryBusy={primaryBusy}
         step={step}
@@ -673,39 +804,206 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
           board.phase,
           TUSDC.decimals,
         )}
-        claimCopy={claimSessionCopy(claims, live?.decimals ?? TUSDC.decimals)}
-        claimDue={primary.kind === "claim"}
         autoKey={autoTried.current || null}
         cadenceStates={cadenceStates}
         hotCadence={hotCadence}
-        health={health}
-        faucetEnabled={isConnected && chainId === shannonChain.id}
-        onPrimary={() => void onPrimary()}
         roll={roll}
         onRoll={(side) => void callSide(side)}
         onDismissRoll={() => live && setDismissedRoll(live.marketId)}
+        faucetEnabled={isConnected && chainId === shannonChain.id}
+        onPrimary={() => void onPrimary()}
         onCall={(side) => void callSide(side)}
-        onExit={(side) => void exitSide(side)}
-        onClaim={() => void claimAll()}
         onFaucet={() => void mintCollateral()}
-        onCancel={(id, symbol) => void cancelTicket(id, symbol)}
-        onRest={(side) => void restSide(side)}
-        depth={depth}
-        feeBps={feeQ.data}
       />
 
-      {address && <PnlStrip fills={fillsQ.data} positions={pnlQ.data} />}
+      <ChallengeGate receipts={receipts} address={address} now={now} />
 
-      <ReceiptStrip receipts={receipts} history={historyQ.data} />
+      {primary.kind === "claim" && (
+        <section className="rewards" aria-label="Claim rewards">
+          <div>
+            <h3 className="rewards-title">Winnings ready</h3>
+            <p className="rewards-sub">{claimSessionCopy(claims, live?.decimals ?? TUSDC.decimals)}</p>
+          </div>
+          <Button variant="primary" disabled={primaryBusy} onClick={() => void claimAll()}>
+            {busy === "claim" ? "Claiming…" : "Claim"}
+          </Button>
+        </section>
+      )}
 
-      <Pulse
-        asset={asset}
-        price={priceQ.data ?? undefined}
-        priceSamples={priceSamples}
-        impliedSamples={impliedSamples}
-        history={historyQ.data}
-        fills={marketFillsQ.data ?? []}
-      />
+      <details className="drawer more">
+        <summary>More</summary>
+
+        <section className="more-section" aria-label="Market">
+          <div className="kicker">Market</div>
+          <div className="meta">
+            <div>
+              Volume
+              <strong className="mono">
+                {live?.volumeQuote !== undefined ? `${fmt(live.volumeQuote, 2)} tUSDC` : "—"}
+              </strong>
+            </div>
+            <div>
+              Trades
+              <strong className="mono">{live?.tradeCount ?? "—"}</strong>
+            </div>
+            <div>
+              Book
+              <strong className={`mono health ${health.grade}`} title={health.copy}>
+                {health.grade === "none"
+                  ? "No odds"
+                  : health.grade === "strong"
+                    ? "Strong"
+                    : health.grade === "fair"
+                      ? "Fair"
+                      : "Thin"}
+              </strong>
+              <small className="mono health-detail">{healthDetail(health)}</small>
+            </div>
+          </div>
+          <BookDrawer depth={depth} canRest={board.gate.canCall} busy={busy} onRest={(side) => void restSide(side)} />
+        </section>
+
+        {address && live && (
+          <section className="more-section" aria-label="Position">
+            <div className="kicker">Position</div>
+            <div className="banner">
+              Your call this Window:{" "}
+              {posQ.data
+                ? `${formatUnits(posQ.data.up, posQ.data.decimals)} Up · ${formatUnits(posQ.data.down, posQ.data.decimals)} Down`
+                : "…"}
+              {(() => {
+                const preview = posQ.data
+                  ? settlePreview({ up: posQ.data.up, down: posQ.data.down, feeBps: feeQ.data })
+                  : null;
+                return preview && !preview.empty && posQ.data ? (
+                  <div className="settle">{settlePreviewCopy(preview, posQ.data.decimals, feeQ.data)}</div>
+                ) : null;
+              })()}
+              <div className="actions" style={{ marginTop: 8 }}>
+                <button
+                  className="ghost"
+                  type="button"
+                  disabled={!posQ.data || posQ.data.up === 0n || busy !== null}
+                  onClick={() => void exitSide("up")}
+                >
+                  {busy === "exit-up" ? "Exiting…" : "Exit Up"}
+                </button>
+                <button
+                  className="ghost"
+                  type="button"
+                  disabled={!posQ.data || posQ.data.down === 0n || busy !== null}
+                  onClick={() => void exitSide("down")}
+                >
+                  {busy === "exit-down" ? "Exiting…" : "Exit Down"}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {openTickets.length > 0 && (
+          <section className="more-section" aria-label="Resting orders">
+            <div className="kicker">Resting orders</div>
+            <div className="banner">
+              Cancel to free escrow
+              <ul className="tickets">
+                {openTickets.map((t) => (
+                  <li key={t.id}>
+                    <span className="mono">
+                      {t.side} {fmt(t.remaining, 3)} @ {fmt(t.price, 3)} · {t.symbol}
+                    </span>
+                    <button
+                      className="ghost"
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => void cancelTicket(t.id, t.symbol)}
+                    >
+                      {busy === "cancel" ? "Cancelling…" : "Cancel"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {((historyQ.data && historyQ.data.length > 0) || (address && seriesPnlCopy(seriesTotals, asset, intervalSec))) && (
+          <section className="more-section" aria-label="Series history">
+            <div className="kicker">Series history</div>
+            <div className="history">
+              {address && <div className="record pnl">{seriesPnlCopy(seriesTotals, asset, intervalSec)}</div>}
+              {historyQ.data && historyQ.data.length > 0 && (
+                <>
+                  <div className="record">{seriesRecordCopy(readSeriesRecord(historyQ.data))}</div>
+                  {historyQ.data.map((row) => {
+                    const line = historyLine(row.openingPrice);
+                    const body = (
+                      <>
+                        {historyLabel(row.result)}
+                        <small>
+                          {new Date(row.expiry * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {line !== undefined ? ` · ${fmt(line, 2)}` : ""}
+                        </small>
+                      </>
+                    );
+                    return row.oracleQuestionId ? (
+                      <a
+                        key={row.marketId}
+                        className={`chip ${row.result}`}
+                        href={oracleReceipt(row.oracleQuestionId)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {body}
+                      </a>
+                    ) : (
+                      <span key={row.marketId} className={`chip ${row.result}`}>
+                        {body}
+                      </span>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        <section className="more-section" aria-label="Receipts">
+          <ReceiptStrip receipts={receipts} history={historyQ.data} />
+        </section>
+
+        <Pulse
+          asset={asset}
+          price={priceQ.data ?? undefined}
+          priceSamples={priceSamples}
+          impliedSamples={impliedSamples}
+          history={historyQ.data}
+          fills={marketFillsQ.data ?? []}
+        />
+
+        {address && <PnlStrip fills={fillsQ.data} positions={pnlQ.data} />}
+
+        <div className="utilities">
+          {primary.kind !== "claim" && address && (
+            <button className="linklike" type="button" disabled={busy !== null} onClick={() => void claimAll()}>
+              {busy === "claim" ? "Claiming…" : "Claim finalized"}
+            </button>
+          )}
+          {isConnected && chainId === shannonChain.id && step.kind !== "mint" && (
+            <button className="linklike" type="button" disabled={busy !== null} onClick={() => void mintCollateral()}>
+              {busy === "faucet" ? "Minting…" : "Mint tUSDC"}
+            </button>
+          )}
+          <a className="linklike" href={STT_FAUCET} target="_blank" rel="noreferrer">
+            Get STT gas
+          </a>
+          {live?.oracleQuestionId && (
+            <a className="linklike" href={oracleReceipt(live.oracleQuestionId)} target="_blank" rel="noreferrer">
+              Oracle receipt
+            </a>
+          )}
+        </div>
+      </details>
 
       <aside className="toasts" aria-live="polite">
         {banner && (
@@ -739,8 +1037,7 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
       )}
 
       <footer className="foot">
-        Prototype on Somnia Shannon. Event Contracts via @somnia-chain/markets-sdk ≥ 0.28.1. No custom
-        contracts. Default Call is IOC — leftovers do not rest. Rest quotes live in the Book drawer.{" "}
+        Window Duel · dreamDEX Event Contracts on Somnia Shannon testnet · zero custom contracts ·{" "}
         <a href="https://docs.dreamdex.io/developers/event-contracts" target="_blank" rel="noreferrer">
           Developer docs
         </a>

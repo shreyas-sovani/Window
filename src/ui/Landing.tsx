@@ -60,10 +60,13 @@ export function Landing() {
       <section className="hero">
         <div className="hero-copy">
           <h1>
-            Up or down.<br />
-            On-chain. Every few minutes.
+            Challenge another wallet<br />
+            on the same Window.
           </h1>
-          <p>The consumer terminal for dreamDEX Event Contracts on Somnia — live odds, one stake, two buttons.</p>
+          <p>
+            Two opposite Calls, two verified fills, one Line, one on-chain winner — dreamDEX Event Contracts
+            on Somnia. You are social opponents, never exchange counterparties.
+          </p>
           <div className="hero-cta">
             <Button variant="primary" href={routeHref("app")}>
               Open the terminal
@@ -81,10 +84,11 @@ export function Landing() {
       <main className="l-body">
         <Reveal>
           <section className="l-section">
-            <h2>One screen. No order tables.</h2>
+            <h2>Call, challenge, settle.</h2>
             <p>
-              A Window shows the Line, the countdown, and implied odds straight from the book. You stake, you call Up or
-              Down, and an IOC take does the rest — nothing rests, nothing surprises you at settlement.
+              Call a side and share the challenge link. The other wallet Calls the opposite side of the same
+              Window — one invite can create two trades, and the chain verifies both fills. Settlement names
+              the winner; the loser gets the rematch on the next Window.
             </p>
           </section>
         </Reveal>
@@ -93,8 +97,9 @@ export function Landing() {
           <section className="l-section">
             <h2>Settled by the chain, not by us.</h2>
             <p>
-              Every Window resolves against its oracle receipt on Somnia. Winners claim one-to-one, voids redeem both
-              sides at par — and the Claim button scans finalized windows for you.
+              Every Window resolves against its oracle receipt on Somnia — the winner is simply the wallet whose
+              filled side matches settlement. Opponents never fill against each other and no pot is matched: each
+              Call is its own book take. A solo Call still works whenever you want the market to yourself.
             </p>
           </section>
         </Reveal>

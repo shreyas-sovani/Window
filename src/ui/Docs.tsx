@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { warmExchange } from "../exchange/somnia";
 import { Reveal } from "./kit";
+import { Replay } from "./Replay";
 import { routeHref } from "./router";
 
 const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] }[] = [
@@ -40,6 +41,20 @@ const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] 
       { p: "Exit Up / Exit Down sells that side's outcome tokens back into the book before settlement." },
       { h: "Resting (power users)" },
       { p: "The Book drawer can place a post-only bid. It expires when its Window locks — the pool enforces it — so a Rest can never outlive the market." },
+    ],
+  },
+  {
+    id: "duels",
+    title: "Duels",
+    body: [
+      { h: "The loop" },
+      { p: "Challenge another wallet on the same Window. Two opposite Calls, two verified fills, one Line, one on-chain winner — then a rematch on the successor." },
+      { h: "Opponents, not counterparties" },
+      { p: "A duel is social. Each wallet sends its own IOC take; the wallets never fill against each other, no pot is matched, and one invite does not promise the second fill. A duel does not exist until two fills on the same marketId are verified on-chain — a signed tx that did not fill, or a URL field, is never a success state." },
+      { h: "Judging" },
+      { p: "The challenge link (#/app?d=…) is only a hint: the terminal re-verifies both fills and reads settlement from the chain. The winner is the wallet whose filled side matches settlement; unequal stakes are allowed and shown; a Void is a draw; one fill after expiry is an expired challenge, not a win; the same wallet cannot accept its own challenge." },
+      { h: "Replay" },
+      { p: "The replay tool below reconstructs one real duel from a pinned marketId, two transaction hashes, and the finalized outcome — fail-closed if a hash is not a fill on that market. DEMO HOLE: no real Shannon duel hashes are pinned in this repo yet; run one live duel first, then paste its marketId and both tx hashes here (or share them as #/docs?m=…&a=…&b=…&o=up). Fills are never invented to fill the gap." },
     ],
   },
   {
@@ -106,8 +121,11 @@ export function Docs() {
 
         <main className="d-body">
           <Reveal>
-            <h1 className="d-title">Window, documented.</h1>
-            <p className="d-lede">Everything a trader or a judge needs — one page, top to bottom.</p>
+            <h1 className="d-title">Window Duel, documented.</h1>
+            <p className="d-lede">
+              Challenge another wallet on the same Window — two opposite Calls, two verified fills, one
+              on-chain winner. Everything a trader or a judge needs, one page top to bottom.
+            </p>
           </Reveal>
           {SECTIONS.map((s, i) => (
             <Reveal key={s.id} delay={i * 40}>
@@ -119,6 +137,12 @@ export function Docs() {
               </section>
             </Reveal>
           ))}
+          <Reveal key="replay-tool" delay={SECTIONS.length * 40}>
+            <section className="d-section" id="replay-tool" aria-label="Judge replay tool">
+              <h2>Judge replay</h2>
+              <Replay />
+            </section>
+          </Reveal>
         </main>
       </div>
     </div>

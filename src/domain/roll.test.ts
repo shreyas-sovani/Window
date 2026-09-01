@@ -28,21 +28,28 @@ const last: LastCall = {
   marketId: "0x" + "00".repeat(32),
 };
 
-describe("rollPrompt", () => {
-  it("offers the same Call again on the successor Window of the same series", () => {
+describe("rollPrompt (Rematch)", () => {
+  it("offers the same Call again on the successor Window of the same series — rematch keeps the side", () => {
     const p = rollPrompt({ last, live: win(), callable: true });
     expect(p).not.toBeNull();
+    expect(p!.title).toContain("Rematch");
     expect(p!.title).toContain("BTC 15m");
     expect(p!.action).toContain("Call Up");
     expect(p!.action).toContain("10");
     expect(p!.side).toBe("up");
   });
 
-  it("stays quiet while the called Window is still the live one", () => {
+  it("a rematch on the Down side keeps Down", () => {
+    const p = rollPrompt({ last: { ...last, side: "down" }, live: win(), callable: true });
+    expect(p!.side).toBe("down");
+    expect(p!.action).toContain("Call Down");
+  });
+
+  it("stays quiet while the called Window is still the live one — never the dead marketId", () => {
     expect(rollPrompt({ last, live: win({ marketId: last.marketId }), callable: true })).toBeNull();
   });
 
-  it("stays quiet for a different series — a roll is the same asset and cadence", () => {
+  it("stays quiet for a different series — a rematch is the same asset and cadence", () => {
     expect(rollPrompt({ last, live: win({ asset: "ETH", marketId: "0xe" }), callable: true })).toBeNull();
     expect(rollPrompt({ last, live: win({ intervalSec: 3600, marketId: "0xh" }), callable: true })).toBeNull();
   });

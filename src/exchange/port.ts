@@ -65,6 +65,12 @@ export type MarketFill = {
   aggressor: "up" | "down" | null;
   ts: number;
   txHash: string;
+  /** Owning marketId — pools recycle; replay keys by market. */
+  marketId?: string;
+  /** Taker wallet, when the tape names it (replay-grade reads). */
+  taker?: string | null;
+  /** Maker (resting) wallet, when the tape names it. */
+  maker?: string | null;
 };
 
 /** Latest feed read for an underlying asset. */
@@ -85,6 +91,8 @@ export type WalletFill = {
   quote: number;
   timestamp: number;
   txHash: string;
+  /** Owning Window — duels key by marketId; a sibling Window is a different market. */
+  marketId?: `0x${string}`;
 };
 
 /** Avg-cost P&L for one open position, raw collateral units (see decimals). */
@@ -114,6 +122,10 @@ export type WindowFeed = {
   /** Watch + read the underlying asset's on-chain price feed. */
   watchAssetPrice(asset: string): Promise<void>;
   assetPrice(asset: string): AssetPrice | null;
+  /** One Window by marketId — replay-grade; Finalized rows included. */
+  marketById(marketId: `0x${string}`): Promise<LiveWindow | null>;
+  /** One-shot indexer fill tape for a pool, carrying marketId + wallets. */
+  fillsByPool(pool: string, decimals: number, limit?: number): Promise<MarketFill[]>;
 };
 
 /** Writes and wallet-scoped reads. Gate Call/Exit on onchainStatus === 1. */

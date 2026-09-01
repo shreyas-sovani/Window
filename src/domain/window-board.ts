@@ -1,10 +1,16 @@
 import { parseUnits } from "viem";
-import type { BookTop, LiveWindow, StakeQuote } from "../exchange/port";
+import type { BookTop, LiveWindow, OpenTicket, StakeQuote } from "../exchange/port";
 import { prepareCall, prepareQuotedCall, type PreparedCall } from "./call-session";
 import { impliedUp } from "./implied";
 import { windowPhase, type WindowPhase } from "./lifecycle";
 import { pickWindow } from "./pick-window";
 import { nextGate, type Gate } from "./wallet-gate";
+
+/** Resting orders on either side of one Window — a Down rest is escrow too. */
+export function windowTickets(tickets: OpenTicket[], upSymbol?: string, downSymbol?: string): OpenTicket[] {
+  const symbols = new Set([upSymbol, downSymbol].filter((s): s is string => Boolean(s)));
+  return tickets.filter((t) => symbols.has(t.symbol));
+}
 
 export type WindowBoard = {
   live: LiveWindow | null;
@@ -53,7 +59,8 @@ export function readBoard(input: {
     expectedChainId: input.expectedChainId,
     allowance: input.allowance,
     stakeRaw,
-    callable: Boolean(live) && upPlan.ok,
+    // Either executable side unblocks the wallet; each Call button still gates on its own plan.
+    callable: Boolean(live) && (upPlan.ok || downPlan.ok),
   });
   return {
     live,

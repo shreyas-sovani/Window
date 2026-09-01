@@ -1,20 +1,12 @@
-import { formatUnits } from "viem";
-import { oracleReceipt, STT_FAUCET } from "../chain/shannon";
-import type { BookDepth } from "../domain/book-depth";
 import { callSkipCopy } from "../domain/call-session";
-import { fillEstimate, fillCopy } from "../domain/liquidity";
-import { healthDetail, type MarketHealth } from "../domain/market-health";
 import type { RollPrompt } from "../domain/roll";
 import { windowPhaseCopy } from "../domain/lifecycle";
 import { cadenceLabel } from "../domain/series";
-import { historyLine, readSeriesRecord, seriesRecordCopy } from "../domain/series-record";
-import { settlePreview, settlePreviewCopy } from "../domain/settle-preview";
 import type { ChipStatus, OnboardingStep } from "../domain/onboarding";
 import type { WindowBoard } from "../domain/window-board";
-import type { OpenTicket, OutcomeHoldings, PastWindow } from "../exchange/port";
-import { BookDrawer } from "./BookDrawer";
-import { countdown, fmt, historyLabel } from "./format";
 import { Button, ToggleGroup } from "./kit";
+import { countdown, fmt } from "./format";
+import { STT_FAUCET } from "../chain/shannon";
 
 /** The lock clock as a depleting ring: the arc is the Window's remaining fraction. */
 function LockRing(props: { frac: number; urgent: boolean; text: string }) {
@@ -55,6 +47,11 @@ export type Busy =
   | "approve"
   | null;
 
+/**
+ * The Window and its ticket — question, ring, implied odds, stake, Call Up /
+ * Call Down. Everything else (book, history, P&L, Rest, Exit) lives in the
+ * More drawer in App. Disabled reasons ride on title attributes, not paragraphs.
+ */
 export function CallBoard(props: {
   board: WindowBoard;
   asset: string;
@@ -63,45 +60,29 @@ export function CallBoard(props: {
   stake: string;
   onAsset: (asset: string, intervalSec: number) => void;
   onStake: (value: string) => void;
+  /** When a duel stage owns the h1, the Window question demotes to h2. */
+  subordinate?: boolean;
+  /** Incoming challenge: only the opposite side's Call is offered. */
+  onlySide?: "up" | "down";
   loading: boolean;
-  history: PastWindow[] | undefined;
-  seriesPnl?: string;
-  holdings: OutcomeHoldings | undefined;
-  tickets: OpenTicket[] | undefined;
-  address?: string;
   busy: Busy;
   primaryBusy: boolean;
   step: OnboardingStep;
   stepPending: string;
-  claimCopy: string;
-  claimDue: boolean;
   autoKey: string | null;
   cadenceStates: Record<string, ChipStatus>;
   hotCadence: number | null;
-  health: MarketHealth;
   roll: RollPrompt | null;
   onRoll: (side: "up" | "down") => void;
   onDismissRoll: () => void;
   faucetEnabled: boolean;
   onPrimary: () => void;
   onCall: (side: "up" | "down") => void;
-  onExit: (side: "up" | "down") => void;
-  onClaim: () => void;
   onFaucet: () => void;
-  onCancel: (id: string, symbol: string) => void;
-  onRest: (side: "up" | "down") => void;
-  depth: BookDepth;
-  feeBps?: bigint;
 }) {
   const { board, live } = { board: props.board, live: props.board.live };
   const implied = board.implied;
-  const preview = props.holdings
-    ? settlePreview({ up: props.holdings.up, down: props.holdings.down, feeBps: props.feeBps })
-    : null;
   const booting = props.loading && !live;
-  const stakeNum = Number(props.stake);
-  const upEst = live ? fillEstimate(props.depth, "up", Number.isFinite(stakeNum) ? stakeNum : 0) : null;
-  const downEst = live ? fillEstimate(props.depth, "down", Number.isFinite(stakeNum) ? stakeNum : 0) : null;
   const phase = board.phase;
   const locking = phase?.kind === "too-close" || phase?.kind === "locked" || phase?.kind === "settling";
   const urgent = locking || (live ? live.expiry - props.now < 60 : false);
@@ -127,6 +108,7 @@ export function CallBoard(props: {
     }),
   );
   const step = props.step;
+  const Question = props.subordinate ? "h2" : "h1";
   return (
     <>
       <nav className="series-nav" aria-label="Series">
@@ -157,7 +139,7 @@ export function CallBoard(props: {
               ? "Reading the indexer…"
               : "No live Window"}
         </div>
-        <h2 className="question" key={live?.marketId ?? "none"}>
+        <Question className="question" key={live?.marketId ?? "none"}>
           {live?.openingPrice ? (
             <>
               Will {live.asset} close above{" "}
@@ -171,7 +153,7 @@ export function CallBoard(props: {
           ) : (
             "Waiting for the next Window."
           )}
-        </h2>
+        </Question>
         <div className={`clock${urgent ? " urgent" : ""}`}>
           <div className="kicker">{clockKicker}</div>
           {live ? (
@@ -191,72 +173,13 @@ export function CallBoard(props: {
               {implied !== undefined ? `${fmt(implied * 100, 1)}%` : booting ? <span className="skeleton" /> : "—"}
             </strong>
           </div>
-          <div>
-            Volume
-            <strong className="mono">{live?.volumeQuote !== undefined ? `${fmt(live.volumeQuote, 2)} tUSDC` : "—"}</strong>
-          </div>
-          <div>
-            Trades
-            <strong className="mono">{live?.tradeCount ?? "—"}</strong>
-          </div>
-          <div>
-            Book
-            <strong className={`mono health ${props.health.grade}`} title={props.health.copy}>
-              {props.health.grade === "none"
-                ? "No odds"
-                : props.health.grade === "strong"
-                  ? "Strong"
-                  : props.health.grade === "fair"
-                    ? "Fair"
-                    : "Thin"}
-            </strong>
-            <small className="mono health-detail">{healthDetail(props.health)}</small>
-          </div>
         </div>
       </section>
-
-      {(props.seriesPnl || (props.history && props.history.length > 0)) && (
-        <div className="history" aria-label="Series history">
-          {props.seriesPnl && <div className="record pnl">{props.seriesPnl}</div>}
-          {props.history && props.history.length > 0 && (
-            <>
-              <div className="record">{seriesRecordCopy(readSeriesRecord(props.history))}</div>
-              {props.history.map((row) => {
-                const line = historyLine(row.openingPrice);
-                const body = (
-                  <>
-                    {historyLabel(row.result)}
-                    <small>
-                      {new Date(row.expiry * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      {line !== undefined ? ` · ${fmt(line, 2)}` : ""}
-                    </small>
-                  </>
-                );
-                return row.oracleQuestionId ? (
-                  <a
-                    key={row.marketId}
-                    className={`chip ${row.result}`}
-                    href={oracleReceipt(row.oracleQuestionId)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {body}
-                  </a>
-                ) : (
-                  <span key={row.marketId} className={`chip ${row.result}`}>
-                    {body}
-                  </span>
-                );
-              })}
-            </>
-          )}
-        </div>
-      )}
 
       {props.roll && (
         <div className="rollbar" role="status">
           <span>
-            <span className="kicker">Roll</span>
+            <span className="kicker">Rematch</span>
             {props.roll.title}
           </span>
           <span className="rollbar-actions">
@@ -287,184 +210,73 @@ export function CallBoard(props: {
               </button>
             ))}
           </div>
-          <div className="preview">
-            {board.upPlan.ok ? (
-              board.downPlan.ok ? (
-                "Both sides are executable at these odds."
-              ) : (
-                "Down has no executable odds at this stake yet."
-              )
-            ) : (
-              callSkipCopy(board.upPlan.reason)
-            )}
-          </div>
           {step.kind === "approve" && (
             <Button variant="primary" className="onboard-action" disabled={props.primaryBusy} onClick={props.onPrimary}>
               {props.stepPending || step.action}
             </Button>
           )}
         </div>
-        <div className="side up">
-          <div className="kicker">Up · close ≥ Line</div>
-          <div className="odds tick" key={implied !== undefined ? `u${implied.toFixed(3)}` : "u"}>
-            {implied !== undefined ? `${fmt(implied * 100, 1)}%` : "—"}
-          </div>
-          <div className="risk">
-            {board.upPlan.ok ? (
-              <>
-                Risk {fmt(board.upPlan.plan.maxLoss, 2)} → Win {fmt(board.upPlan.plan.payoutIfWin, 2)} tUSDC ·{" "}
-                {fmt(board.upPlan.plan.contracts, 2)} contracts
-              </>
-            ) : (
-              callSkipCopy(board.upPlan.reason)
-            )}
-          </div>
-          {upEst && (
-            <div className="fill mono">
-              {fillCopy(upEst)}
-              {upEst.maxStake > 0.005 && (
-                <button
-                  className="linklike"
-                  type="button"
-                  onClick={() => props.onStake(String(Math.floor(upEst.maxStake * 100) / 100))}
-                >
-                  Use max {fmt(upEst.maxStake, 2)} tUSDC
-                </button>
+        {props.onlySide !== "down" && (
+          <div className="side up">
+            <div className="kicker">Up · close ≥ Line</div>
+            <div className="odds tick" key={implied !== undefined ? `u${implied.toFixed(3)}` : "u"}>
+              {implied !== undefined ? `${fmt(implied * 100, 1)}%` : "—"}
+            </div>
+            <div className="risk">
+              {board.upPlan.ok && (
+                <>
+                  Risk {fmt(board.upPlan.plan.maxLoss, 2)} → Win {fmt(board.upPlan.plan.payoutIfWin, 2)} tUSDC ·{" "}
+                  {fmt(board.upPlan.plan.contracts, 2)} contracts
+                </>
               )}
             </div>
-          )}
-          <button
-            type="button"
-            disabled={!board.gate.canCall || props.primaryBusy || !board.upPlan.ok}
-            title={
-              !board.gate.canCall
-                ? "Connect a Shannon wallet and approve tUSDC first."
-                : !board.upPlan.ok
-                  ? callSkipCopy(board.upPlan.reason)
-                  : "IOC take at a protective limit — leftovers cancel, nothing rests."
-            }
-            onClick={() => props.onCall("up")}
-          >
-            {props.busy === "up" ? "Calling…" : "Call Up"}
-          </button>
-        </div>
-        <div className="side down">
-          <div className="kicker">Down · close &lt; Line</div>
-          <div className="odds tick" key={implied !== undefined ? `d${implied.toFixed(3)}` : "d"}>
-            {implied !== undefined ? `${fmt((1 - implied) * 100, 1)}%` : "—"}
+            <button
+              type="button"
+              disabled={!board.gate.canCall || props.primaryBusy || !board.upPlan.ok}
+              title={
+                !board.gate.canCall
+                  ? "Connect a Shannon wallet and approve tUSDC first."
+                  : !board.upPlan.ok
+                    ? callSkipCopy(board.upPlan.reason)
+                    : "IOC take at a protective limit — leftovers cancel, nothing rests."
+              }
+              onClick={() => props.onCall("up")}
+            >
+              {props.busy === "up" ? "Calling…" : "Call Up"}
+            </button>
           </div>
-          <div className="risk">
-            {board.downPlan.ok ? (
-              <>
-                Risk {fmt(board.downPlan.plan.maxLoss, 2)} → Win {fmt(board.downPlan.plan.payoutIfWin, 2)} tUSDC ·{" "}
-                {fmt(board.downPlan.plan.contracts, 2)} contracts
-              </>
-            ) : (
-              callSkipCopy(board.downPlan.reason)
-            )}
-          </div>
-          {downEst && (
-            <div className="fill mono">
-              {fillCopy(downEst)}
-              {downEst.maxStake > 0.005 && (
-                <button
-                  className="linklike"
-                  type="button"
-                  onClick={() => props.onStake(String(Math.floor(downEst.maxStake * 100) / 100))}
-                >
-                  Use max {fmt(downEst.maxStake, 2)} tUSDC
-                </button>
+        )}
+        {props.onlySide !== "up" && (
+          <div className="side down">
+            <div className="kicker">Down · close &lt; Line</div>
+            <div className="odds tick" key={implied !== undefined ? `d${implied.toFixed(3)}` : "d"}>
+              {implied !== undefined ? `${fmt((1 - implied) * 100, 1)}%` : "—"}
+            </div>
+            <div className="risk">
+              {board.downPlan.ok && (
+                <>
+                  Risk {fmt(board.downPlan.plan.maxLoss, 2)} → Win {fmt(board.downPlan.plan.payoutIfWin, 2)} tUSDC ·{" "}
+                  {fmt(board.downPlan.plan.contracts, 2)} contracts
+                </>
               )}
             </div>
-          )}
-          <button
-            type="button"
-            disabled={!board.gate.canCall || props.primaryBusy || !board.downPlan.ok}
-            title={
-              !board.gate.canCall
-                ? "Connect a Shannon wallet and approve tUSDC first."
-                : !board.downPlan.ok
-                  ? callSkipCopy(board.downPlan.reason)
-                  : "IOC take at a protective limit — leftovers cancel, nothing rests."
-            }
-            onClick={() => props.onCall("down")}
-          >
-            {props.busy === "down" ? "Calling…" : "Call Down"}
-          </button>
-        </div>
+            <button
+              type="button"
+              disabled={!board.gate.canCall || props.primaryBusy || !board.downPlan.ok}
+              title={
+                !board.gate.canCall
+                  ? "Connect a Shannon wallet and approve tUSDC first."
+                  : !board.downPlan.ok
+                    ? callSkipCopy(board.downPlan.reason)
+                    : "IOC take at a protective limit — leftovers cancel, nothing rests."
+              }
+              onClick={() => props.onCall("down")}
+            >
+              {props.busy === "down" ? "Calling…" : "Call Down"}
+            </button>
+          </div>
+        )}
       </div>
-
-      <BookDrawer
-        depth={props.depth}
-        canRest={board.gate.canCall}
-        busy={props.busy}
-        onRest={props.onRest}
-      />
-
-      {props.address && live && (
-        <div className="banner">
-          Your call this Window:{" "}
-          {props.holdings
-            ? `${formatUnits(props.holdings.up, props.holdings.decimals)} Up · ${formatUnits(props.holdings.down, props.holdings.decimals)} Down`
-            : "…"}
-          {preview && !preview.empty && props.holdings && (
-            <div className="settle">{settlePreviewCopy(preview, props.holdings.decimals, props.feeBps)}</div>
-          )}
-          <div className="actions" style={{ marginTop: 8 }}>
-            <button
-              className="ghost"
-              type="button"
-              disabled={!props.holdings || props.holdings.up === 0n || props.busy !== null}
-              onClick={() => props.onExit("up")}
-            >
-              {props.busy === "exit-up" ? "Exiting…" : "Exit Up"}
-            </button>
-            <button
-              className="ghost"
-              type="button"
-              disabled={!props.holdings || props.holdings.down === 0n || props.busy !== null}
-              onClick={() => props.onExit("down")}
-            >
-              {props.busy === "exit-down" ? "Exiting…" : "Exit Down"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {props.tickets && props.tickets.length > 0 && (
-        <div className="banner">
-          Resting orders (IOC Calls should not leave these — cancel to free escrow)
-          <ul className="tickets">
-            {props.tickets.map((t) => (
-              <li key={t.id}>
-                <span className="mono">
-                  {t.side} {fmt(t.remaining, 3)} @ {fmt(t.price, 3)} · {t.symbol}
-                </span>
-                <button
-                  className="ghost"
-                  type="button"
-                  disabled={props.busy !== null}
-                  onClick={() => props.onCancel(t.id, t.symbol)}
-                >
-                  {props.busy === "cancel" ? "Cancelling…" : "Cancel"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {props.claimDue && (
-        <section className="rewards" aria-label="Claim rewards">
-          <div>
-            <h3 className="rewards-title">Winnings ready</h3>
-            <p className="rewards-sub">{props.claimCopy}</p>
-          </div>
-          <Button variant="primary" disabled={props.primaryBusy} onClick={props.onClaim}>
-            {props.busy === "claim" ? "Claiming…" : "Claim"}
-          </Button>
-        </section>
-      )}
 
       {step.kind !== "call" && (
         <section className="onboard" aria-label="Next action">
@@ -494,27 +306,6 @@ export function CallBoard(props: {
             ))}
         </section>
       )}
-
-      <div className="utilities">
-        {!props.claimDue && props.address && (
-          <button className="linklike" type="button" disabled={props.busy !== null} onClick={props.onClaim}>
-            {props.busy === "claim" ? "Claiming…" : "Claim finalized"}
-          </button>
-        )}
-        {props.faucetEnabled && step.kind !== "mint" && (
-          <button className="linklike" type="button" disabled={props.busy !== null} onClick={props.onFaucet}>
-            {props.busy === "faucet" ? "Minting…" : "Mint tUSDC"}
-          </button>
-        )}
-        <a className="linklike" href={STT_FAUCET} target="_blank" rel="noreferrer">
-          Get STT gas
-        </a>
-        {live?.oracleQuestionId && (
-          <a className="linklike" href={oracleReceipt(live.oracleQuestionId)} target="_blank" rel="noreferrer">
-            Oracle receipt
-          </a>
-        )}
-      </div>
     </>
   );
 }

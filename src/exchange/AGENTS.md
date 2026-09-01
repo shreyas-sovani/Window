@@ -19,6 +19,13 @@ Working against SDK types. `npm test` uses `createFakeExchange`, not the live in
 
 ## Decision Log
 
+### 2026-08-31 — Duel seams: marketId-stamped fills, pool-tape reads, unique fake tx hashes
+- **Change**: `port.ts` — `WalletFill.marketId?` (duels key by market; fake stamps it, somnia's portfolio path cannot — see Reasoning), `MarketFill.marketId?/taker?/maker?` (replay-grade), `WindowFeed.marketById(marketId)` (replay-grade; Finalized rows included) and `WindowFeed.fillsByPool(pool, decimals, limit?)` (one-shot indexer read via `client.getFills`). `somnia.ts` — `marketById` via `client.getMarket` + `liveFromBinary(…, {finalizedOk: true})`; `fillsByPool` maps FillRow incl. `takerOrder.side`→aggressor with `takerSide`/`takerIsBid` fallbacks. `fake.ts` — every write returns a distinct `0xfakeN` hash and stamps it on the wallet fill tape; IOC writes also append to the pool tape (`marketFills[pool]`) with `state.actingAccount` as taker; new `iocFills: boolean` knob simulates a landed-but-unfilled IOC; `marketById`/`fillsByPool` implemented.
+- **Reasoning**: Duels verify fills by marketId + wallet. The SDK's `PortfolioTrade.market` has no marketId, so the real adapter cannot stamp it on the wallet tape — duel verification therefore reads the pool's public tape (`getFills`), which carries `market` (bytes32), `taker`, and sides. Unique fake hashes make tx-hash receipt matching meaningful in tests; `iocFills: false` makes the zero-fill refusal path testable end-to-end.
+- **Rejected alternative(s)**: Stamping marketId on the somnia wallet tape anyway (type error — field genuinely absent; faking it by asset+cadence would cross sibling Windows); reusing `getLiveFills` for replay (live-store tail rotates; the one-shot indexer query is the stable read); keeping `"0xfake"` for all writes (tx-hash matching would sum unrelated fills).
+- **Task/session**: Window Duel identity pass — items 1, 3, 4, 12 adapter seams.
+
+
 ### 2026-08-30 — Warm start + 45s reload gate
 - **Change**: `fullLoad()` — single in-flight `loadMarkets(true)`, stamps `lastFullLoad` **on success only**. `listLiveWindows`: full sweep only when `Date.now() - lastFullLoad > 45_000`, else `loadMarkets(false)` (warm store, instant). `warmExchange()` (module-flagged) fired from `Landing` and `Docs` mounts.
 - **Reasoning**: Cold `loadMarkets(true)` costs ~10s (registry page + per-pool grid reads) — a judge clicking through from the landing saw 12s of skeleton. The SDK returns its warm store instantly on `loadMarkets(false)`; full reload still runs at most every 45s so successor Windows appear within a roll. Stamping on success means a failed sweep leaves the gate stale and the next poll retries instead of serving an empty store for 45s.

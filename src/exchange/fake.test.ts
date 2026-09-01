@@ -43,7 +43,38 @@ describe("fake ExchangeAdapter", () => {
     const intent = prepareCall({ live, book: { ask: 0.5 }, stake: 10, side: "up", nowSec: 1_000 });
     const hash = await executeCall(ex, live!, intent);
     expect(ex.state.buys).toEqual([{ symbol: "BTC#YES", contracts: 20, price: 0.5 }]);
-    expect(hash).toBe("0xfake");
+    expect(hash).toMatch(/^0xfake/);
+  });
+
+  it("returns a distinct tx hash per write and stamps it on the fill tape", async () => {
+    const ex = createFakeExchange({
+      windows: [windowRow()],
+      books: { "BTC#YES": { ask: 0.5 } },
+      statusByMarket: { "0xabc": 1 },
+    });
+    const [live] = await ex.listLiveWindows();
+    const a = prepareCall({ live, book: { ask: 0.5 }, stake: 10, side: "up", nowSec: 1_000 });
+    const b = prepareCall({ live, book: { ask: 0.5 }, stake: 5, side: "down", nowSec: 1_000 });
+    const hashA = await executeCall(ex, live!, a);
+    const hashB = await executeCall(ex, live!, b);
+    expect(hashA).not.toBe(hashB);
+    const fills = await ex.listFills("0x0000000000000000000000000000000000000001");
+    expect(fills.find((f) => f.txHash === hashA)?.side).toBe("up");
+    expect(fills.find((f) => f.txHash === hashB)?.side).toBe("down");
+  });
+
+  it("can land an IOC that fills nothing — a hash with no tape row", async () => {
+    const ex = createFakeExchange({
+      windows: [windowRow()],
+      books: { "BTC#YES": { ask: 0.5 } },
+      statusByMarket: { "0xabc": 1 },
+      iocFills: false,
+    });
+    const [live] = await ex.listLiveWindows();
+    const intent = prepareCall({ live, book: { ask: 0.5 }, stake: 10, side: "up", nowSec: 1_000 });
+    const hash = await executeCall(ex, live!, intent);
+    expect(hash).toMatch(/^0xfake/);
+    expect(await ex.listFills("0x0000000000000000000000000000000000000001")).toEqual([]);
   });
 
   it("rests a post-only bid without recording a fill", async () => {
@@ -54,7 +85,7 @@ describe("fake ExchangeAdapter", () => {
     });
     const [live] = await ex.listLiveWindows();
     const hash = await ex.restBuy("BTC#YES", 20, 0.5);
-    expect(hash).toBe("0xfake");
+    expect(hash).toMatch(/^0xfake/);
     expect(ex.state.rests).toEqual([{ symbol: "BTC#YES", contracts: 20, price: 0.5 }]);
     expect(ex.state.fills).toEqual([]);
   });
@@ -63,7 +94,7 @@ describe("fake ExchangeAdapter", () => {
     const ex = createFakeExchange({
       tickets: [{ id: "1", symbol: "BTC#YES", side: "buy", price: 0.5, remaining: 10 }],
     });
-    expect(await ex.cancelOpenTicket("1", "BTC#YES")).toBe("0xfake");
+    expect(await ex.cancelOpenTicket("1", "BTC#YES")).toMatch(/^0xfake/);
     expect(await ex.listOpenTickets()).toEqual([]);
   });
 
@@ -96,7 +127,8 @@ describe("fake ExchangeAdapter", () => {
       ],
     });
     const receipt = await ex.claimFinalized("0x0000000000000000000000000000000000000001");
-    expect(receipt).toEqual({ count: 1, windows: 1, payout: 5n, failed: 0, txHash: "0xfake" });
+    expect(receipt.txHash).toMatch(/^0xfake/);
+    expect(receipt).toMatchObject({ count: 1, windows: 1, payout: 5n, failed: 0 });
   });
 
   it("claims both sides on a void", async () => {
@@ -112,13 +144,9 @@ describe("fake ExchangeAdapter", () => {
         },
       ],
     });
-    expect(await ex.claimFinalized("0x0000000000000000000000000000000000000001")).toEqual({
-      count: 2,
-      windows: 1,
-      payout: 3n,
-      failed: 0,
-      txHash: "0xfake",
-    });
+    const voidReceipt = await ex.claimFinalized("0x0000000000000000000000000000000000000001");
+    expect(voidReceipt).toMatchObject({ count: 2, windows: 1, payout: 3n, failed: 0 });
+    expect(voidReceipt.txHash).toMatch(/^0xfake/);
   });
 
   it("previews Claim session count without redeeming", async () => {
@@ -137,7 +165,7 @@ describe("fake ExchangeAdapter", () => {
     });
     expect(await ex.previewClaimSession(account)).toEqual({ count: 1, windows: 1, payout: 5n });
     expect(ex.state.claims[0]?.up).toBe(5n);
-    expect(await ex.claimFinalized(account)).toEqual({ count: 1, windows: 1, payout: 5n, failed: 0, txHash: "0xfake" });
+    expect(await ex.claimFinalized(account)).toMatchObject({ count: 1, windows: 1, payout: 5n, failed: 0 });
     expect(await ex.previewClaimSession(account)).toEqual({ count: 0, windows: 0, payout: 0n });
   });
 
@@ -175,6 +203,33 @@ describe("fake ExchangeAdapter", () => {
     expect(fills[0]?.direction).toBe("buy");
     expect(fills[0]?.side).toBe("up");
     expect(fills[0]?.quote).toBe(10);
+  });
+
+  it("finds a Window by marketId even when Finalized, and reads a pool's fill tape", async () => {
+    const finalized = windowRow({ marketId: "0xfin2", status: 4, upSymbol: "BTC#OLD2" });
+    const ex = createFakeExchange({
+      windows: [windowRow(), finalized],
+      marketFills: {
+        "0x0000000000000000000000000000000000000001": [
+          {
+            id: "r1",
+            price: 0.55,
+            quantity: 18,
+            quote: 9.9,
+            aggressor: "up",
+            ts: 1_200,
+            txHash: "0xta",
+            marketId: "0xabc",
+            taker: "0x00000000000000000000000000000000000000aa",
+          },
+        ],
+      },
+    });
+    expect((await ex.marketById("0xfin2"))?.asset).toBe("BTC");
+    expect(await ex.marketById("0xnope")).toBeNull();
+    const rows = await ex.fillsByPool("0x0000000000000000000000000000000000000001", 6);
+    expect(rows[0]?.taker).toBe("0x00000000000000000000000000000000000000aa");
+    expect(rows[0]?.marketId).toBe("0xabc");
   });
 
   it("returns seeded position P&L", async () => {

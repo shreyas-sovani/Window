@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { LiveWindow } from "../exchange/port";
-import { readBoard } from "./window-board";
+import type { LiveWindow, OpenTicket } from "../exchange/port";
+import { readBoard, windowTickets } from "./window-board";
 
 const live = (over: Partial<LiveWindow> = {}): LiveWindow => ({
   marketId: "0xabc",
@@ -146,5 +146,94 @@ describe("readBoard", () => {
     expect(board.phase).toEqual({ kind: "locked" });
     expect(board.upPlan.ok).toBe(false);
     expect(board.gate.action).toBe("wait");
+  });
+
+  it("a Down-only book still allows Call Down — each side gates itself", () => {
+    const board = readBoard({
+      windows: [live()],
+      asset: "BTC",
+      intervalSec: 900,
+      nowSec: 1_000,
+      book: {},
+      stake: 10,
+      connected: true,
+      chainId: 50312,
+      expectedChainId: 50312,
+      allowance: 10_000_000n,
+      downQuote: { quantity: 15_000_000n, limitPrice: 500_000n, escrow: 7_500_000n },
+    });
+    expect(board.upPlan.ok).toBe(false);
+    expect(board.downPlan.ok).toBe(true);
+    expect(board.gate).toEqual({ action: "call", canCall: true });
+  });
+
+  it("an Up-only book still allows Call Up", () => {
+    const board = readBoard({
+      windows: [live()],
+      asset: "BTC",
+      intervalSec: 900,
+      nowSec: 1_000,
+      book: {},
+      stake: 10,
+      connected: true,
+      chainId: 50312,
+      expectedChainId: 50312,
+      allowance: 10_000_000n,
+      upQuote: { quantity: 15_000_000n, limitPrice: 500_000n, escrow: 7_500_000n },
+    });
+    expect(board.upPlan.ok).toBe(true);
+    expect(board.downPlan.ok).toBe(false);
+    expect(board.gate).toEqual({ action: "call", canCall: true });
+  });
+
+  it("neither side executable keeps the gate at wait", () => {
+    const board = readBoard({
+      windows: [live()],
+      asset: "BTC",
+      intervalSec: 900,
+      nowSec: 1_000,
+      book: {},
+      stake: 10,
+      connected: true,
+      chainId: 50312,
+      expectedChainId: 50312,
+      allowance: 10_000_000n,
+    });
+    expect(board.upPlan.ok).toBe(false);
+    expect(board.downPlan.ok).toBe(false);
+    expect(board.gate.action).toBe("wait");
+  });
+});
+
+describe("windowTickets", () => {
+  const ticket = (over: Partial<OpenTicket>): OpenTicket => ({
+    id: over.id ?? "1",
+    symbol: over.symbol ?? "BTC#YES",
+    side: "buy",
+    price: 0.5,
+    remaining: 10,
+    ...over,
+  });
+
+  it("lists resting orders on both sides of this Window, never other markets", () => {
+    const tickets = [
+      ticket({ id: "1", symbol: "BTC#YES" }),
+      ticket({ id: "2", symbol: "BTC#NO", price: 0.45, remaining: 8 }),
+      ticket({ id: "3", symbol: "ETH#YES", price: 0.6, remaining: 5 }),
+    ];
+    expect(windowTickets(tickets, "BTC#YES", "BTC#NO").map((t) => t.id)).toEqual(["1", "2"]);
+  });
+
+  it("covers the Down symbol when only the Up was queried before", () => {
+    const tickets = [ticket({ id: "d", symbol: "BTC#NO", price: 0.45, remaining: 8 })];
+    expect(windowTickets(tickets, "BTC#YES", "BTC#NO")).toHaveLength(1);
+  });
+
+  it("a Window without a Down symbol falls back to the Up symbol alone", () => {
+    const tickets = [
+      ticket({ id: "1", symbol: "BTC#YES" }),
+      ticket({ id: "2", symbol: "BTC#NO" }),
+    ];
+    expect(windowTickets(tickets, "BTC#YES", undefined).map((t) => t.id)).toEqual(["1"]);
   });
 });

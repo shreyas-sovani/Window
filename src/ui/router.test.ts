@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRoute, routeHref } from "./router";
+import { hashParam, parseRoute, routeHref } from "./router";
 
 describe("parseRoute", () => {
   it("does not treat an app prefix as the terminal", () => {
@@ -13,6 +13,16 @@ describe("parseRoute", () => {
     expect(parseRoute("#/docs/")).toBe("docs");
     expect(parseRoute("#/app")).toBe("app");
     expect(parseRoute("#/app?from=landing")).toBe("app");
+  });
+});
+
+describe("hashParam", () => {
+  it("reads a query param that lives after the hash", () => {
+    expect(hashParam("#/app?d=1.abc_def", "d")).toBe("1.abc_def");
+    expect(hashParam("#/app?d=1.abc&x=2", "d")).toBe("1.abc");
+    expect(hashParam("#/app?x=2", "d")).toBeNull();
+    expect(hashParam("#/app", "d")).toBeNull();
+    expect(hashParam("", "d")).toBeNull();
   });
 });
 

@@ -1026,3 +1026,81 @@ a.chip:hover { filter: brightness(0.97); }
 }
 .acct-control { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .acct-none { color: var(--muted); font-size: 13px; }
+
+/* ---------- duel panel + judge replay ---------- */
+.duel {
+  margin-top: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+}
+.duel.refusal { border-style: dashed; }
+.duel.settled { border-color: rgba(15, 122, 95, 0.45); background: var(--up-soft); }
+.duel.void { background: var(--paper); }
+.duel.expired { border-style: dashed; }
+.duel-line { font-size: 15px; }
+.duel-h {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 22px;
+  margin: 0;
+}
+.challenge-strip {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px dashed var(--clay);
+  border-radius: 12px;
+  background: var(--clay-soft);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.challenge-url {
+  flex: 1 1 260px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--clay);
+}
+.usp { margin: 2px 0 0; }
+.usp-note { margin: 0; color: var(--muted); font-size: 13px; }
+.drawer.more > summary { margin-top: 20px; }
+.more-section { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.drawer.more .utilities { margin-top: 14px; }
+.duel-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  font-size: 13px;
+}
+.duel-note { color: var(--muted); font-size: 13px; max-width: 60ch; }
+.replay { display: flex; flex-direction: column; gap: 12px; }
+.replay-intro { color: var(--muted); max-width: 70ch; }
+.replay-form { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+.replay-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1 1 220px;
+}
+.replay-form input,
+.replay-form select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+}
+.replay-refusal { color: var(--down); font-size: 13px; }
