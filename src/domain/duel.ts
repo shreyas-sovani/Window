@@ -86,10 +86,12 @@ export type DuelRefusalReason =
   | "no-challenge"
   | "unknown-market"
   | "missing-fill"
+  | "missing-accept-fill"
   | "wrong-market"
   | "self-accept"
   | "same-side"
-  | "not-trading";
+  | "not-trading"
+  | "verification-unavailable";
 
 export type Duel =
   | { kind: "invalid"; reason: DuelRefusalReason }
@@ -120,22 +122,33 @@ export function duelFill(account: string, marketId: string, filled: FilledCall, 
  */
 export function tapeDuelFill(
   rows: MarketFill[],
-  match: { marketId: string; txHash?: string; taker?: string; notTaker?: string; side?: DuelSide },
+  match: { marketId: string; txHash?: string; taker?: string; side?: DuelSide },
 ): DuelFill | null {
-  let mine = rows.filter((r) => (r.marketId ?? "") === match.marketId && r.quantity > 0);
-  if (match.txHash) mine = mine.filter((r) => r.txHash === match.txHash);
+  const marketId = match.marketId.toLowerCase();
+  let mine = rows.filter((r) => (r.marketId ?? "").toLowerCase() === marketId && r.quantity > 0);
+  if (match.txHash) {
+    const txHash = match.txHash.toLowerCase();
+    mine = mine.filter((r) => r.txHash.toLowerCase() === txHash);
+    if (mine.some((r) => !r.taker || !r.aggressor)) return null;
+    if (new Set(mine.map((r) => r.aggressor)).size !== 1) return null;
+    if (new Set(mine.map((r) => r.taker!.toLowerCase())).size !== 1) return null;
+  }
   const wantTaker = match.taker?.toLowerCase();
   if (wantTaker) mine = mine.filter((r) => (r.taker ?? "").toLowerCase() === wantTaker);
-  const notTaker = match.notTaker?.toLowerCase();
-  if (notTaker) mine = mine.filter((r) => (r.taker ?? "").toLowerCase() !== notTaker);
   if (match.side) mine = mine.filter((r) => r.aggressor === match.side);
   if (mine.length === 0) return null;
-  const side = mine[0].aggressor;
-  if (!side) return null;
+  if (mine.some((r) => !r.taker || !r.aggressor)) return null;
+  const proofSides = new Set(mine.map((r) => r.aggressor));
+  const proofTakers = new Set(mine.map((r) => r.taker!.toLowerCase()));
+  if (proofSides.size !== 1 || proofTakers.size !== 1) return null;
+  // One proof is one transaction owned by one wallet on one side. Refuse mixed
+  // rows instead of silently merging public activity into a fictional duel leg.
+  const side = [...proofSides][0];
+  const taker = [...proofTakers][0];
+  if (!side || !taker) return null;
   const contracts = mine.reduce((s, r) => s + r.quantity, 0);
   const escrow = mine.reduce((s, r) => s + r.quote, 0);
-  const taker = wantTaker ?? (mine[0].taker ?? "").toLowerCase();
-  if (!(contracts > 0) || !taker) return null;
+  if (!(contracts > 0)) return null;
   return {
     account: taker,
     marketId: match.marketId,
@@ -179,15 +192,16 @@ export function verifyChallenge(
 
 export function verifyAccept(
   challenge: VerifiedChallenge,
-  input: { acceptor: string | undefined; acceptorFill: DuelFill | null; windowStatus: number },
+  input: { acceptorFill: DuelFill | null; windowStatus: number },
 ):
   | { ok: true; duel: OpenDuel }
   | { ok: false; reason: Exclude<DuelRefusalReason, "no-challenge" | "unknown-market"> } {
-  if (input.acceptor !== undefined && input.acceptor === challenge.challenger) {
-    return { ok: false, reason: "self-accept" };
-  }
+  const challenger = challenge.challenger.toLowerCase();
   const fill = input.acceptorFill;
   if (!fill) return { ok: false, reason: "missing-fill" };
+  // The fill owner is authoritative. `acceptor` may merely be the connected
+  // viewer when anyone opens a settled duel link.
+  if (fill.account.toLowerCase() === challenger) return { ok: false, reason: "self-accept" };
   if (fill.marketId !== challenge.marketId) return { ok: false, reason: "wrong-market" };
   if (fill.side === challenge.side) return { ok: false, reason: "same-side" };
   if (input.windowStatus !== 1) return { ok: false, reason: "not-trading" };
@@ -239,7 +253,6 @@ export function readDuel(input: {
   window: DuelWindow | null;
   windowStatus: number;
   challengerFill: DuelFill | null;
-  acceptor?: string;
   acceptorFill: DuelFill | null;
   settlement: DuelSettlement | null;
   nowSec: number;
@@ -253,7 +266,6 @@ export function readDuel(input: {
     // A fill that landed before expiry is itself proof the pool was Trading
     // then — re-checking today's status would call every settled duel invalid.
     const accepted = verifyAccept(verified.challenge, {
-      acceptor: input.acceptor,
       acceptorFill,
       windowStatus: acceptorFill.ts <= input.window!.expiry ? 1 : input.windowStatus,
     });
@@ -272,6 +284,8 @@ export function duelRefusalCopy(reason: DuelRefusalReason): string {
       return "That Window is not on this chain.";
     case "missing-fill":
       return "The challenger's fill could not be verified on-chain.";
+    case "missing-accept-fill":
+      return "The accepting transaction could not be verified on this Window.";
     case "wrong-market":
       return "That fill belongs to a different Window.";
     case "self-accept":
@@ -280,6 +294,8 @@ export function duelRefusalCopy(reason: DuelRefusalReason): string {
       return "Duels take opposite sides — this wallet already holds that side.";
     case "not-trading":
       return "The Window is not Trading, so a new Call cannot cross.";
+    case "verification-unavailable":
+      return "Chain verification is temporarily unavailable. No challenge result was inferred.";
     default:
       return "This challenge is not open.";
   }

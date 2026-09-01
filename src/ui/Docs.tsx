@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { warmExchange } from "../exchange/somnia";
 import { Reveal } from "./kit";
 import { Replay } from "./Replay";
-import { routeHref } from "./router";
+import { routeHref, useHashParam } from "./router";
 
 const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] }[] = [
   {
@@ -48,13 +48,13 @@ const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] 
     title: "Duels",
     body: [
       { h: "The loop" },
-      { p: "Challenge another wallet on the same Window. Two opposite Calls, two verified fills, one Line, one on-chain winner — then a rematch on the successor." },
+      { p: "Challenge another wallet on the same Window. Two opposite Calls, two verified fills, one Line, one on-chain winner. Afterward, either caller can repeat their own last verified side on the successor Window." },
       { h: "Opponents, not counterparties" },
       { p: "A duel is social. Each wallet sends its own IOC take; the wallets never fill against each other, no pot is matched, and one invite does not promise the second fill. A duel does not exist until two fills on the same marketId are verified on-chain — a signed tx that did not fill, or a URL field, is never a success state." },
       { h: "Judging" },
-      { p: "The challenge link (#/app?d=…) is only a hint: the terminal re-verifies both fills and reads settlement from the chain. The winner is the wallet whose filled side matches settlement; unequal stakes are allowed and shown; a Void is a draw; one fill after expiry is an expired challenge, not a win; the same wallet cannot accept its own challenge." },
+      { p: "The challenge link (#/app?d=…) is only a locator: the terminal re-verifies the challenger fill. After the accepting Call verifies, Window appends its exact transaction as &a=… and exposes a completed proof link. Unrelated opposite fills on the public book never become an opponent. The winner is the wallet whose filled side matches settlement; unequal stakes are allowed and shown; a Void is a draw; one fill after expiry is an expired challenge, not a win; the same wallet cannot accept its own challenge." },
       { h: "Replay" },
-      { p: "The replay tool below reconstructs one real duel from a pinned marketId, two transaction hashes, and the finalized outcome — fail-closed if a hash is not a fill on that market. DEMO HOLE: no real Shannon duel hashes are pinned in this repo yet; run one live duel first, then paste its marketId and both tx hashes here (or share them as #/docs?m=…&a=…&b=…&o=up). Fills are never invented to fill the gap." },
+      { p: "The replay tool below reconstructs one real duel from a marketId and two transaction hashes. It reads the finalized result itself and fails closed if the market is unresolved or a hash is not an owned fill on that market. No real Shannon duel hashes are pinned yet; run one live duel, then share #/docs?m=…&a=…&b=…. Fills and outcomes are never invented to fill the gap." },
     ],
   },
   {
@@ -79,6 +79,7 @@ const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] 
     body: [
       { p: "Zero custom contracts (ADR-0001). All Event Contract traffic goes through @somnia-chain/markets-sdk ≥ 0.28.1 — the HTTP API is spot-only (ADR-0002)." },
       { p: "The domain layer is pure TypeScript behind an ExchangePort seam with two adapters: Somnia (live) and a deterministic fake the whole test suite runs against (ADR-0003)." },
+      { p: "The judge-facing criterion map and evidence checklist live in docs/JUDGING.md. It distinguishes implemented behavior from the still-required live proof, deployment, and recording." },
     ],
   },
   {
@@ -91,9 +92,20 @@ const SECTIONS: { id: string; title: string; body: { h?: string; p?: string }[] 
 ];
 
 export function Docs() {
+  const replayRequested = useHashParam("replay");
+  const replayMarket = useHashParam("m");
+  const replayA = useHashParam("a");
+  const replayB = useHashParam("b");
   useEffect(() => {
     warmExchange();
   }, []);
+  useEffect(() => {
+    if (replayRequested !== "1" && !(replayMarket && replayA && replayB)) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById("replay-tool")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [replayRequested, replayMarket, replayA, replayB]);
   return (
     <div className="docs">
       <header className="d-mast">
@@ -117,6 +129,12 @@ export function Docs() {
               {s.title}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => document.getElementById("replay-tool")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          >
+            Judge replay
+          </button>
         </nav>
 
         <main className="d-body">
@@ -140,7 +158,7 @@ export function Docs() {
           <Reveal key="replay-tool" delay={SECTIONS.length * 40}>
             <section className="d-section" id="replay-tool" aria-label="Judge replay tool">
               <h2>Judge replay</h2>
-              <Replay />
+              <Replay initial={{ marketId: replayMarket ?? "", txA: replayA ?? "", txB: replayB ?? "" }} />
             </section>
           </Reveal>
         </main>

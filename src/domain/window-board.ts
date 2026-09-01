@@ -1,5 +1,5 @@
-import { parseUnits } from "viem";
 import type { BookTop, LiveWindow, OpenTicket, StakeQuote } from "../exchange/port";
+import { stakeUnits } from "./call-ticket";
 import { prepareCall, prepareQuotedCall, type PreparedCall } from "./call-session";
 import { impliedUp } from "./implied";
 import { windowPhase, type WindowPhase } from "./lifecycle";
@@ -51,8 +51,7 @@ export function readBoard(input: {
     ? prepareQuotedCall({ live, side: "down", nowSec: input.nowSec, quote: input.downQuote })
     : prepareCall({ live, book: input.book, stake: input.stake, side: "down", nowSec: input.nowSec });
   const decimals = live?.decimals ?? input.collateralDecimals ?? 6;
-  const stakeRaw =
-    Number.isFinite(input.stake) && input.stake > 0 ? parseUnits(String(input.stake), decimals) : 0n;
+  const stakeRaw = stakeUnits(input.stake, decimals);
   const gate = nextGate({
     connected: input.connected,
     chainId: input.chainId,

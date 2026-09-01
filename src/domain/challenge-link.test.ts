@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  acceptedChallengeHref,
   challengeHref,
   challengePayloadFromReceipt,
   challengeableReceipt,
@@ -29,6 +30,7 @@ describe("challenge link", () => {
     expect(encoded.startsWith("1.")).toBe(true);
     expect(encoded).toMatch(/^[1A-Za-z0-9._-]+$/);
     expect(challengeHref(payload)).toBe(`#/app?d=${encoded}`);
+    expect(acceptedChallengeHref(payload, "0xacceptor")).toBe(`#/app?d=${encoded}&a=0xacceptor`);
   });
 
   it("decode failure is null — never a throw, never a partial payload", () => {

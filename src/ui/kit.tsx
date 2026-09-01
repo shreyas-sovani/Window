@@ -42,6 +42,10 @@ export function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: n
   useEffect(() => {
     const el = ref.current;
     if (!el || el.classList.contains("in")) return;
+    if (!("IntersectionObserver" in window)) {
+      el.classList.add("in");
+      return;
+    }
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {

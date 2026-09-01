@@ -562,6 +562,7 @@ a.chip:hover { filter: brightness(0.97); }
   margin: 0;
   animation: reveal-in 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
+.hero-copy > .kicker { margin-bottom: 14px; color: var(--clay); }
 .hero-copy p {
   margin: 20px 0 0;
   max-width: 46ch;
@@ -587,6 +588,8 @@ a.chip:hover { filter: brightness(0.97); }
 }
 .hero-art-now { fill: var(--clay); }
 .hero-art-time { font-family: var(--mono); font-size: 40px; font-weight: 500; fill: var(--ink); }
+.hero-art-time.hero-art-up { fill: var(--up); }
+.hero-art-time.hero-art-down { fill: var(--down); }
 .hero-art-sub { font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em; fill: var(--muted); }
 .hero-art .draw { stroke-dasharray: 1600; stroke-dashoffset: 1600; animation: draw-line 2.4s 300ms ease-out forwards; }
 @keyframes draw-line { to { stroke-dashoffset: 0; } }

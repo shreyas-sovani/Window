@@ -113,6 +113,7 @@ async function liveFromBinary(
     venueId: info.venueId ?? "",
     pool,
     status: code,
+    result: seriesResult(info.voided, info.winningOutcome),
     openingPrice: undefined,
     volumeQuote: Number(info.cumulativeQuoteVolume) / 10 ** quoteDec,
     tradeCount: Number(info.tradeCount),
@@ -272,46 +273,38 @@ export const somniaExchange: ExchangePort = {
     return p ? { asset: p.asset, price: p.price, ema: p.ema } : null;
   },
   async marketById(marketId) {
-    try {
-      const m = await getExchange().client.getMarket(marketId);
-      const info = m && isBinaryMarket(m) ? m : null;
-      if (!info) return null;
-      return liveFromBinary(info, undefined, { finalizedOk: true });
-    } catch {
-      return null;
-    }
+    const m = await getExchange().client.getMarket(marketId);
+    const info = m && isBinaryMarket(m) ? m : null;
+    if (!info) return null;
+    return liveFromBinary(info, undefined, { finalizedOk: true });
   },
   async fillsByPool(pool, decimals, limit = 400) {
     const dec = decimals || 6;
-    try {
-      const rows = await getExchange().client.getFills(pool, { limit });
-      return rows.map((f) => ({
-        id: f.id,
-        price: Number(f.fillPrice) / 10 ** dec,
-        quantity: Number(f.quantity) / 10 ** dec,
-        quote: Number(f.quoteQuantity) / 10 ** dec,
-        aggressor: f.takerOrder?.side
-          ? f.takerOrder.side.endsWith("YES")
+    const rows = await getExchange().client.getFills(pool, { limit });
+    return rows.map((f) => ({
+      id: f.id,
+      price: Number(f.fillPrice) / 10 ** dec,
+      quantity: Number(f.quantity) / 10 ** dec,
+      quote: Number(f.quoteQuantity) / 10 ** dec,
+      aggressor: f.takerOrder?.side
+        ? f.takerOrder.side.endsWith("YES")
+          ? ("up" as const)
+          : ("down" as const)
+        : f.takerSide
+          ? f.takerSide.endsWith("YES")
             ? ("up" as const)
             : ("down" as const)
-          : f.takerSide
-            ? f.takerSide.endsWith("YES")
-              ? ("up" as const)
-              : ("down" as const)
-            : f.takerIsBid === true
-              ? ("up" as const)
-              : f.takerIsBid === false
-                ? ("down" as const)
-                : null,
-        ts: Number(f.timestamp),
-        txHash: f.txHash,
-        marketId: f.market,
-        taker: f.taker,
-        maker: f.maker,
-      }));
-    } catch {
-      return [];
-    }
+          : f.takerIsBid === true
+            ? ("up" as const)
+            : f.takerIsBid === false
+              ? ("down" as const)
+              : null,
+      ts: Number(f.timestamp),
+      txHash: f.txHash,
+      marketId: f.market,
+      taker: f.taker,
+      maker: f.maker,
+    }));
   },
   async onchainStatus(marketId) {
     const oc = await getExchange().client.getMarketOnchain(marketId);
@@ -352,28 +345,24 @@ export const somniaExchange: ExchangePort = {
     return writeTxHash(await getExchange().cancelOrder(id, symbol));
   },
   async listFills(account) {
-    try {
-      const p = await getExchange().client.getPortfolio(account, { tradesLimit: 50 });
-      return p.trades
-        .filter((t) => t.side !== null)
-        .map((t) => {
-          const dec = t.market.quoteDecimals || 6;
-          const quoteRaw = (BigInt(t.quantity) * BigInt(t.fillPrice)) / 10n ** BigInt(dec);
-          return {
-            id: t.id,
-            asset: t.market.asset,
-            intervalSec: canonicalInterval(Number(t.market.intervalSec ?? 0)) || 0,
-            ...splitSide(t.side),
-            price: Number(t.fillPrice) / 10 ** dec,
-            quantity: Number(t.quantity) / 10 ** dec,
-            quote: Number(quoteRaw) / 10 ** dec,
-            timestamp: Number(t.timestamp),
-            txHash: t.txHash,
-          } satisfies WalletFill;
-        });
-    } catch {
-      return [];
-    }
+    const p = await getExchange().client.getPortfolio(account, { tradesLimit: 50 });
+    return p.trades
+      .filter((t) => t.side !== null)
+      .map((t) => {
+        const dec = t.market.quoteDecimals || 6;
+        const quoteRaw = (BigInt(t.quantity) * BigInt(t.fillPrice)) / 10n ** BigInt(dec);
+        return {
+          id: t.id,
+          asset: t.market.asset,
+          intervalSec: canonicalInterval(Number(t.market.intervalSec ?? 0)) || 0,
+          ...splitSide(t.side),
+          price: Number(t.fillPrice) / 10 ** dec,
+          quantity: Number(t.quantity) / 10 ** dec,
+          quote: Number(quoteRaw) / 10 ** dec,
+          timestamp: Number(t.timestamp),
+          txHash: t.txHash,
+        } satisfies WalletFill;
+      });
   },
   async listPositionPnl(account) {
     try {

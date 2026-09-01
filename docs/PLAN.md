@@ -1,8 +1,19 @@
-# Plan — Window
+# Plan — Window Duel
 
-Date: 2026-08-28. Sources: dreamDEX GitBook MCP (`searchDocumentation`, `getPage`) and Somnia GitBook MCP (`searchDocumentation`), plus the published markdown those tools linked.
+Original plan: 2026-08-28. Winner-readiness truth pass: 2026-09-01.
 
-> **Status: built.** This is the original build plan, kept as history. Current state lives in `docs/BACKLOG.md` (W-001–W-048 done), the per-directory `AGENTS.md` files, and `CONTEXT.md`. Deviations from this plan: the UI shipped as a light "paper ledger" theme (not the dark tote-board sketched below), and the product is three hash routes (`#/` landing, `#/docs` docs, `#/app` terminal), not a single page.
+> **Status: code-ready; submission evidence pending.** The solo terminal below is the original build plan, retained as history. Duel is now the product: a verified Call → shareable challenge → one gated opposite Call → two-fill result from the finalized market. Current scope and truth live in `docs/PRD.md`, `docs/JUDGING.md`, `docs/BACKLOG.md`, and the nearest `AGENTS.md` files.
+
+## Winner-readiness plan
+
+1. **Trust boundary — done:** replay reads Finalized settlement; exact market-owned tape rows, distinct wallets, opposite sides, and consistent tx rows are mandatory.
+2. **Execution correctness — done:** side-aware buy/exit prices, required NO symbol, safe stake parsing, bounded fill confirmation, and unavailable-vs-unfilled states.
+3. **Challenge UX — done:** exactly one prerequisite-aware accept action; a verified accept publishes its exact tx in a shareable completed-proof URL, so unrelated public fills never become opponents.
+4. **Judge narrative — done:** Duel-first landing, current PRD, criterion/evidence map, deterministic 2–5 minute script, and real-proof URL prefill.
+5. **Release gate — done:** clean test/build/CI, license, dependency disclosure, responsive visual pass.
+6. **External evidence — blocked on human/live state:** finalized Shannon proof tuple, public deployment URL, and recording. These cannot be manufactured from repository code.
+
+Rejected winner-pass additions: a last-minute custom escrow contract (contradicts the zero-contract trust story and adds audit risk), a points leaderboard without real users (fake traction), and an autonomous roll bot without a binary operator API (cannot be shipped honestly).
 
 ## Goal
 

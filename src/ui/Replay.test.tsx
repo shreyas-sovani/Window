@@ -21,6 +21,7 @@ const win: LiveWindow = {
   venueId: "0xvenue",
   pool: POOL as `0x${string}`,
   status: 4,
+  result: "up",
   openingPrice: "67214.50",
   tick: 1000n,
   lot: 1000n,
@@ -57,13 +58,13 @@ function field(label: RegExp, value: string) {
   fireEvent.change(input, { target: { value } });
 }
 
-it("reconstructs a settled duel from a pinned marketId, two txs, and the outcome", async () => {
+it("derives the result from the Finalized Window without an editable outcome", async () => {
   const fake = createFakeExchange({ windows: [win], marketFills: { [POOL]: tape } });
   render(<Replay exchange={fake} />);
   field(/marketid/i, M);
   field(/first tx hash/i, "0xta");
   field(/second tx hash/i, "0xtb");
-  fireEvent.change(screen.getByLabelText(/outcome/i) as HTMLSelectElement, { target: { value: "up" } });
+  expect(screen.queryByLabelText(/outcome/i)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /reconstruct/i }));
   await waitFor(() => expect(screen.getByLabelText("Duel settled")).toBeTruthy(), { timeout: 4_000 });
   expect(screen.getAllByText(/…00aa/i).length).toBeGreaterThan(0);
@@ -77,7 +78,6 @@ it("fails closed when a hash is not a fill on that market", async () => {
   field(/marketid/i, M);
   field(/first tx hash/i, "0xnotaround");
   field(/second tx hash/i, "0xtb");
-  fireEvent.change(screen.getByLabelText(/outcome/i) as HTMLSelectElement, { target: { value: "up" } });
   fireEvent.click(screen.getByRole("button", { name: /reconstruct/i }));
   await waitFor(() => expect(screen.getByText(/not a verified fill/i)).toBeTruthy(), { timeout: 4_000 });
   expect(screen.queryByLabelText("Duel settled")).toBeNull();
@@ -89,7 +89,27 @@ it("fails closed when the marketId is unknown to the chain", async () => {
   field(/marketid/i, "0x" + "ff".repeat(32));
   field(/first tx hash/i, "0xta");
   field(/second tx hash/i, "0xtb");
-  fireEvent.change(screen.getByLabelText(/outcome/i) as HTMLSelectElement, { target: { value: "up" } });
   fireEvent.click(screen.getByRole("button", { name: /reconstruct/i }));
   await waitFor(() => expect(screen.getByText(/cannot be verified|not on this chain/i)).toBeTruthy(), { timeout: 4_000 });
+});
+
+it("fails closed when the Window has not finalized", async () => {
+  const trading = { ...win, status: 1, result: "unknown" as const };
+  const fake = createFakeExchange({ windows: [trading], marketFills: { [POOL]: tape } });
+  render(<Replay exchange={fake} />);
+  field(/marketid/i, M);
+  field(/first tx hash/i, "0xta");
+  field(/second tx hash/i, "0xtb");
+  fireEvent.click(screen.getByRole("button", { name: /reconstruct/i }));
+  await waitFor(() => expect(screen.getByText(/not finalized with a verifiable result/i)).toBeTruthy());
+  expect(screen.queryByLabelText("Duel settled")).toBeNull();
+});
+
+it("prefills a shareable judge link without accepting a settlement value", () => {
+  const fake = createFakeExchange({ windows: [win], marketFills: { [POOL]: tape } });
+  render(<Replay exchange={fake} initial={{ marketId: M, txA: "0xta", txB: "0xtb" }} />);
+  expect((screen.getByLabelText(/marketid/i) as HTMLInputElement).value).toBe(M);
+  expect((screen.getByLabelText(/first tx hash/i) as HTMLInputElement).value).toBe("0xta");
+  expect((screen.getByLabelText(/second tx hash/i) as HTMLInputElement).value).toBe("0xtb");
+  expect(screen.queryByLabelText(/outcome/i)).toBeNull();
 });

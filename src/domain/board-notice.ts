@@ -27,7 +27,10 @@ export function boardNotice(input: {
     return { kind: "info", text: "Not enough tUSDC in this wallet to cover this stake.", action: "Mint tUSDC" };
   }
   if (input.thinBook) {
-    return { kind: "info", text: "No resting liquidity yet. A Call still sizes at 50% if you proceed." };
+    return {
+      kind: "info",
+      text: "No executable liquidity right now. A Call stays disabled until a real quote appears.",
+    };
   }
   return null;
 }

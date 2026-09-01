@@ -11,35 +11,28 @@ export function WarmExchange() {
   return null;
 }
 
-/** Hero SVG: the terminal as a line drawing — clock, line, and a drawn price path. */
+/** Hero SVG: two independently verified fills resolving against one Window. */
 function HeroArt() {
   return (
     <svg className="hero-art" viewBox="0 0 720 420" fill="none" aria-hidden="true">
-      <line className="draw" x1="40" y1="250" x2="680" y2="250" stroke="var(--rule-strong)" strokeWidth="1" strokeDasharray="4 6" />
-      <path
-        className="draw path-price"
-        d="M40,250 C80,240 100,190 140,196 S210,150 250,168 S320,110 360,128 S430,90 470,104 S540,70 580,84 S660,50 680,58"
-        stroke="var(--clay)"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      <circle cx="680" cy="58" r="6" fill="var(--clay)" />
-      <circle cx="680" cy="58" r="12" stroke="var(--clay)" strokeWidth="1.5" opacity="0.4" />
-      <text x="40" y="292" className="hero-art-label">LINE · 67,214.50</text>
-      <text x="470" y="42" className="hero-art-label hero-art-now">NOW</text>
-      <g className="hero-art-clock">
-        <text x="360" y="370" textAnchor="middle" className="hero-art-time">09:41</text>
-        <text x="360" y="394" textAnchor="middle" className="hero-art-sub">UNTIL LOCK</text>
-      </g>
+      <rect x="34" y="54" width="270" height="126" rx="14" fill="var(--card)" stroke="var(--rule-strong)" />
+      <text x="58" y="86" className="hero-art-label">WALLET A · VERIFIED FILL</text>
+      <text x="58" y="128" className="hero-art-time hero-art-up">CALL UP</text>
+      <text x="58" y="158" className="hero-art-label">18.00 @ 55% · 0x…A91C</text>
+      <rect x="416" y="54" width="270" height="126" rx="14" fill="var(--card)" stroke="var(--rule-strong)" />
+      <text x="440" y="86" className="hero-art-label">WALLET B · VERIFIED FILL</text>
+      <text x="440" y="128" className="hero-art-time hero-art-down">CALL DOWN</text>
+      <text x="440" y="158" className="hero-art-label">22.00 @ 42% · 0x…7B02</text>
+      <path className="draw" d="M169 180 L310 250" stroke="var(--up)" strokeWidth="2" />
+      <path className="draw" d="M551 180 L410 250" stroke="var(--down)" strokeWidth="2" />
+      <line x1="42" y1="276" x2="678" y2="276" stroke="var(--rule-strong)" strokeDasharray="5 7" />
+      <rect x="245" y="222" width="230" height="130" rx="16" fill="var(--paper)" stroke="var(--clay)" strokeWidth="2" />
+      <text x="360" y="252" textAnchor="middle" className="hero-art-label">FINALIZED ON SHANNON</text>
+      <text x="360" y="302" textAnchor="middle" className="hero-art-time hero-art-up">UP WINS</text>
+      <text x="360" y="330" textAnchor="middle" className="hero-art-label">LINE · 67,214.50 · TAPE AGREES</text>
       <g>
-        <rect x="470" y="300" width="14" height="52" rx="3" fill="var(--up)" opacity="0.75" />
-        <rect x="494" y="316" width="14" height="36" rx="3" fill="var(--down)" opacity="0.75" />
-        <rect x="518" y="290" width="14" height="62" rx="3" fill="var(--up)" opacity="0.75" />
-        <rect x="542" y="326" width="14" height="26" rx="3" fill="var(--down)" opacity="0.75" />
-        <rect x="566" y="282" width="14" height="70" rx="3" fill="var(--up)" opacity="0.75" />
-        <rect x="590" y="306" width="14" height="46" rx="3" fill="var(--down)" opacity="0.75" />
-        <rect x="614" y="274" width="14" height="78" rx="3" fill="var(--up)" opacity="0.75" />
-        <rect x="638" y="298" width="14" height="54" rx="3" fill="var(--up)" opacity="0.75" />
+        <circle cx="56" cy="386" r="5" fill="var(--up)" />
+        <text x="72" y="391" className="hero-art-sub">TWO FILLS · ONE MARKET · ZERO REFEREES</text>
       </g>
     </svg>
   );
@@ -59,20 +52,21 @@ export function Landing() {
 
       <section className="hero">
         <div className="hero-copy">
+          <div className="kicker">The social layer for dreamDEX Event Contracts</div>
           <h1>
-            Challenge another wallet<br />
-            on the same Window.
+            Make the Call.<br />
+            Prove who won.
           </h1>
           <p>
-            Two opposite Calls, two verified fills, one Line, one on-chain winner — dreamDEX Event Contracts
-            on Somnia. You are social opponents, never exchange counterparties.
+            Turn a filled Up/Down trade into a wallet challenge you can drop into any group chat. Two opposite
+            fills on one Window; the public tape and finalized market decide the result.
           </p>
           <div className="hero-cta">
             <Button variant="primary" href={routeHref("app")}>
-              Open the terminal
+              Open a live Window
             </Button>
-            <Button variant="ghost" href={routeHref("docs")}>
-              Read the docs
+            <Button variant="ghost" href={`${routeHref("docs")}?replay=1`}>
+              Verify a duel
             </Button>
           </div>
         </div>
@@ -84,41 +78,41 @@ export function Landing() {
       <main className="l-body">
         <Reveal>
           <section className="l-section">
-            <h2>Call, challenge, settle.</h2>
+            <h2>One market take becomes a social challenge.</h2>
             <p>
-              Call a side and share the challenge link. The other wallet Calls the opposite side of the same
-              Window — one invite can create two trades, and the chain verifies both fills. Settlement names
-              the winner; the loser gets the rematch on the next Window.
+              Call a side, then share the proof link. The recipient sees your verified fill and one next action:
+              take the opposite side of that exact Window. The duel exists only after both fills appear on the
+              public tape; a submitted-but-unfilled transaction earns no receipt and no victory screen.
             </p>
           </section>
         </Reveal>
 
         <Reveal delay={80}>
           <section className="l-section">
-            <h2>Settled by the chain, not by us.</h2>
+            <h2>No referee. No custody. No new contract.</h2>
             <p>
-              Every Window resolves against its oracle receipt on Somnia — the winner is simply the wallet whose
-              filled side matches settlement. Opponents never fill against each other and no pot is matched: each
-              Call is its own book take. A solo Call still works whenever you want the market to yourself.
+              Window reads dreamDEX’s existing market, fill tape, and final settlement on Somnia. Each opponent
+              independently takes the book—there is no matched pot and the wallets are not counterparties. The
+              replay fails closed when a market, wallet, side, or transaction proof does not agree.
             </p>
           </section>
         </Reveal>
 
         <Reveal delay={80}>
           <section className="l-section l-steps">
-            <h2>How a Window works</h2>
+            <h2>Three beats. Every claim is inspectable.</h2>
             <ol>
               <li>
                 <Badge tone="clay">1</Badge>
-                The Window opens — the Line is its opening price.
+                Call — choose Up or Down with bounded risk and an IOC limit.
               </li>
               <li>
                 <Badge tone="clay">2</Badge>
-                It locks — the countdown hits zero, trading stops.
+                Challenge — share the verified fill; another wallet takes the opposite side.
               </li>
               <li>
                 <Badge tone="clay">3</Badge>
-                It settles — close versus Line resolves on-chain. Claim your payout.
+                Prove — both transactions and the finalized winner resolve from chain data.
               </li>
             </ol>
           </section>

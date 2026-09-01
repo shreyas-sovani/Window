@@ -15,13 +15,23 @@ export function ChallengeGate(props: { receipts: CallReceipt[]; address?: string
   return <ChallengeStrip href={challengeHref(built)} />;
 }
 
-export function ChallengeStrip(props: { href: string }) {
+export function ChallengeStrip(props: {
+  href: string;
+  kicker?: string;
+  ariaLabel?: string;
+  linkLabel?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const url = `${location.origin}${location.pathname}${props.href}`;
   return (
-    <section className="challenge-strip" aria-label="Challenge link">
-      <div className="kicker">Challenge another wallet</div>
-      <a className="mono challenge-url" href={props.href} title="Open the challenge link" aria-label="Open the challenge link">
+    <section className="challenge-strip" aria-label={props.ariaLabel ?? "Challenge link"}>
+      <div className="kicker">{props.kicker ?? "Challenge another wallet"}</div>
+      <a
+        className="mono challenge-url"
+        href={props.href}
+        title={props.linkLabel ?? "Open the challenge link"}
+        aria-label={props.linkLabel ?? "Open the challenge link"}
+      >
         {props.href}
       </a>
       <button

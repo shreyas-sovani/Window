@@ -104,7 +104,7 @@ describe("verifyAccept", () => {
   if (!challenge.ok) throw new Error("fixture");
 
   it("opens the duel on an opposite verified fill from another wallet", () => {
-    const got = verifyAccept(challenge.challenge, { acceptor: ACCEPTOR, acceptorFill, windowStatus: 1 });
+    const got = verifyAccept(challenge.challenge, { acceptorFill, windowStatus: 1 });
     expect(got.ok).toBe(true);
     if (got.ok) {
       expect(got.duel.challengerFill.account).toBe(CHALLENGER);
@@ -114,21 +114,27 @@ describe("verifyAccept", () => {
 
   it("refuses a wallet accepting its own challenge", () => {
     const got = verifyAccept(challenge.challenge, {
-      acceptor: CHALLENGER,
       acceptorFill: { ...acceptorFill, account: CHALLENGER },
       windowStatus: 1,
     });
     expect(got).toEqual({ ok: false, reason: "self-accept" });
   });
 
+  it("uses the verified fill owner for self-accept and compares addresses case-insensitively", () => {
+    const got = verifyAccept(challenge.challenge, {
+      acceptorFill: { ...acceptorFill, account: CHALLENGER.toUpperCase() },
+      windowStatus: 1,
+    });
+    expect(got).toEqual({ ok: false, reason: "self-accept" });
+  });
+
   it("refuses an accept without a verified fill", () => {
-    const got = verifyAccept(challenge.challenge, { acceptor: ACCEPTOR, acceptorFill: null, windowStatus: 1 });
+    const got = verifyAccept(challenge.challenge, { acceptorFill: null, windowStatus: 1 });
     expect(got).toEqual({ ok: false, reason: "missing-fill" });
   });
 
   it("refuses an accept on the same side as the challenge", () => {
     const got = verifyAccept(challenge.challenge, {
-      acceptor: ACCEPTOR,
       acceptorFill: { ...acceptorFill, side: "up" },
       windowStatus: 1,
     });
@@ -137,7 +143,6 @@ describe("verifyAccept", () => {
 
   it("refuses an accept on a different market", () => {
     const got = verifyAccept(challenge.challenge, {
-      acceptor: ACCEPTOR,
       acceptorFill: { ...acceptorFill, marketId: "0x" + "44".repeat(32) },
       windowStatus: 1,
     });
@@ -145,13 +150,12 @@ describe("verifyAccept", () => {
   });
 
   it("refuses an accept when the Window is not Trading", () => {
-    const got = verifyAccept(challenge.challenge, { acceptor: ACCEPTOR, acceptorFill, windowStatus: 2 });
+    const got = verifyAccept(challenge.challenge, { acceptorFill, windowStatus: 2 });
     expect(got).toEqual({ ok: false, reason: "not-trading" });
   });
 
   it("keeps unequal stakes visible — a duel is two independent book takes", () => {
     const got = verifyAccept(challenge.challenge, {
-      acceptor: ACCEPTOR,
       acceptorFill: { ...acceptorFill, escrow: 31.2, contracts: 74.3, avgOdds: 0.42 },
       windowStatus: 1,
     });
@@ -166,7 +170,7 @@ describe("verifyAccept", () => {
 describe("settleDuel", () => {
   const challenge = verifyChallenge(hint, { window, challengerFill });
   if (!challenge.ok) throw new Error("fixture");
-  const accepted = verifyAccept(challenge.challenge, { acceptor: ACCEPTOR, acceptorFill, windowStatus: 1 });
+  const accepted = verifyAccept(challenge.challenge, { acceptorFill, windowStatus: 1 });
   if (!accepted.ok) throw new Error("fixture");
 
   it("settles on the side whose fill matches the outcome", () => {
@@ -201,7 +205,6 @@ describe("readDuel", () => {
       window,
       windowStatus: 1,
       challengerFill,
-      acceptor: ACCEPTOR,
       acceptorFill: null,
       settlement: null,
       nowSec: 1_500,
@@ -215,7 +218,6 @@ describe("readDuel", () => {
       window: { ...window, status: 4 },
       windowStatus: 4,
       challengerFill,
-      acceptor: ACCEPTOR,
       acceptorFill: null,
       settlement: null,
       nowSec: 2_600,
@@ -229,7 +231,6 @@ describe("readDuel", () => {
       window,
       windowStatus: 1,
       challengerFill,
-      acceptor: ACCEPTOR,
       acceptorFill: { ...acceptorFill, ts: 2_100 },
       settlement: null,
       nowSec: 2_200,
@@ -243,7 +244,6 @@ describe("readDuel", () => {
       window,
       windowStatus: 1,
       challengerFill: null,
-      acceptor: ACCEPTOR,
       acceptorFill: null,
       settlement: null,
       nowSec: 1_500,
@@ -257,7 +257,6 @@ describe("readDuel", () => {
       window: { ...window, status: 4 },
       windowStatus: 4,
       challengerFill,
-      acceptor: ACCEPTOR,
       acceptorFill,
       settlement: { result: "up" },
       nowSec: 3_000,
@@ -320,12 +319,28 @@ describe("tapeDuelFill", () => {
     expect(tapeDuelFill(rows, { marketId: M, txHash: "0xnull", taker: ACCEPTOR })).toBeNull();
   });
 
-  it("finds the opponent by exclusion — any other wallet on the opposite side", () => {
-    const got = tapeDuelFill(rows, { marketId: M, side: "down", notTaker: CHALLENGER });
-    expect(got).toMatchObject({ account: ACCEPTOR, side: "down", contracts: 22, txHash: "0xtb" });
-    // Without the exclusion the challenger's own Down row would pollute the aggregate.
-    const without = tapeDuelFill(rows, { marketId: M, side: "down" });
-    expect(without!.contracts).toBeCloseTo(27, 6);
+  it("refuses to infer one opponent from unrelated wallets on the public tape", () => {
+    const extraWallet = "0x00000000000000000000000000000000000000cc";
+    const crowded = [
+      ...rows,
+      { id: "7", price: 0.4, quantity: 50, quote: 20, aggressor: "down" as const, ts: 1_500, txHash: "0xtb", marketId: M, taker: extraWallet },
+    ];
+    expect(tapeDuelFill(crowded, { marketId: M, txHash: "0xtb", side: "down" })).toBeNull();
+  });
+
+  it("refuses a split transaction when any row omits its wallet or side", () => {
+    expect(
+      tapeDuelFill(
+        [...rows, { id: "7", price: 0.42, quantity: 1, quote: 0.42, aggressor: "down", ts: 1_401, txHash: "0xtb", marketId: M, taker: null }],
+        { marketId: M, txHash: "0xtb" },
+      ),
+    ).toBeNull();
+    expect(
+      tapeDuelFill(
+        [...rows, { id: "8", price: 0.42, quantity: 1, quote: 0.42, aggressor: null, ts: 1_401, txHash: "0xtb", marketId: M, taker: ACCEPTOR }],
+        { marketId: M, txHash: "0xtb" },
+      ),
+    ).toBeNull();
   });
 });
 
@@ -350,18 +365,19 @@ describe("duel through the fake adapter (two wallets, one Window)", () => {
   it("two independent IOC takes verify into an open duel, then settle with the chain's winner", async () => {
     const ex = createFakeExchange({
       windows: [liveWindow],
-      books: { "BTC#YES": { ask: 0.55 } },
+      books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
       statusByMarket: { [M]: 1 },
     });
-    const up = prepareCall({ live: liveWindow, book: { ask: 0.55 }, stake: 9.9, side: "up", nowSec: 1_000 });
-    const down = prepareCall({ live: liveWindow, book: { ask: 0.55 }, stake: 9.24, side: "down", nowSec: 1_100 });
+    const up = prepareCall({ live: liveWindow, book: { bid: 0.55, ask: 0.6 }, stake: 9.9, side: "up", nowSec: 1_000 });
+    const down = prepareCall({ live: liveWindow, book: { bid: 0.55, ask: 0.6 }, stake: 9.24, side: "down", nowSec: 1_100 });
     expect(up.ok && down.ok).toBe(true);
+    ex.actAs(CHALLENGER);
     const challengerHash = await executeCall(ex, liveWindow, up);
+    ex.actAs(ACCEPTOR);
     const acceptorHash = await executeCall(ex, liveWindow, down);
     // Each wallet reads its own fill off the tape by the tx it signed.
-    const tape = await ex.listFills(CHALLENGER);
-    const challengerFilled = filledCall(tape, { side: "up", asset: "BTC", intervalSec: 900, txHash: challengerHash });
-    const acceptorFilled = filledCall(tape, { side: "down", asset: "BTC", intervalSec: 900, txHash: acceptorHash });
+    const challengerFilled = filledCall(await ex.listFills(CHALLENGER), { side: "up", asset: "BTC", intervalSec: 900, txHash: challengerHash });
+    const acceptorFilled = filledCall(await ex.listFills(ACCEPTOR), { side: "down", asset: "BTC", intervalSec: 900, txHash: acceptorHash });
     expect(challengerFilled).not.toBeNull();
     expect(acceptorFilled).not.toBeNull();
 
@@ -378,7 +394,6 @@ describe("duel through the fake adapter (two wallets, one Window)", () => {
       window: { ...liveWindow, status: 1 },
       windowStatus: 1,
       challengerFill: duelFill(CHALLENGER, M, challengerFilled!, 1_000),
-      acceptor: ACCEPTOR,
       acceptorFill: duelFill(ACCEPTOR, M, acceptorFilled!, 1_100),
       settlement: { result: "down" },
       nowSec: liveWindow.expiry + 900,
@@ -407,7 +422,6 @@ describe("duel through the fake adapter (two wallets, one Window)", () => {
       window: { ...liveWindow },
       windowStatus: 1,
       challengerFill: null,
-      acceptor: ACCEPTOR,
       acceptorFill: null,
       settlement: null,
       nowSec: 1_200,
@@ -425,5 +439,6 @@ describe("duelRefusalCopy", () => {
     expect(duelRefusalCopy("unknown-market")).toContain("Window");
     expect(duelRefusalCopy("not-trading")).toContain("Trading");
     expect(duelRefusalCopy("no-challenge")).toContain("link");
+    expect(duelRefusalCopy("verification-unavailable")).toContain("unavailable");
   });
 });

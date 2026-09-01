@@ -28,7 +28,7 @@ const downRows: ReplayRow[] = [
 describe("replayDuel", () => {
   it("reconstructs a settled duel from two pinned tx hashes and the finalized outcome", () => {
     const got = replayDuel(
-      { marketId: M, txA: "0xta", txB: "0xtb", outcome: "up", meta: { asset: "BTC", intervalSec: 900, expiry: 2_000, line: "67214.50" } },
+      { marketId: M, txA: "0xta", txB: "0xtb", settlement: "up", meta: { asset: "BTC", intervalSec: 900, expiry: 2_000, line: "67214.50" } },
       [...upRows, ...downRows],
     );
     expect(got.ok).toBe(true);
@@ -45,7 +45,7 @@ describe("replayDuel", () => {
   });
 
   it("calls the earlier fill the challenger and the later one the acceptor", () => {
-    const got = replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", outcome: "down" }, [...upRows, ...downRows]);
+    const got = replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "down" }, [...upRows, ...downRows]);
     expect(got.ok).toBe(true);
     if (got.ok && got.verdict.kind === "settled") {
       expect(got.verdict.winner.account).toBe(B);
@@ -53,18 +53,18 @@ describe("replayDuel", () => {
   });
 
   it("a Void outcome is a draw", () => {
-    const got = replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", outcome: "void" }, [...upRows, ...downRows]);
+    const got = replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "void" }, [...upRows, ...downRows]);
     expect(got.ok).toBe(true);
     if (got.ok) expect(got.verdict.kind).toBe("void");
   });
 
   it("fails closed when a pinned hash is not a fill on that market", () => {
     const elsewhere = [row({ txHash: "0xta", taker: A, side: "up", marketId: OTHER })];
-    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", outcome: "up" }, [...elsewhere, ...downRows])).toEqual({
+    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "up" }, [...elsewhere, ...downRows])).toEqual({
       ok: false,
       reason: "no-fill-a",
     });
-    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xmissing", outcome: "up" }, [...upRows, ...downRows])).toEqual({
+    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xmissing", settlement: "up" }, [...upRows, ...downRows])).toEqual({
       ok: false,
       reason: "no-fill-b",
     });
@@ -72,12 +72,33 @@ describe("replayDuel", () => {
 
   it("fails closed when a fill has no wallet or no side on the tape", () => {
     const noWallet = [row({ txHash: "0xta", taker: null, side: "up" }), ...downRows];
-    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", outcome: "up" }, noWallet)).toEqual({
+    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "up" }, noWallet)).toEqual({
       ok: false,
       reason: "unknown-wallet",
     });
     const noSide = [row({ txHash: "0xta", taker: A, side: null }), ...downRows];
-    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", outcome: "up" }, noSide)).toEqual({
+    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "up" }, noSide)).toEqual({
+      ok: false,
+      reason: "unknown-side",
+    });
+  });
+
+  it("fails closed when any row in a split fill omits wallet or side", () => {
+    const partialWallet = [
+      ...upRows,
+      row({ txHash: "0xta", taker: null, side: "up" }),
+      ...downRows,
+    ];
+    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "up" }, partialWallet)).toEqual({
+      ok: false,
+      reason: "unknown-wallet",
+    });
+    const partialSide = [
+      ...upRows,
+      row({ txHash: "0xta", taker: A, side: null }),
+      ...downRows,
+    ];
+    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "up" }, partialSide)).toEqual({
       ok: false,
       reason: "unknown-side",
     });
@@ -85,21 +106,22 @@ describe("replayDuel", () => {
 
   it("fails closed when both hashes are the same wallet or the same side", () => {
     const sameWallet = [upRows[0], row({ txHash: "0xtb", taker: A, side: "down" })];
-    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", outcome: "up" }, sameWallet)).toEqual({
+    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "up" }, sameWallet)).toEqual({
       ok: false,
       reason: "same-wallet",
     });
     const sameSide = [upRows[0], row({ txHash: "0xtb", taker: B, side: "up" })];
-    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", outcome: "up" }, sameSide)).toEqual({
+    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "up" }, sameSide)).toEqual({
       ok: false,
       reason: "same-side",
     });
   });
 
-  it("fails closed without a pinned outcome — a judge must bring the finalized result", () => {
-    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", outcome: "" }, [...upRows, ...downRows])).toEqual({
+  it("fails closed when tape rows omit their owning market", () => {
+    const unowned = [...upRows, ...downRows].map(({ marketId: _marketId, ...r }) => r);
+    expect(replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "up" }, unowned)).toEqual({
       ok: false,
-      reason: "missing-outcome",
+      reason: "no-fill-a",
     });
   });
 
@@ -109,7 +131,7 @@ describe("replayDuel", () => {
       row({ txHash: "0xta", taker: A, side: "up", quantity: 10, price: 0.6 }),
       ...downRows,
     ];
-    const got = replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", outcome: "up" }, rows);
+    const got = replayDuel({ marketId: M, txA: "0xta", txB: "0xtb", settlement: "up" }, rows);
     expect(got.ok).toBe(true);
     if (got.ok && got.verdict.kind === "settled") {
       expect(got.verdict.winner.contracts).toBeCloseTo(20, 6);
@@ -121,7 +143,7 @@ describe("replayDuel", () => {
 describe("replayRefusalCopy", () => {
   it("names every failure honestly", () => {
     expect(replayRefusalCopy("no-fill-a")).toContain("not a verified fill");
-    expect(replayRefusalCopy("missing-outcome")).toContain("outcome");
+    expect(replayRefusalCopy("inconsistent-fill")).toContain("conflicting");
     expect(replayRefusalCopy("same-wallet")).toContain("one wallet");
     expect(replayRefusalCopy("bogus" as never)).toContain("cannot");
   });

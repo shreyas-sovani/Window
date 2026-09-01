@@ -15,9 +15,15 @@ If this is wrong, the UI shows the wrong Window, Calls the wrong symbol, or cann
 - External systems touched: indexer `dev.smk.somnia.host`, Shannon WS RPC, BinaryMarketsModule
 
 ## Current State
-Working against SDK types. `npm test` uses `createFakeExchange`, not the live indexer. `previewClaimSession` / `claimFinalized` return `{ count, windows, payout }` (plus `failed` and hash on Claim). Somnia `claimFinalized` uses `executeClaims` so a failed Window does not abort later ones. `listLiveWindows` warm-starts: one `loadMarkets(true)` sweep at most every 45s, `loadMarkets(false)` otherwise; landing/docs call `warmExchange()` on mount.
+Working against SDK types. `LiveWindow` carries chain-derived `result`; `marketById` resolves Finalized Windows; and replay-grade `fillsByPool` preserves marketId, taker, and side. Proof reads propagate indexer errors so the UI says verification unavailable instead of “no fill.” The account-aware fake implements every port method, writes distinct tx hashes, stamps fill ownership, and never fabricates a 50% quote. Default tests stay offline. Warm loading remains one `loadMarkets(true)` sweep at most every 45s, with landing/docs prewarming the SDK store.
 
 ## Decision Log
+
+### 2026-09-01 — Replay-grade result/error mapping and honest fake parity
+- **Change**: `LiveWindow.result` and Somnia `seriesResult` map voided/winningOutcome for Finalized replay. `marketById`, `fillsByPool`, and `listFills` now propagate proof-read failures; only optional display feeds remain best-effort. `FakeExchangeState` gained account-relative fill ownership, acting-wallet pool-tape stamps, exact quote behavior, `marketById`/`fillsByPool` parity, and configurable zero-fill IOC behavior. Port contract tests enforce the complete adapter surface.
+- **Reasoning**: Empty evidence and unavailable evidence have different safety meanings. The fake must exercise the same account, market, and tx boundaries as Shannon or green tests merely certify a different product.
+- **Rejected alternative(s)**: Swallowing every adapter error as an empty array; deriving settlement in the UI; a permissive fake with global fills and 50% default odds; live indexer calls in default CI.
+- **Task/session**: Adversarial winner-readiness build — W-075, W-079, W-080.
 
 ### 2026-08-31 — Duel seams: marketId-stamped fills, pool-tape reads, unique fake tx hashes
 - **Change**: `port.ts` — `WalletFill.marketId?` (duels key by market; fake stamps it, somnia's portfolio path cannot — see Reasoning), `MarketFill.marketId?/taker?/maker?` (replay-grade), `WindowFeed.marketById(marketId)` (replay-grade; Finalized rows included) and `WindowFeed.fillsByPool(pool, decimals, limit?)` (one-shot indexer read via `client.getFills`). `somnia.ts` — `marketById` via `client.getMarket` + `liveFromBinary(…, {finalizedOk: true})`; `fillsByPool` maps FillRow incl. `takerOrder.side`→aggressor with `takerSide`/`takerIsBid` fallbacks. `fake.ts` — every write returns a distinct `0xfakeN` hash and stamps it on the wallet fill tape; IOC writes also append to the pool tape (`marketFills[pool]`) with `state.actingAccount` as taker; new `iocFills: boolean` knob simulates a landed-but-unfilled IOC; `marketById`/`fillsByPool` implemented.

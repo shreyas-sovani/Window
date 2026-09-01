@@ -1,45 +1,31 @@
 # Window
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  W I N D O W          12,450.20 tUSDC   P&L +1.25 tUSDC      │
-│  Call the next interval.        ● Indexer live               │
-├──────────────────────────────────────────────────────────────┤
-│  Line · open    │   Locks in   │  Implied Up                 │
-│  67,214.50      │     09:41    │  61.3%                      │
-├──────────────────────────────────────────────────────────────┤
-│   [ BTC 5m ] [ BTC 15m ] [ BTC 1h ] [ ETH 5m ] [ ETH 15m ]   │
-│                                                              │
-│   ┌──────── Up ────────┐   ┌─────── Down ──────┐             │
-│   │ close ≥ Line       │   │ close < Line      │             │
-│   │       61.3%        │   │       38.7%       │             │
-│   │    [ Call Up ]     │   │   [ Call Down ]   │             │
-│   └────────────────────┘   └───────────────────┘             │
-│                                                              │
-│  P&L · trade tape      +1.25 open · −6.00 realized           │
-│    BTC 15m · Call Up 10.00 @ 60.5%                 −6.00     │
-└──────────────────────────────────────────────────────────────┘
-```
+**Make a Call. Challenge another wallet. Prove who won.**
 
-Consumer Up/Down terminal for [dreamDEX Event Contracts](https://docs.dreamdex.io/developers/event-contracts) on **Somnia Shannon** (chain 50312).
+Window Duel is the consumer and social layer for [dreamDEX Event Contracts](https://docs.dreamdex.io/developers/event-contracts) on **Somnia Shannon** (chain 50312). A verified Up/Down fill becomes a challenge link. Another wallet takes the opposite side of the exact same Window. Two public fill proofs plus the finalized market reconstruct the winner—without a backend referee, custody, trusted outcome input, or custom contract.
 
-Call BTC or ETH for the live Window. The Line is the open. Default path is an IOC take — nothing rests, no surprises at settlement. Claim finalized Windows yourself; winnings do not auto-pay. Zero custom contracts. Everything runs through `@somnia-chain/markets-sdk` ≥ 0.28.1 (the HTTP API is spot-only — Event Contracts have no REST surface).
+This is not a peer-to-peer escrow product. The wallets are social opponents, never exchange counterparties; each Call is an independent IOC take against dreamDEX, stakes may differ, and an invite cannot guarantee liquidity. The product fails closed instead of smoothing over those constraints.
+
+The default terminal reduces the exchange to one Line, a depleting lock ring, live odds, bounded Risk → Win, and one next action. Advanced book, exits, tape P&L, oracle receipts, multi-venue claims, and rematch live behind that loop.
 
 Three pages, hash-routed — no server config needed:
 
 - `#/` — landing: the pitch, one screen, three steps
-- `#/docs` — docs: quickstart to settlement, one page
+- `#/docs` — docs plus fail-closed judge replay (`?m=…&a=…&b=…` prefills proof)
 - `#/app` — the terminal
 
-## Demo path (judges)
+Judge brief: [`docs/JUDGING.md`](docs/JUDGING.md). Demo: [`docs/DEMO.md`](docs/DEMO.md). Product truth: [`docs/PRD.md`](docs/PRD.md).
+
+## Local run
 
 1. `cp .env.example .env && npm install && npm test && npm run dev`
-2. Open the printed localhost URL — skim the landing, then **Open the terminal** (or go straight to `#/app`).
+2. Open the printed localhost URL — skim the landing, then **Open a live Window** (or go straight to `#/app`).
 3. Injected wallet (MetaMask / Rabby): add Shannon — chain `50312`, RPC `https://api.infra.testnet.somnia.network`, symbol `STT`, explorer `https://shannon-explorer.somnia.network`.
 4. Gas: [testnet.somnia.network](https://testnet.somnia.network/).
 5. Connect → Switch to Shannon → **Mint tUSDC** (`trader.faucet`, cap 10,000) → Approve the stake → **Call Up** or **Call Down**.
-6. Watch the fill land in the **P&L tape**, the position mark to book, and **Pulse** draw the price/implied sparklines + public tape.
-7. After expiry, **Claim finalized**. Oracle receipt is the public Line-vs-close trail.
+6. A receipt and challenge link appear only after the wallet tape verifies the fill. Open the link with another wallet and follow its single CTA to take the opposite side.
+7. After the accepting fill verifies, Window appends its exact tx as `&a=…` and exposes **Share verified duel**. Unrelated opposite fills on the public market never count as acceptance.
+8. Use the finalized replay URL to show both proofs and chain-derived winner deterministically; after expiry, **Claim finalized**.
 
 Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h. Indexer `intervalSec` can be a few seconds off (e.g. 3598 for 1h); Window snaps it to the canonical cadence.
 
@@ -47,12 +33,13 @@ Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h.
 
 | Capability | Detail |
 |---|---|
+| Wallet challenge | A tape-verified Call becomes `#/app?d=…`; the recipient sees one prerequisite-aware CTA, and a verified accept produces a completed URL naming both exact transactions |
+| Deterministic judge replay | `marketId + two tx hashes` reconstruct both legs and reads settlement from the Finalized market; missing or contradictory evidence refuses |
 | Question-first board | "Will BTC close above 67,214.5?" — the Line on its dashed price axis, the lock countdown as a **depleting ring**, implied odds, volume, trades |
 | Market health | One grade per Window from spread, walked executable depth, and time-to-lock — a cold depth watch grades the spread and says "top of book", never claims depth it cannot see |
 | Opportunity-first selection | When the selected series has no live Trading Window, the terminal auto-jumps to the best one (real Line + safe headroom); the most callable cadence wears a `best` badge |
 | Roll companion | After your Window locks, one press repeats the same Call on its successor — same side, same stake. The wallet still signs; nothing repeats on its own |
 | Honest execution | Calls size from live stake quotes or the top of book — **no book, no Call**; never an invented 50% price. Explicit Risk → Win on each side |
-| Liquidity preview | Estimated fill, average execution odds, and unfilled remainder from the visible book — with one-tap **Use max fillable** (an estimate, never a promise) |
 | Proof cards | Every witnessed Call becomes a plain-text receipt — settled variant adds result + oracle link — shareable via clipboard or Web Share, no backend |
 | Two-sided Call slip | Stake in tUSDC with 5/10/25 presets → IOC take with protective limit; leftovers cancel, nothing rests |
 | Wallet gate | Connect → Switch → gas → Mint → Approve exactly the stake → Call, guided one step at a time (`nextStep`) |
@@ -79,7 +66,7 @@ Window is the demand side that ecosystem is missing:
 
 ```
 src/
-├── domain/        SDK-free pure logic — fully unit-tested (Vitest, 219 tests)
+├── domain/        SDK-free pure logic — unit-tested with the broader 319-test Vitest suite
 │   ├── pick-window, window-board     read models for the live series
 │   ├── call-ticket, call-session      sizing (tick/lot grids), Call/Exit intents
 │   ├── claim-plan, claim-session      what redeems, and how
@@ -87,6 +74,7 @@ src/
 │   ├── lifecycle, series              callability headroom, cadence snapping
 │   ├── market-health, liquidity       book grade + fill estimates from walked depth
 │   ├── auto-series, roll, onboarding  best-series jump, roll companion, nextStep chain
+│   ├── duel, challenge-link, replay    social state + chain-shaped proof verification
 │   └── settle-preview, wallet-gate, revert-copy, grid, implied, book-depth,
 │       rest-quote, proof-card, series-record, board-notice, tote-primary, chart
 ├── exchange/      the only SDK-touching layer (ADR-0002/0003)
@@ -100,9 +88,13 @@ src/
 
 Decisions live in `docs/adr/`: zero custom contracts (0001), SDK over HTTP API (0002), domain stays SDK-free (0003). Glossary: `CONTEXT.md`. Plan / PRD / backlog: `docs/`. Demo script: `docs/DEMO.md`. SDK notes: `docs/SDK-FEEDBACK.md`.
 
+## Release and dependency status
+
+`npm test` and `npm run build` are the release gate; GitHub Actions runs both from a clean install and rejects critical production advisories. As of 2026-09-01, `npm audit --omit=dev` reports 25 transitive production findings (2 high, 23 moderate) through wagmi's connector tree, including nested WalletConnect `ws` and Coinbase CDP `axios`. There are no critical findings. npm's complete remediation requires the breaking wagmi 3 upgrade, so it was not forced into the judged build; this remains an explicit post-demo migration, not a claim of zero vulnerabilities.
+
 ## Why this exists
 
-dreamDEX already has a CLOB UI. Window is the missing Call: stake in tUSDC, implied odds, countdown, volume (on-chain, not in the official app yet), series history, oracle receipt, wallet P&L, and a Claim that uses `listBinaryMarkets({ status: "Finalized" })` because `loadMarkets()` hides settled markets.
+dreamDEX already has a CLOB UI, so another exchange skin would be weak differentiation. Window adds the missing consumer Call and the social proof loop: share one verified take, invite an opposite take, and resolve the result from public evidence. The supporting terminal also exposes on-chain volume, series history, oracle receipts, wallet P&L, and a Finalized-market Claim path that the live registry alone cannot provide.
 
 ## Docs used
 

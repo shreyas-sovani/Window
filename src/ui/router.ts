@@ -22,7 +22,13 @@ export function hashParam(hash: string, key: string): string | null {
   for (const pair of q.split("&")) {
     const eq = pair.indexOf("=");
     if (eq === -1) continue;
-    if (pair.slice(0, eq) === key) return decodeURIComponent(pair.slice(eq + 1));
+    if (pair.slice(0, eq) === key) {
+      try {
+        return decodeURIComponent(pair.slice(eq + 1));
+      } catch {
+        return null;
+      }
+    }
   }
   return null;
 }

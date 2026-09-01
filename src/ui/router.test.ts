@@ -24,6 +24,10 @@ describe("hashParam", () => {
     expect(hashParam("#/app", "d")).toBeNull();
     expect(hashParam("", "d")).toBeNull();
   });
+
+  it("treats malformed percent encoding as an invalid param instead of throwing", () => {
+    expect(hashParam("#/app?d=%E0%A4%A", "d")).toBeNull();
+  });
 });
 
 describe("routeHref", () => {

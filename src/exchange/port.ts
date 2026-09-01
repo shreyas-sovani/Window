@@ -1,17 +1,21 @@
 import type { Address } from "viem";
 import type { ClaimPreview, ClaimReceipt } from "../domain/claim-session";
 
+export type SeriesResult = "up" | "down" | "void" | "unknown";
+
 export type LiveWindow = {
   marketId: `0x${string}`;
   symbol: string;
   upSymbol: string;
-  downSymbol?: string;
+  downSymbol: string;
   asset: string;
   intervalSec: number;
   expiry: number;
   venueId: string;
   pool: `0x${string}`;
   status: number;
+  /** Settlement read from the market contract/indexer. Never supplied by replay users. */
+  result?: SeriesResult;
   openingPrice?: string;
   impliedUp?: number;
   volumeQuote?: number;
@@ -39,8 +43,6 @@ export type OpenTicket = {
   price: number;
   remaining: number;
 };
-
-export type SeriesResult = "up" | "down" | "void" | "unknown";
 
 export type PastWindow = {
   marketId: `0x${string}`;

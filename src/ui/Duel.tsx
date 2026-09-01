@@ -2,6 +2,7 @@ import { explorerTx } from "../chain/shannon";
 import { duelRefusalCopy, type Duel as DuelState, type DuelFill } from "../domain/duel";
 import { cadenceLabel } from "../domain/series";
 import { shorten } from "./format";
+import { Button } from "./kit";
 
 const n2 = (n: number) => n.toFixed(2);
 
@@ -25,7 +26,14 @@ function FillRow(props: { label: string; fill: DuelFill }) {
  * brought you here; the chain decided everything on screen. Opponents are never
  * each other's exchange counterparty and the second fill was never promised.
  */
-export function Duel(props: { duel: DuelState; onAccept: () => void; acceptBusy: boolean }) {
+export function Duel(props: {
+  duel: DuelState;
+  onAccept: () => void;
+  acceptBusy: boolean;
+  acceptLabel?: string;
+  acceptDisabled?: boolean;
+  acceptHref?: string;
+}) {
   const d = props.duel;
 
   if (d.kind === "invalid") {
@@ -46,15 +54,16 @@ export function Duel(props: { duel: DuelState; onAccept: () => void; acceptBusy:
         <div className="kicker">{c.asset} {cadenceLabel(c.intervalSec)} · Line {c.line ? Number(c.line).toFixed(2) : "—"}</div>
         <FillRow label="" fill={{ ...c, escrow: c.stake, account: c.challenger, marketId: c.marketId, ts: 0 }} />
         <p className="duel-note">Opponents are not counterparties — each Call is its own take.</p>
-        <button
-          type="button"
-          className="btn primary"
+        <Button
+          variant="primary"
           autoFocus
-          disabled={props.acceptBusy}
+          href={props.acceptHref}
+          disabled={props.acceptBusy || props.acceptDisabled}
+          aria-disabled={props.acceptBusy || props.acceptDisabled || undefined}
           onClick={props.onAccept}
         >
-          {props.acceptBusy ? "Calling…" : `Call ${acceptSide} to accept challenge`}
-        </button>
+          {props.acceptBusy ? "Working…" : (props.acceptLabel ?? `Call ${acceptSide} to accept challenge`)}
+        </Button>
       </section>
     );
   }

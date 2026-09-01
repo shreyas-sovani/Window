@@ -15,9 +15,15 @@ Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas 
 - External systems touched: none
 
 ## Current State
-Working. Covered by Vitest (Call session including Stake quote, IOC hash, and Rest quote, Filled receipt incl. marketId scoping and bare-series refusal, Claim session including Windows + payout copy and continue-after-fail, Claim primary / totePrimary, Window board incl. side-aware either-side gate and windowTickets, Book depth, Market health, Rematch, Duel incl. tape aggregation + fake two-wallet fixtures, Challenge link incl. tamper/refusal, Judge replay incl. fail-closed, auto-series incl. hottestCadence, Series record, Series P&L, Board notice, Crash notice, Settle preview, Wallet P&L, Window phase including Locked fallback, fake ExchangeAdapter, cadence, RevertCopy Call-path throws, Pulse chart folds).
+Working. Duel proofs require exact market-owned transactions; mixed or incomplete rows refuse, accepting identity comes from the completed proof URL, settlement comes from the Finalized market, and no public-tape chronology is treated as intent. Up/Down Call and Exit pricing use the correct complementary side; missing liquidity and unsafe stake inputs fail closed. Fill confirmation distinguishes unavailable reads from confirmed no-fill. Covered by the 319-test suite with fake two-wallet, replay, adapter-contract, and UI integration paths.
 
 ## Decision Log
+
+### 2026-09-01 — Winner pass: exact Duel legs, settlement truth, execution correctness
+- **Change**: `challenge-link.ts` adds `acceptedChallengeHref` for `#/app?d=…&a=<acceptTx>`. `tapeDuelFill` now requires all exact-tx rows to resolve to one wallet and one side; chronological `tapeOpponentFill` and broad exclusion matching were removed. Replay requires a Finalized market result and exact market ownership. Call/Exit pricing was corrected for complementary Down execution, `downSymbol` became required, stake conversion became safe, and `confirmFilledCall` gained bounded retries with distinct `verified | unfilled | unavailable` outcomes. `boardNotice` no longer promises a fabricated 50% fallback.
+- **Reasoning**: A public CLOB may contain unrelated opposite fills; chronology is not social consent. Both Duel legs and settlement must be exact, reproducible evidence. Execution and UI copy must use the same real side-specific liquidity and never turn missing data into a number.
+- **Rejected alternative(s)**: First-opposite-fill inference; viewer-address inference; trusting URL side/stake/outcome; optimistic receipts on transaction submission; retaining optional NO symbols or a 50% fallback.
+- **Task/session**: Adversarial winner-readiness build — W-075–W-081, W-085–W-086.
 
 ### 2026-08-31 — challengeableReceipt selector
 - **Change**: `challenge-link.ts` gains `challengeableReceipt(receipts, challenger, nowSec)` — newest receipt that still passes `challengePayloadFromReceipt` (wallet named, fill hash present, Window unexpired). The UI strip's only source.

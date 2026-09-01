@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { erc20Abi, formatUnits, parseUnits, type Hex } from "viem";
+import { erc20Abi, formatUnits, type Hex } from "viem";
 import {
   useAccount,
   useBalance,
@@ -15,12 +15,13 @@ import {
 import { shannonChain } from "../chain/chain";
 import { explorerTx, oracleReceipt, STT_FAUCET, TUSDC } from "../chain/shannon";
 import { autoSeries, hottestCadence } from "../domain/auto-series";
-import { decodeChallengeLink } from "../domain/challenge-link";
+import { stakeUnits } from "../domain/call-ticket";
+import { acceptedChallengeHref, decodeChallengeLink } from "../domain/challenge-link";
 import { readDuel, tapeDuelFill, type Duel as DuelState } from "../domain/duel";
 import { healthDetail, marketHealth } from "../domain/market-health";
 import { chipStatus, nextStep } from "../domain/onboarding";
 import { callSkipCopy, executeCall, executeExit, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
-import { callReceiptFromFill, filledCall } from "../domain/filled-call";
+import { callReceiptFromFill, confirmFilledCall } from "../domain/filled-call";
 import { pickWindow } from "../domain/pick-window";
 import { pnlCopy, pnlTotals, seriesPnl, seriesPnlCopy } from "../domain/pnl";
 import { settlePreview, settlePreviewCopy } from "../domain/settle-preview";
@@ -36,7 +37,7 @@ import { rollPrompt, type LastCall } from "../domain/roll";
 import { bindWallet, somniaExchange } from "../exchange/somnia";
 import type { ExchangePort } from "../exchange/port";
 import { CallBoard } from "./CallBoard";
-import { ChallengeGate } from "./ChallengeStrip";
+import { ChallengeGate, ChallengeStrip } from "./ChallengeStrip";
 import { Duel } from "./Duel";
 import { BookDrawer } from "./BookDrawer";
 import { fmt, shorten } from "./format";
@@ -52,7 +53,14 @@ import { useWriteGuard } from "./write-guard";
 import { WalletBar } from "./WalletBar";
 
 /** The terminal. `exchange` is injectable so integration tests run the real UI against the fake adapter. */
-export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) {
+export function App({
+  exchange = somniaExchange,
+  oddsHook = useLiveOdds,
+}: {
+  exchange?: ExchangePort;
+  /** Hook seam keeps adapter integration tests entirely offline. */
+  oddsHook?: typeof useLiveOdds;
+}) {
   const qc = useQueryClient();
   const { address, isConnected, chainId } = useAccount();
   const { connectors, connectAsync, isPending: connecting } = useConnect();
@@ -77,8 +85,8 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
   const [dismissedRoll, setDismissedRoll] = useState<string>();
 
   useEffect(() => {
-    bindWallet(walletClient);
-  }, [walletClient]);
+    if (exchange === somniaExchange) bindWallet(walletClient);
+  }, [exchange, walletClient]);
 
   const windowsQ = useQuery({
     queryKey: ["windows"],
@@ -111,6 +119,7 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
   // A challenge link pins its Window: select that series once so the board, book,
   // and history all face the market the duel is judged on.
   const duelRaw = useHashParam("d");
+  const duelAcceptTx = useHashParam("a");
   const duelHint = duelRaw ? decodeChallengeLink(duelRaw) : null;
   const duelLiveWindow = useMemo(
     () => (duelHint ? (windowsQ.data ?? []).find((w) => w.marketId === duelHint.marketId) ?? null : null),
@@ -121,10 +130,11 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
   const duelMarketQ = useQuery({
     queryKey: ["duelmarket", duelHint?.marketId],
     queryFn: () => exchange.marketById(duelHint!.marketId as `0x${string}`),
-    enabled: Boolean(duelHint?.marketId) && !duelLiveWindow,
+    enabled: Boolean(duelHint?.marketId),
+    refetchInterval: 8_000,
     retry: 1,
   });
-  const duelWindow = duelLiveWindow ?? (duelMarketQ.data ?? null);
+  const duelWindow = duelMarketQ.data ?? duelLiveWindow ?? null;
   const duelPinned = useRef("");
   useEffect(() => {
     if (!duelHint || !duelWindow) return;
@@ -214,7 +224,7 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
     }
   }, [approveWait.isError, approveHash]);
 
-  const { book, depth } = useLiveOdds({
+  const { book, depth } = oddsHook({
     pool: liveHint?.pool,
     marketId: liveHint?.marketId,
     decimals: liveHint?.decimals ?? TUSDC.decimals,
@@ -240,8 +250,7 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
 
   const stakeNum = Number(stake);
   const quoteDecimals = liveHint?.decimals ?? TUSDC.decimals;
-  const quoteStakeRaw =
-    Number.isFinite(stakeNum) && stakeNum > 0 ? parseUnits(String(stakeNum), quoteDecimals) : 0n;
+  const quoteStakeRaw = stakeUnits(stakeNum, quoteDecimals);
 
   const upQuoteQ = useQuery({
     queryKey: ["quote", liveHint?.marketId, "up", quoteStakeRaw.toString()],
@@ -289,13 +298,6 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
     queryFn: () => exchange.onchainStatus(duelHint!.marketId as `0x${string}`),
     enabled: Boolean(duelHint?.marketId),
     refetchInterval: 8_000,
-    retry: 1,
-  });
-  const duelHistoryQ = useQuery({
-    queryKey: ["duelhistory", duelWindow?.asset, duelWindow?.intervalSec, duelWindow?.venueId],
-    queryFn: () => exchange.listSeriesHistory(duelWindow!.asset, duelWindow!.intervalSec, duelWindow!.venueId),
-    enabled: Boolean(duelWindow),
-    refetchInterval: 30_000,
     retry: 1,
   });
   const duelTapeQ = useQuery({
@@ -353,20 +355,22 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
   const duel: DuelState | null = useMemo(() => {
     if (duelRaw === null) return null;
     if (!duelHint) return { kind: "invalid", reason: "no-challenge" };
+    if (duelMarketQ.isError || duelTapeQ.isError) {
+      return { kind: "invalid", reason: "verification-unavailable" };
+    }
     if (!duelWindow) {
       return readDuel({
         hint: duelHint,
         window: null,
         windowStatus: 0,
         challengerFill: null,
-        acceptor: address,
         acceptorFill: null,
         settlement: null,
         nowSec: now,
       });
     }
     // The chain decides: the pool's public tape must show the challenger's named
-    // tx as a fill on this market, and this wallet's own take on the same market.
+    // tx and, for a completed link, the explicitly named accepting tx.
     const tape = duelTapeQ.data ?? [];
     const challengerProof = tapeDuelFill(tape, {
       marketId: duelWindow.marketId,
@@ -374,31 +378,29 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
       taker: duelHint.challenger,
       side: duelHint.side,
     });
-    // Opposite side accepts; a same-side fill still refuses honestly. This
-    // wallet's own take comes first; otherwise the acceptor is whoever else
-    // filled the opposite side — the result view must render for any viewer.
+    // Opposite side accepts only when the completed proof URL names its exact
+    // transaction. Chronology cannot identify social intent on a public book.
     const opposite = (challengerProof?.side ?? duelHint.side) === "up" ? ("down" as const) : ("up" as const);
     const acceptorProof =
-      (address
-        ? (tapeDuelFill(tape, { marketId: duelWindow.marketId, taker: address, side: opposite }) ??
-          tapeDuelFill(tape, { marketId: duelWindow.marketId, taker: address, side: duelHint.side }))
-        : null) ??
-      (challengerProof
-        ? tapeDuelFill(tape, { marketId: duelWindow.marketId, side: opposite, notTaker: challengerProof.account })
-        : null);
-    const settledRow = (duelHistoryQ.data ?? []).find((h) => h.marketId === duelWindow.marketId && h.result !== "unknown");
+      challengerProof && duelAcceptTx
+        ? tapeDuelFill(tape, {
+            marketId: duelWindow.marketId,
+            txHash: duelAcceptTx,
+            side: opposite,
+          })
+        : null;
+    if (duelAcceptTx && !acceptorProof) return { kind: "invalid", reason: "missing-accept-fill" };
     return readDuel({
       hint: duelHint,
       // DuelWindow reads the Line from `line`; LiveWindow carries it as openingPrice.
       window: { ...duelWindow, line: duelWindow.openingPrice },
       windowStatus: duelStatusQ.data ?? duelWindow.status,
       challengerFill: challengerProof,
-      acceptor: address,
       acceptorFill: acceptorProof,
-      settlement: settledRow ?? null,
+      settlement: duelWindow.result ? { result: duelWindow.result } : null,
       nowSec: now,
     });
-  }, [duelRaw, duelHint, duelWindow, duelTapeQ.data, duelHistoryQ.data, duelStatusQ.data, address, now]);
+  }, [duelRaw, duelHint, duelAcceptTx, duelWindow, duelMarketQ.isError, duelTapeQ.data, duelTapeQ.isError, duelStatusQ.data, now]);
 
   const duelAcceptSide = duel?.kind === "challenge" ? (duel.challenge.side === "up" ? ("down" as const) : ("up" as const)) : null;
 
@@ -463,6 +465,16 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
       ),
     [isConnected, chainId, hasGas, bal, board.stakeRaw, board.upPlan.ok, board.downPlan.ok, allowance, live, claims.windows],
   );
+  const ownChallenge =
+    duel?.kind === "challenge" && Boolean(address) && duel.challenge.challenger.toLowerCase() === address!.toLowerCase();
+  const duelAcceptLabel = ownChallenge
+    ? "Open this link with another wallet"
+    : step.kind === "call" && duelAcceptSide
+      ? `Call ${duelAcceptSide.toUpperCase()} to accept`
+      : step.kind === "wait"
+        ? "Window is no longer callable"
+        : `${step.action} to accept`;
+  const duelAcceptHref = !ownChallenge && step.kind === "gas" ? STT_FAUCET : undefined;
 
   const { impliedSamples, priceSamples } = usePulseSamples({
     seriesKey: `${asset}:${intervalSec}`,
@@ -564,24 +576,31 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
         const txHash = await executeCall(exchange, win, intent);
         // The write result alone is not a fill. Read the wallet's tape back and
         // size the receipt, the roll, and any challenge from what actually filled.
-        const tape = address ? await exchange.listFills(address) : [];
-        const filled = filledCall(tape, {
-          side,
-          asset: win.asset,
-          intervalSec: win.intervalSec,
-          txHash,
-          sinceSec: writeStartSec,
-        });
-        if (!filled) {
+        setBanner({ kind: "ok", text: "Transaction sent · verifying the fill…", txHash });
+        const confirmation = address
+          ? await confirmFilledCall(
+              () => exchange.listFills(address),
+              {
+                side,
+                asset: win.asset,
+                intervalSec: win.intervalSec,
+                txHash,
+                sinceSec: writeStartSec,
+              },
+            )
+          : ({ kind: "unavailable" } as const);
+        if (confirmation.kind !== "verified") {
           setBanner({
             kind: "err",
-            text: txHash
-              ? "Sent, but nothing filled — leftovers cancelled, nothing resting, nothing at risk. No receipt, no challenge."
-              : "Call was sent but the fill could not be verified. No receipt, no challenge.",
+            text:
+              confirmation.kind === "unavailable"
+                ? "Call sent, but the indexer could not verify it yet. Check the transaction; no receipt or challenge was invented."
+                : "Sent, but no fill appeared after confirmation — leftovers cancelled, nothing resting. No receipt or challenge.",
             txHash,
           });
           return;
         }
+        const filled = confirmation.filled;
         const receipt = callReceiptFromFill(win, filled, Math.floor(now));
         setBanner({
           kind: "ok",
@@ -596,6 +615,15 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
           stake: filled.escrow,
           marketId: win.marketId,
         });
+        if (
+          duelHint &&
+          win.marketId.toLowerCase() === duelHint.marketId.toLowerCase() &&
+          side !== duelHint.side
+        ) {
+          // Publish the exact accepting tx into the shareable proof URL only
+          // after the wallet tape has verified that it actually filled.
+          window.location.hash = acceptedChallengeHref(duelHint, filled.txHash);
+        }
         void posQ.refetch().then(() => {
           void qc.invalidateQueries({ queryKey: ["fills"] });
           void qc.invalidateQueries({ queryKey: ["pnl"] });
@@ -770,11 +798,29 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
         <Duel
           duel={duel}
           acceptBusy={primaryBusy || (duelAcceptSide !== null && busy === duelAcceptSide)}
+          acceptLabel={duelAcceptLabel}
+          acceptHref={duelAcceptHref}
+          acceptDisabled={Boolean(ownChallenge) || step.kind === "wait"}
           onAccept={() => {
-            if (duelAcceptSide) void callSide(duelAcceptSide);
+            if (!duelAcceptSide || ownChallenge || step.kind === "gas" || step.kind === "wait") return;
+            if (step.kind === "call") void callSide(duelAcceptSide);
+            else if (step.kind === "mint") void mintCollateral();
+            else void onPrimary();
           }}
         />
       )}
+
+      {duelHint &&
+        duelAcceptTx &&
+        duel &&
+        (duel.kind === "open" || duel.kind === "settled" || duel.kind === "void") && (
+          <ChallengeStrip
+            href={acceptedChallengeHref(duelHint, duelAcceptTx)}
+            kicker="Share verified duel"
+            ariaLabel="Verified duel link"
+            linkLabel="Open the verified duel link"
+          />
+        )}
 
       <CallBoard
         board={board}
@@ -816,7 +862,7 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
         onFaucet={() => void mintCollateral()}
       />
 
-      <ChallengeGate receipts={receipts} address={address} now={now} />
+      {duelRaw === null && <ChallengeGate receipts={receipts} address={address} now={now} />}
 
       {primary.kind === "claim" && (
         <section className="rewards" aria-label="Claim rewards">
@@ -1028,7 +1074,7 @@ export function App({ exchange = somniaExchange }: { exchange?: ExchangePort }) 
               Retry
             </button>
           )}
-          {notice.action === "Mint tUSDC" && isConnected && chainId === shannonChain.id && (
+          {notice.action === "Mint tUSDC" && step.kind !== "mint" && isConnected && chainId === shannonChain.id && (
             <button className="ghost" type="button" disabled={busy !== null} onClick={() => void mintCollateral()}>
               Mint tUSDC
             </button>

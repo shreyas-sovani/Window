@@ -64,6 +64,15 @@ export function challengeHref(p: ChallengeLinkPayload): string {
   return `#/app?d=${encodeChallenge(p)}`;
 }
 
+/**
+ * A completed proof names the accepting transaction explicitly. Public markets
+ * can contain unrelated opposite-side fills, so chronology alone is not duel
+ * identity. The accepting wallet publishes this URL after its fill verifies.
+ */
+export function acceptedChallengeHref(p: ChallengeLinkPayload, acceptTxHash: string): string {
+  return `${challengeHref(p)}&a=${encodeURIComponent(acceptTxHash)}`;
+}
+
 /** The newest witnessed Call that can still be challenged — the strip's only source. */
 export function challengeableReceipt(
   receipts: { side: "up" | "down"; stake: number; txHash: string; marketId: string; expiry: number; ts: number }[],

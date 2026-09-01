@@ -2,9 +2,9 @@ import { settleDuel, type DuelFill, type OpenDuel, type SettledDuelState } from 
 
 /**
  * Judge replay — reconstruct one real duel from a pinned marketId, two tx
- * hashes, and the finalized outcome. Everything is fail-closed: a hash that is
+ * hashes, and the market's finalized settlement. Everything is fail-closed: a hash that is
  * not a fill on that market, a fill with no wallet or side, one wallet on both
- * ends, or a missing outcome refuses rather than guessing. No fills are
+ * ends, or an inconsistent transaction refuses rather than guessing. No fills are
  * invented.
  */
 
@@ -27,7 +27,7 @@ export type ReplayRefusal =
   | "unknown-side"
   | "same-wallet"
   | "same-side"
-  | "missing-outcome";
+  | "inconsistent-fill";
 
 type Leg = { fill: DuelFill };
 
@@ -37,9 +37,15 @@ function leg(
   meta: { marketId: string; asset?: string; intervalSec?: number; expiry?: number },
   err: ReplayRefusal,
 ): { ok: true; leg: Leg } | { ok: false; reason: ReplayRefusal } {
-  const mine = rows.filter((r) => r.txHash === txHash && r.quantity > 0);
+  const wantedTx = txHash.toLowerCase();
+  const mine = rows.filter((r) => r.txHash.toLowerCase() === wantedTx && r.quantity > 0);
   if (mine.length === 0) return { ok: false, reason: err };
-  const taker = mine.find((r) => r.taker)?.taker ?? null;
+  if (mine.some((r) => !r.taker)) return { ok: false, reason: "unknown-wallet" };
+  if (mine.some((r) => !r.side)) return { ok: false, reason: "unknown-side" };
+  const wallets = new Set(mine.map((r) => r.taker!.toLowerCase()));
+  const sides = new Set(mine.map((r) => r.side!));
+  if (wallets.size > 1 || sides.size > 1) return { ok: false, reason: "inconsistent-fill" };
+  const taker = mine.find((r) => r.taker)?.taker?.toLowerCase() ?? null;
   if (!taker) return { ok: false, reason: "unknown-wallet" };
   const side = mine.find((r) => r.side)?.side ?? null;
   if (!side) return { ok: false, reason: "unknown-side" };
@@ -67,21 +73,23 @@ export function replayDuel(
     marketId: string;
     txA: string;
     txB: string;
-    outcome: ReplayOutcome | "";
+    settlement: ReplayOutcome;
     meta?: { asset?: string; intervalSec?: number; expiry?: number; line?: string };
   },
   rows: ReplayRow[],
 ):
   | { ok: true; verdict: SettledDuelState | { kind: "void"; duel: OpenDuel } }
   | { ok: false; reason: ReplayRefusal } {
-  if (!input.outcome) return { ok: false, reason: "missing-outcome" };
   // Only fills this indexer says happened on the pinned market count.
-  const onMarket = rows.filter((r) => !r.marketId || r.marketId === input.marketId);
+  const marketId = input.marketId.toLowerCase();
+  const onMarket = rows.filter((r) => r.marketId?.toLowerCase() === marketId);
   const a = leg(onMarket, input.txA, input, "no-fill-a");
   if (!a.ok) return a;
   const b = leg(onMarket, input.txB, input, "no-fill-b");
   if (!b.ok) return b;
-  if (a.leg.fill.account === b.leg.fill.account) return { ok: false, reason: "same-wallet" };
+  if (a.leg.fill.account.toLowerCase() === b.leg.fill.account.toLowerCase()) {
+    return { ok: false, reason: "same-wallet" };
+  }
   if (a.leg.fill.side === b.leg.fill.side) return { ok: false, reason: "same-side" };
   const [challengerFill, acceptorFill] =
     a.leg.fill.ts <= b.leg.fill.ts ? [a.leg.fill, b.leg.fill] : [b.leg.fill, a.leg.fill];
@@ -94,10 +102,10 @@ export function replayDuel(
     challengerFill,
     acceptorFill,
   };
-  if (input.outcome === "void") return { ok: true, verdict: { kind: "void", duel } };
-  const settled = settleDuel(duel, { result: input.outcome });
+  if (input.settlement === "void") return { ok: true, verdict: { kind: "void", duel } };
+  const settled = settleDuel(duel, { result: input.settlement });
   if (settled.kind === "settled") return { ok: true, verdict: settled };
-  return { ok: false, reason: "missing-outcome" };
+  return { ok: false, reason: "inconsistent-fill" };
 }
 
 export function replayRefusalCopy(reason: ReplayRefusal): string {
@@ -114,8 +122,8 @@ export function replayRefusalCopy(reason: ReplayRefusal): string {
       return "Both hashes are one wallet — a duel needs two.";
     case "same-side":
       return "Both fills took the same side — a duel needs opposite sides.";
-    case "missing-outcome":
-      return "Pin the finalized outcome (Up, Down, or Void) before replaying.";
+    case "inconsistent-fill":
+      return "One transaction maps to conflicting wallets or sides, so nothing is reconstructed.";
     default:
       return "This replay cannot be verified — nothing is reconstructed.";
   }

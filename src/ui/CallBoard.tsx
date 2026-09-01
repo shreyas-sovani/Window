@@ -176,7 +176,7 @@ export function CallBoard(props: {
         </div>
       </section>
 
-      {props.roll && (
+      {props.roll && !props.onlySide && (
         <div className="rollbar" role="status">
           <span>
             <span className="kicker">Rematch</span>
@@ -210,7 +210,7 @@ export function CallBoard(props: {
               </button>
             ))}
           </div>
-          {step.kind === "approve" && (
+          {step.kind === "approve" && !props.onlySide && (
             <Button variant="primary" className="onboard-action" disabled={props.primaryBusy} onClick={props.onPrimary}>
               {props.stepPending || step.action}
             </Button>
@@ -230,20 +230,22 @@ export function CallBoard(props: {
                 </>
               )}
             </div>
-            <button
-              type="button"
-              disabled={!board.gate.canCall || props.primaryBusy || !board.upPlan.ok}
-              title={
-                !board.gate.canCall
-                  ? "Connect a Shannon wallet and approve tUSDC first."
-                  : !board.upPlan.ok
-                    ? callSkipCopy(board.upPlan.reason)
-                    : "IOC take at a protective limit — leftovers cancel, nothing rests."
-              }
-              onClick={() => props.onCall("up")}
-            >
-              {props.busy === "up" ? "Calling…" : "Call Up"}
-            </button>
+            {!props.onlySide && (
+              <button
+                type="button"
+                disabled={!board.gate.canCall || props.primaryBusy || !board.upPlan.ok}
+                title={
+                  !board.gate.canCall
+                    ? "Connect a Shannon wallet and approve tUSDC first."
+                    : !board.upPlan.ok
+                      ? callSkipCopy(board.upPlan.reason)
+                      : "IOC take at a protective limit — leftovers cancel, nothing rests."
+                }
+                onClick={() => props.onCall("up")}
+              >
+                {props.busy === "up" ? "Calling…" : "Call Up"}
+              </button>
+            )}
           </div>
         )}
         {props.onlySide !== "up" && (
@@ -260,25 +262,27 @@ export function CallBoard(props: {
                 </>
               )}
             </div>
-            <button
-              type="button"
-              disabled={!board.gate.canCall || props.primaryBusy || !board.downPlan.ok}
-              title={
-                !board.gate.canCall
-                  ? "Connect a Shannon wallet and approve tUSDC first."
-                  : !board.downPlan.ok
-                    ? callSkipCopy(board.downPlan.reason)
-                    : "IOC take at a protective limit — leftovers cancel, nothing rests."
-              }
-              onClick={() => props.onCall("down")}
-            >
-              {props.busy === "down" ? "Calling…" : "Call Down"}
-            </button>
+            {!props.onlySide && (
+              <button
+                type="button"
+                disabled={!board.gate.canCall || props.primaryBusy || !board.downPlan.ok}
+                title={
+                  !board.gate.canCall
+                    ? "Connect a Shannon wallet and approve tUSDC first."
+                    : !board.downPlan.ok
+                      ? callSkipCopy(board.downPlan.reason)
+                      : "IOC take at a protective limit — leftovers cancel, nothing rests."
+                }
+                onClick={() => props.onCall("down")}
+              >
+                {props.busy === "down" ? "Calling…" : "Call Down"}
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {step.kind !== "call" && (
+      {step.kind !== "call" && !props.onlySide && (
         <section className="onboard" aria-label="Next action">
           <div className="onboard-copy">
             <div className="kicker">Next step</div>

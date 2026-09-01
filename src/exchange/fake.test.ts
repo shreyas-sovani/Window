@@ -36,7 +36,7 @@ describe("fake ExchangeAdapter", () => {
   it("records an IOC Call when the Call session is Trading", async () => {
     const ex = createFakeExchange({
       windows: [windowRow()],
-      books: { "BTC#YES": { ask: 0.5 } },
+      books: { "BTC#YES": { bid: 0.45, ask: 0.5 } },
       statusByMarket: { "0xabc": 1 },
     });
     const [live] = await ex.listLiveWindows();
@@ -53,8 +53,8 @@ describe("fake ExchangeAdapter", () => {
       statusByMarket: { "0xabc": 1 },
     });
     const [live] = await ex.listLiveWindows();
-    const a = prepareCall({ live, book: { ask: 0.5 }, stake: 10, side: "up", nowSec: 1_000 });
-    const b = prepareCall({ live, book: { ask: 0.5 }, stake: 5, side: "down", nowSec: 1_000 });
+    const a = prepareCall({ live, book: { bid: 0.45, ask: 0.5 }, stake: 10, side: "up", nowSec: 1_000 });
+    const b = prepareCall({ live, book: { bid: 0.45, ask: 0.5 }, stake: 5, side: "down", nowSec: 1_000 });
     const hashA = await executeCall(ex, live!, a);
     const hashB = await executeCall(ex, live!, b);
     expect(hashA).not.toBe(hashB);
@@ -181,6 +181,24 @@ describe("fake ExchangeAdapter", () => {
   it("returns null when the Window is missing", async () => {
     const ex = createFakeExchange({ windows: [windowRow()] });
     expect(await ex.quoteStake("0xdef", "up", 10_000_000n)).toBeNull();
+  });
+
+  it("never fabricates a 50% stake quote when the selected side has no liquidity", async () => {
+    const ex = createFakeExchange({ windows: [windowRow()], books: { "BTC#YES": { ask: 0.6 } } });
+    expect(await ex.quoteStake("0xabc", "down", 10_000_000n)).toBeNull();
+    expect(await ex.quoteStake("0xabc", "up", 10_000_000n)).not.toBeNull();
+  });
+
+  it("returns only the acting wallet's fills", async () => {
+    const a = "0x00000000000000000000000000000000000000aa";
+    const b = "0x00000000000000000000000000000000000000bb";
+    const ex = createFakeExchange({ windows: [windowRow()] });
+    ex.actAs(a);
+    await ex.iocBuy("BTC#YES", 10, 0.5);
+    ex.actAs(b);
+    await ex.iocBuy("BTC#NO", 20, 0.4);
+    expect((await ex.listFills(a)).map((f) => f.side)).toEqual(["up"]);
+    expect((await ex.listFills(b)).map((f) => f.side)).toEqual(["down"]);
   });
 
   it("returns a venue settlement fee, or zero when unknown", async () => {

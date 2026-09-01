@@ -1,6 +1,5 @@
 import { planCall } from "../domain/call-ticket";
 import { readClaimSession } from "../domain/claim-session";
-import { impliedUp } from "../domain/implied";
 import type {
   AssetPrice,
   ExchangePort,
@@ -39,6 +38,8 @@ export type FakeExchangeState = {
   cancelled: { id: string; symbol: string }[];
   feesByMarket: Record<string, bigint>;
   fills: WalletFill[];
+  /** Internal ownership index keeps listFills account-relative like the live adapter. */
+  fillAccounts: Record<string, string>;
   positionPnl: PositionPnl[];
   marketFills: Record<string, MarketFill[]>;
   prices: Record<string, AssetPrice>;
@@ -80,6 +81,7 @@ function recordFill(
 ) {
   const w = state.windows.find((row) => row.upSymbol === symbol || row.downSymbol === symbol);
   if (!w) return;
+  const fillId = `fake_${state.fills.length + 1}`;
   (state.marketFills[w.pool] ??= []).push({
     id: `mk_${state.fills.length + 1}`,
     price,
@@ -92,7 +94,7 @@ function recordFill(
     taker: state.actingAccount ?? null,
   });
   state.fills.push({
-    id: `fake_${state.fills.length + 1}`,
+    id: fillId,
     asset: w.asset,
     intervalSec: w.intervalSec,
     side: w.upSymbol === symbol ? "up" : "down",
@@ -104,10 +106,12 @@ function recordFill(
     txHash,
     marketId: w.marketId,
   });
+  if (state.actingAccount) state.fillAccounts[fillId] = state.actingAccount.toLowerCase();
 }
 
 export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): ExchangePort & {
   state: FakeExchangeState;
+  actAs(account?: string): void;
 } {
   const state: FakeExchangeState = {
     windows: seed.windows ?? [],
@@ -124,6 +128,7 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     cancelled: seed.cancelled ?? [],
     feesByMarket: seed.feesByMarket ?? {},
     fills: seed.fills ?? [],
+    fillAccounts: seed.fillAccounts ?? {},
     positionPnl: seed.positionPnl ?? [],
     marketFills: seed.marketFills ?? {},
     prices: seed.prices ?? {},
@@ -145,9 +150,12 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     async quoteStake(marketId, side, stakeRaw) {
       const w = state.windows.find((row) => row.marketId === marketId);
       if (!w) return null;
+      const top = state.books[w.upSymbol];
+      const upPrice = side === "up" ? top?.ask : top?.bid;
+      if (upPrice === undefined) return null;
       const plan = planCall({
         stake: Number(stakeRaw) / 10 ** w.decimals,
-        upPrice: impliedUp(state.books[w.upSymbol]) ?? 0.5,
+        upPrice,
         side,
         decimals: w.decimals,
         tick: w.tick,
@@ -234,13 +242,21 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
       state.tickets = state.tickets.filter((t) => t.id !== id);
       return nextTx();
     },
-    async listFills() {
-      return [...state.fills].sort((a, b) => b.timestamp - a.timestamp);
+    async listFills(account) {
+      const who = account.toLowerCase();
+      return state.fills
+        .filter((fill) => !state.fillAccounts[fill.id] || state.fillAccounts[fill.id] === who)
+        .sort((a, b) => b.timestamp - a.timestamp);
     },
     async listPositionPnl() {
       return state.positionPnl;
     },
   };
 
-  return Object.assign(port, { state });
+  return Object.assign(port, {
+    state,
+    actAs(account?: string) {
+      state.actingAccount = account;
+    },
+  });
 }

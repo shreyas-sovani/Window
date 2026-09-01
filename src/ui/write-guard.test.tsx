@@ -60,11 +60,15 @@ it("releases after a rejection so the next attempt can proceed", async () => {
           data-testid="fire"
           type="button"
           onClick={() =>
-            void guard.run("faucet", () =>
-              new Promise<void>((_, rej) => {
-                reject = rej;
-              }),
-            )
+            void guard
+              .run(
+                "faucet",
+                () =>
+                  new Promise<void>((_, rej) => {
+                    reject = rej;
+                  }),
+              )
+              .catch(() => undefined)
           }
         />
       </div>

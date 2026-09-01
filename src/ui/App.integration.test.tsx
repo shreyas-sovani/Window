@@ -1,15 +1,14 @@
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { SomniaMarketsProvider } from "@somnia-chain/markets-sdk/react";
 import { StrictMode } from "react";
-import { WagmiProvider, createConfig, fallback, http } from "wagmi";
+import { custom } from "viem";
+import { WagmiProvider, createConfig } from "wagmi";
 import { mock } from "wagmi/connectors";
 import { afterEach, expect, it } from "vitest";
 import { shannonChain } from "../chain/chain";
 import { challengeHref, encodeChallenge } from "../domain/challenge-link";
 import { createFakeExchange } from "../exchange/fake";
-import { getExchange } from "../exchange/somnia";
 import type { LiveWindow } from "../exchange/port";
 import { App } from "./App";
 
@@ -37,7 +36,18 @@ const window: LiveWindow = {
 const testConfig = createConfig({
   chains: [shannonChain],
   connectors: [mock({ accounts: ["0x00000000000000000000000000000000000000ff"] })],
-  transports: { [shannonChain.id]: fallback([http("http://127.0.0.1:1")]) },
+  transports: {
+    [shannonChain.id]: custom({
+      async request({ method }) {
+        if (method === "eth_chainId") return `0x${shannonChain.id.toString(16)}`;
+        if (method === "eth_getBalance") return "0xde0b6b3a7640000";
+        if (method === "eth_call") return `0x${"0".repeat(64)}`;
+        if (method === "eth_blockNumber") return "0x1";
+        if (method === "eth_getTransactionReceipt") return null;
+        throw new Error(`Unhandled offline test RPC: ${method}`);
+      },
+    }),
+  },
 });
 
 function Terminal({ fake }: { fake: ReturnType<typeof createFakeExchange> }) {
@@ -46,9 +56,13 @@ function Terminal({ fake }: { fake: ReturnType<typeof createFakeExchange> }) {
     <StrictMode>
       <WagmiProvider config={testConfig}>
         <QueryClientProvider client={qc}>
-          <SomniaMarketsProvider client={getExchange().client}>
-            <App exchange={fake} />
-          </SomniaMarketsProvider>
+          <App
+            exchange={fake}
+            oddsHook={() => ({
+              book: fake.state.books["BTC#YES"],
+              depth: { bids: [], asks: [], empty: true },
+            })}
+          />
         </QueryClientProvider>
       </WagmiProvider>
     </StrictMode>
@@ -169,7 +183,7 @@ it("an incoming challenge link pins that Window and shows the verified challenge
     () => {
       expect(screen.getByLabelText("Incoming challenge")).toBeTruthy();
       expect(screen.getByText(/Called UP/i)).toBeTruthy();
-      expect(screen.getByRole("button", { name: /call down to accept/i })).toBeTruthy();
+      expect(screen.getByRole("button", { name: /connect wallet to accept/i })).toBeTruthy();
     },
     { timeout: 5_000 },
   );
@@ -179,12 +193,10 @@ it("an incoming challenge link pins that Window and shows the verified challenge
   expect(stage.compareDocumentPosition(stake) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   // One h1 on the page and it belongs to the challenge.
   expect(document.querySelector("h1")?.textContent).toBe("Challenge");
-  // The ticket shows only the opposite side — the same-side Call is hidden.
-  const ticketCalls = screen
-    .getAllByRole("button")
-    .filter((b) => /^Call (Up|Down)( to accept.*)?$/.test(b.textContent ?? ""));
-  expect(ticketCalls).toHaveLength(1);
-  expect(ticketCalls[0]?.textContent).toMatch(/down/i);
+  // The ticket shows the opposite quote, but the Duel owns the only action.
+  expect(screen.queryByRole("button", { name: "Call Up" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Call Down" })).toBeNull();
+  expect(screen.getAllByRole("button", { name: /to accept/i })).toHaveLength(1);
   globalThis.window.location.hash = "#/app";
 });
 
@@ -264,8 +276,8 @@ it("a challenge link on a Finalized Window still renders — expired, not unknow
   globalThis.window.location.hash = "#/app";
 });
 
-it("a settled duel renders from a Finalized Window, its settlement row, and both tape proofs", async () => {
-  const done = { ...window, marketId: ("0x" + "ee".repeat(32)) as `0x${string}`, status: 4, upSymbol: "BTC#S1", expiry: Math.floor(Date.now() / 1000) - 300 };
+it("a settled duel renders from a Finalized Window result and both tape proofs", async () => {
+  const done = { ...window, marketId: ("0x" + "ee".repeat(32)) as `0x${string}`, status: 4, result: "up" as const, upSymbol: "BTC#S1", expiry: Math.floor(Date.now() / 1000) - 300 };
   const fake = createFakeExchange({
     windows: [window, done],
     books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
@@ -295,16 +307,15 @@ it("a settled duel renders from a Finalized Window, its settlement row, and both
         },
       ],
     },
-    history: [{ marketId: done.marketId, expiry: done.expiry, result: "up" }],
   });
-  globalThis.window.location.hash = challengeHref({
+  globalThis.window.location.hash = `${challengeHref({
     marketId: done.marketId,
     challenger: CHALLENGER,
     side: "up",
     stake: 9.9,
     txHash: "0xta",
     expiry: done.expiry,
-  });
+  })}&a=0xtb`;
   render(<Terminal fake={fake} />);
   await waitFor(
     () => {
@@ -315,5 +326,50 @@ it("a settled duel renders from a Finalized Window, its settlement row, and both
     },
     { timeout: 5_000 },
   );
+  globalThis.window.location.hash = "#/app";
+});
+
+it("does not turn an unrelated opposite fill into an accepted challenge", async () => {
+  const fake = createFakeExchange({
+    windows: [window],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+    marketFills: {
+      [window.pool]: [
+        {
+          id: "c1",
+          price: 0.55,
+          quantity: 18,
+          quote: 9.9,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 60,
+          txHash: "0xta",
+          marketId: M,
+          taker: CHALLENGER,
+        },
+        {
+          id: "stranger",
+          price: 0.42,
+          quantity: 22,
+          quote: 9.24,
+          aggressor: "down",
+          ts: Math.floor(Date.now() / 1000) - 30,
+          txHash: "0xnot-an-accept",
+          marketId: M,
+          taker: "0x00000000000000000000000000000000000000cc",
+        },
+      ],
+    },
+  });
+  globalThis.window.location.hash = challengeHref({
+    marketId: M as `0x${string}`,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xta",
+    expiry: window.expiry,
+  });
+  render(<Terminal fake={fake} />);
+  await waitFor(() => expect(screen.getByLabelText("Incoming challenge")).toBeTruthy(), { timeout: 5_000 });
+  expect(screen.queryByLabelText("Duel open")).toBeNull();
   globalThis.window.location.hash = "#/app";
 });

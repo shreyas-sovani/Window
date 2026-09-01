@@ -1,41 +1,86 @@
-# Window Duel — 90-second demo script
+# Window Duel — 2–5 minute judge demo
 
-The product sentence: **Challenge another wallet on the same DreamDEX Window. Two opposite Calls, two verified fills, one Line, one on-chain winner.**
+Product sentence: **Make a Call, challenge another wallet, and prove who won from two fills plus the finalized Window.**
 
-Setup before hitting record: two wallets on Shannon (Wallet A = challenger, Wallet B = opponent), each with STT gas and a little tUSDC (faucet works live, but keep a funded fallback). Browser profile 1 for Wallet A, profile 2 (or a second browser) for Wallet B. Start at `#/` on BTC 15m.
+## Preflight — do this before judging
 
-## The script (90 seconds)
+- Deploy the reviewed commit to a public HTTPS URL.
+- Prepare two Shannon wallets in separate browser profiles. Both need STT and tUSDC.
+- Open the landing page in both profiles at least 15 seconds before the demo so the SDK market registry is warm; a cold direct terminal/challenge entry can take 10–15 seconds on Shannon.
+- Complete one earlier duel and record its finalized `marketId`, challenger fill tx, and opponent fill tx.
+- Build the replay URL: `#/docs?m=<marketId>&a=<firstTx>&b=<secondTx>`.
+- Pick a live Window with enough headroom and an executable quote. Venues roll independently; use the best-badged cadence rather than assuming 15m.
+- Keep Shannon explorer tabs for both proof transactions ready.
 
-**0:00 — The pitch (landing, then the board).** From the landing: "Window Duel. You Call a side, you challenge another wallet on the same Window — two opposite Calls, two verified fills, one on-chain winner." Click **Open the terminal**. "One screen: the Line, live odds, a stake, two buttons. Social opponents, never exchange counterparties — each Call is its own IOC take."
+The repository intentionally does not contain invented proof values. Until the three real identifiers above exist, the submission has a live-evidence blocker.
 
-**0:10 — The Call (Wallet A).** Tap preset **10**. "Sizing runs through a live stake quote. IOC only — takes what's there, cancels the rest, nothing rests." Press **Call Up**. Sign. "The receipt only exists because the fill verified on-chain — filled contracts, average odds, escrow, all read back from my tape. A signed-but-unfilled Call gets no receipt, no challenge, nothing."
+## Primary flow — about 2:30
 
-**0:25 — The challenge.** Open **Receipts** → **Challenge a wallet**. "The link carries marketId, my wallet, side, stake, and the fill's tx hash — a hint, not a proof. Send it to Wallet B." Paste/send it (Signal, keybase, whatever is on camera).
+### 0:00 — Hook
 
-**0:35 — The accept (Wallet B, second browser).** Open the link. "The terminal pins that exact Window, locks the opponent to the opposite side, and states the deal: one invite attempts a second IOC take — it does not promise the fill." Enter stake **15** (unequal stakes are allowed and shown). Press **Call DOWN to accept**. Sign. "The duel opens only now — when Wallet B's fill verifies. Not on tx submit."
+Start at `#/` over the two-fill hero.
 
-**0:50 — The result.** Back to either browser once the Window locks and settles: the duel panel names the winner by wallet and side — or **Void — a draw** — from the chain's settlement plus the two verified fills, never from the URL. Both explorer txs are linked. "One lonely fill after expiry is an expired challenge, not a win."
+> Crypto calls live in group chats, but screenshots are weak evidence and informal bets need trust. Window turns a real dreamDEX fill into a wallet challenge. Two opposite fills, one market, and the chain proves who won.
 
-**1:05 — The rematch.** "The Rematch bar offers the same Call on the successor Window — same series, same side, one press, wallet signs." Fire it if time allows.
+Open the live Window.
 
-**1:15 — Close.** "Zero custom contracts. Both trades went through the dreamDEX SDK on Somnia Shannon as independent book takes — opponents never filled against each other and no pot was matched. Ecosystem note: one invite attempts two IOC takes on one canonical Window; volume is measured fills, not links sent. 298 tests, including a full-UI integration run against a deterministic fake exchange."
+### 0:20 — Show the consumer abstraction
 
-## Replay fallback (if the live two-wallet take cannot finish on camera)
+Point to the question, Line, depleting lock ring, odds, stake presets, Risk → Win, and Book health.
 
-`#/docs` → **Judge replay**: paste the marketId, the two tx hashes, and the finalized outcome (Up/Down/Void). The indexer's fill tape must agree — a hash that is not a fill on that market fails closed and nothing is reconstructed. A judge with one browser and no second wallet still finishes the story this way.
+> DreamDEX is the execution venue. Window removes outcome-token symbols, tick grids, and claim hunting. No executable side means no Call; we never invent a 50% price.
 
-**DEMO HOLE (fill before recording):** no real Shannon duel hashes are pinned in this repo yet. Run one live duel first (even on 60s/5m cadence), then paste its marketId + both tx hashes into the replay tool — or share them as `#/docs?m=…&a=…&b=…&o=up`. Do not invent fills.
+The single next-action card should already be cleared in preflight. If not, let it demonstrate connect → Shannon → gas → tUSDC → bounded approval.
 
-## The live two-wallet path (if 15m cannot finish on camera)
+### 0:45 — Wallet A creates the challenge
 
-Use the shortest live cadence (60s or 5m — two venues roll independently). The full loop — Call → challenge link → accept → settle → result — still lands inside one Window. If even that is too tight, show: Wallet A's verified Call + challenge CTA live, the Wallet B accept live, then the **replay** for the settled result of an earlier duel.
+Choose a stake and Call Up or Down. Sign once.
 
-## Fallbacks
+> Submission is not success. Window polls the wallet tape and only builds this receipt after the fill appears. An indexer outage and a confirmed no-fill are different states.
 
-- No live BTC 15m Window: switch chips to whatever cadence is live (two venues roll 60s/5m and 15m+ independently).
-- Last ~90s of a Window: board stays on **Locking** — new Calls closed, Exit still there. Do not accept a challenge in Locking; the accept is refused as not-Trading.
-- Book empty: the ticket says odds are not tradable and the Call buttons stay off with their reason — Window never invents a price. An accept with nothing to cross fails honestly; say so, it's by design.
-- Wallet B opens the link with Wallet A connected: refused — the same wallet cannot accept its own challenge.
-- Broken or tampered link: refused ("no challenge in this link") — URL fields are never treated as proof.
-- Indexer hiccup: status dot goes to "Syncing…", polls retry; refresh fixes worst case.
-- Cold load straight to `#/app` can take ~10–15s (SDK registry hydration). Start on the landing page — it warms the store, so the terminal opens with data in seconds.
+Open the receipt's challenge strip and copy the real `#/app?d=…` URL.
+
+### 1:15 — Wallet B accepts
+
+Open the link in profile B.
+
+> The URL is only a locator. Window reads the exact market and challenger transaction back from the public tape. The recipient gets one next action and only the opposite side.
+
+Set an unequal stake to make the independent-book-take model visible. Use the single CTA; complete any prerequisite it names, then Call the opposite side. Sign.
+
+> These wallets are social opponents, not exchange counterparties. There is no pretend matched pot: both Calls are independent IOC takes against dreamDEX.
+
+After the fill verifies, point out that the URL now contains `&a=<acceptTx>` and the **Share verified duel** strip appears. Copy this completed proof link.
+
+> A busy public book may contain other opposite fills. Window never calls those “the opponent.” The completed URL names Wallet B's exact verified transaction, so anyone opening it sees the same two proofs.
+
+When the pool tape refreshes, show the open duel with both wallets, sides, odds, stakes, and explorer links.
+
+### 1:55 — The proof moment
+
+Open the prepared replay link in one browser and click **Reconstruct the duel**.
+
+> A judge supplies only the market and two transaction hashes. There is no outcome selector. Window requires a finalized market, exact market ownership on every fill row, two different wallets, and opposite sides. Then it names the winner from settlement.
+
+Open both explorer links. If time permits, alter one hash and show the fail-closed refusal, then restore it.
+
+### 2:25 — Close
+
+> Zero custom contracts, zero custody, zero backend referee. This is a consumer and social distribution layer over dreamDEX Event Contracts on Somnia: one invitation can create a second real take, and every result is independently inspectable. The integration produced nine concrete SDK feedback items and 319 deterministic tests.
+
+Show `docs/JUDGING.md` only if a judge asks for the evidence map.
+
+## Live-settlement extension — up to 5 minutes
+
+If a short live Window finalizes during the demo, return to either challenge URL and show the settled result directly, then Claim or trigger the caller's Rematch on the successor. Do not wait silently for settlement; the prepared replay is the deterministic proof beat.
+
+## Honest fallbacks
+
+- **No callable Window:** use the `best` cadence. Explain that two venues roll independently.
+- **Locking:** choose another series. New Calls intentionally close during headroom; Exit remains available until lock.
+- **Empty side:** show its disabled reason and choose a liquid Window. Do not claim a fill.
+- **Wallet A opens its own challenge:** the CTA says to use another wallet and stays disabled.
+- **Broken/tampered link:** show the refusal. Chain data outranks URL fields.
+- **Unrelated opposite fill:** the original challenge remains pending. Only the accepting wallet's exact verified transaction can complete the proof URL.
+- **Indexer unavailable after a tx:** show the explorer transaction and the “could not verify yet” state. Do not call it unfilled.
+- **Live duel misses settlement:** finish with the prepared finalized replay, which reads the result itself.

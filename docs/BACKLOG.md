@@ -78,5 +78,17 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-072 | Account dropdown (balance/P&L trigger, copy/explorer/disconnect) replaces the cramped wallet corner | ui | P1 | done | no |
 | W-073 | Series nav split: asset + cadence ToggleGroups, waiting/auto states, mobile scroll row | ui | P1 | done | no |
 | W-074 | shadcn-style kit primitives in-repo: DropdownMenu, ToggleGroup, Tooltip (+ Button className merge) | kit | P1 | done | yes |
+| W-075 | Replay settlement comes from Finalized `marketById`; no editable outcome; exact market ownership required | Replay | P0 | done | yes |
+| W-076 | Side-correct prices: buy Up at ask / Down at complement bid; sell Up at bid / Down at complement ask | Call session | P0 | done | yes |
+| W-077 | Duel identity is address-normalized, fill-owned, viewer-independent, and never merges multiple opponents | Duel | P0 | done | yes |
+| W-078 | Incoming challenge has one prerequisite-aware CTA; self-challenge is visibly disabled | ui | P0 | done | yes |
+| W-079 | Bounded post-write fill confirmation; indexer unavailable is distinct from confirmed no-fill | Filled Call | P0 | done | yes |
+| W-080 | Account-aware fake, no fabricated quote, full port parity, injectable live-odds hook | tests | P0 | done | yes |
+| W-081 | Scientific/sub-precision/unsafe stake input cannot crash sizing or render | CallTicket | P0 | done | yes |
+| W-082 | Duel-first landing, current PRD, judge evidence map, 2–5 minute proof-first demo | product/docs | P0 | done | no |
+| W-083 | Public deployment, finalized Shannon proof tuple, and recording | submission | P0 | blocked | live human action |
+| W-084 | CI, license, clean build, dependency/advisory disclosure | release | P1 | done | yes |
+| W-085 | Completed Duel URL names the exact verified accept tx; unrelated public fills never imply social intent | Duel | P0 | done | yes |
+| W-086 | Empty-book notice refuses execution instead of promising a fabricated 50% price | Board notice | P0 | done | yes |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.

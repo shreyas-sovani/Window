@@ -1,22 +1,24 @@
 import { useState } from "react";
 import type { Duel as DuelState } from "../domain/duel";
-import { replayDuel, replayRefusalCopy, type ReplayOutcome, type ReplayRow } from "../domain/replay";
+import { replayDuel, replayRefusalCopy, type ReplayRow } from "../domain/replay";
 import { somniaExchange } from "../exchange/somnia";
 import type { ExchangePort } from "../exchange/port";
 import { Duel } from "./Duel";
 
 /**
  * Judge replay: one browser, no second wallet. Pin the marketId, the two
- * transaction hashes, and the finalized outcome — the indexer's fill tape must
- * agree or nothing is reconstructed. A judge with one browser finishes the
+ * transaction hashes. The market's finalized result and the indexer's fill tape
+ * must agree or nothing is reconstructed. A judge with one browser finishes the
  * story; a hash that is not a fill on that market fails closed.
  */
-export function Replay(props: { exchange?: ExchangePort }) {
+export function Replay(props: {
+  exchange?: ExchangePort;
+  initial?: { marketId?: string; txA?: string; txB?: string };
+}) {
   const exchange = props.exchange ?? somniaExchange;
-  const [marketId, setMarketId] = useState("");
-  const [txA, setTxA] = useState("");
-  const [txB, setTxB] = useState("");
-  const [outcome, setOutcome] = useState<ReplayOutcome | "">("");
+  const [marketId, setMarketId] = useState(props.initial?.marketId ?? "");
+  const [txA, setTxA] = useState(props.initial?.txA ?? "");
+  const [txB, setTxB] = useState(props.initial?.txB ?? "");
   const [busy, setBusy] = useState(false);
   const [verdict, setVerdict] = useState<DuelState | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -29,6 +31,10 @@ export function Replay(props: { exchange?: ExchangePort }) {
       const win = await exchange.marketById(marketId.trim() as `0x${string}`);
       if (!win) {
         setRefusal("That marketId is not on this chain — nothing is reconstructed.");
+        return;
+      }
+      if ((win.status !== 4 && win.status !== 5) || !win.result || win.result === "unknown") {
+        setRefusal("That Window is not finalized with a verifiable result — nothing is reconstructed.");
         return;
       }
       const rows: ReplayRow[] = (await exchange.fillsByPool(win.pool, win.decimals)).map((f) => ({
@@ -45,7 +51,7 @@ export function Replay(props: { exchange?: ExchangePort }) {
           marketId: win.marketId,
           txA: txA.trim(),
           txB: txB.trim(),
-          outcome,
+          settlement: win.result,
           meta: { asset: win.asset, intervalSec: win.intervalSec, expiry: win.expiry, line: win.openingPrice },
         },
         rows,
@@ -65,8 +71,8 @@ export function Replay(props: { exchange?: ExchangePort }) {
   return (
     <div className="replay">
       <p className="replay-intro">
-        Pin one real duel: the marketId, the two transaction hashes, and the finalized outcome. The indexer's
-        fill tape must agree, or nothing is reconstructed.
+        Pin one real duel: the marketId and two transaction hashes. The finalized Window and its fill tape must
+        agree, or nothing is reconstructed.
       </p>
       <form
         className="replay-form"
@@ -87,16 +93,7 @@ export function Replay(props: { exchange?: ExchangePort }) {
           Second tx hash
           <input className="mono" value={txB} onChange={(e) => setTxB(e.target.value)} placeholder="0x…" />
         </label>
-        <label>
-          Outcome
-          <select value={outcome} onChange={(e) => setOutcome(e.target.value as ReplayOutcome | "")}>
-            <option value="">Pin the finalized outcome…</option>
-            <option value="up">Up</option>
-            <option value="down">Down</option>
-            <option value="void">Void</option>
-          </select>
-        </label>
-        <button type="submit" className="btn primary" disabled={busy || !marketId || !txA || !txB || !outcome}>
+        <button type="submit" className="btn primary" disabled={busy || !marketId || !txA || !txB}>
           {busy ? "Reading the tape…" : "Reconstruct the duel"}
         </button>
       </form>

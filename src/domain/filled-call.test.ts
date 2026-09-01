@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LiveWindow, WalletFill } from "../exchange/port";
-import { callReceiptFromFill, filledCall } from "./filled-call";
+import { callReceiptFromFill, confirmFilledCall, filledCall } from "./filled-call";
 
 const live: LiveWindow = {
   marketId: "0xabc",
@@ -137,6 +137,33 @@ describe("filledCall", () => {
       txHash: "0xtx1",
       marketId: "0xabc",
       ts: 1_500,
+    });
+  });
+});
+
+describe("confirmFilledCall", () => {
+  it("waits for an indexer-delayed fill instead of declaring a filled IOC empty", async () => {
+    const proof = fill({ side: "up", price: 0.55, quantity: 10, txHash: "0xlate" });
+    let reads = 0;
+    const got = await confirmFilledCall(
+      async () => {
+        reads += 1;
+        return reads < 3 ? [] : [proof];
+      },
+      { side: "up", asset: "BTC", intervalSec: 900, txHash: "0xlate" },
+      { attempts: 3, delayMs: 0 },
+    );
+    expect(got.kind).toBe("verified");
+    expect(reads).toBe(3);
+  });
+
+  it("distinguishes an unavailable tape from a verified no-fill", async () => {
+    const match = { side: "up" as const, asset: "BTC", intervalSec: 900, txHash: "0xlate" };
+    await expect(
+      confirmFilledCall(async () => Promise.reject(new Error("indexer down")), match, { attempts: 2, delayMs: 0 }),
+    ).resolves.toEqual({ kind: "unavailable" });
+    await expect(confirmFilledCall(async () => [], match, { attempts: 2, delayMs: 0 })).resolves.toEqual({
+      kind: "unfilled",
     });
   });
 });

@@ -46,6 +46,21 @@ describe("boardNotice", () => {
     });
   });
 
+  it("refuses to imply an executable price when the book is empty", () => {
+    expect(
+      boardNotice({
+        loadError: null,
+        loading: false,
+        live: true,
+        thinBook: true,
+        shortCollateral: false,
+      }),
+    ).toEqual({
+      kind: "info",
+      text: "No executable liquidity right now. A Call stays disabled until a real quote appears.",
+    });
+  });
+
   it("is silent when the board is healthy", () => {
     expect(
       boardNotice({

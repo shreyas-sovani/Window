@@ -58,6 +58,22 @@ describe("prepareCall", () => {
     if (got.plan.kind !== "take") return;
     expect(got.plan.contracts).toBe(20);
   });
+
+  it("buys each outcome at its own ask and refuses a missing side", () => {
+    const book = { bid: 0.55, ask: 0.6 };
+    const up = prepareCall({ live: live(), book, stake: 10, side: "up", nowSec: 1_000 });
+    const down = prepareCall({ live: live(), book, stake: 10, side: "down", nowSec: 1_000 });
+    expect(up.ok && up.plan.price).toBeCloseTo(0.6);
+    expect(down.ok && down.plan.price).toBeCloseTo(0.45);
+    expect(prepareCall({ live: live(), book: { bid: 0.55 }, stake: 10, side: "up", nowSec: 1_000 })).toEqual({
+      ok: false,
+      reason: "bad-price",
+    });
+    expect(prepareCall({ live: live(), book: { ask: 0.6 }, stake: 10, side: "down", nowSec: 1_000 })).toEqual({
+      ok: false,
+      reason: "bad-price",
+    });
+  });
 });
 
 describe("prepareQuotedCall", () => {
@@ -99,10 +115,10 @@ describe("prepareExit", () => {
     ).toEqual({ ok: false, reason: "bad-price" });
   });
 
-  it("sells Down at 1 minus the Up bid", () => {
+  it("sells Down at its bid, one minus the Up ask", () => {
     const got = prepareExit({
       live: live(),
-      book: { bid: 0.6 },
+      book: { bid: 0.55, ask: 0.6 },
       side: "down",
       up: 0n,
       down: 2_000_000n,
@@ -113,6 +129,15 @@ describe("prepareExit", () => {
     expect(got.symbol).toBe("BTC#NO");
     expect(got.contracts).toBe(2);
     expect(got.price).toBeCloseTo(0.4);
+  });
+
+  it("refuses to sell when the selected outcome has no bid", () => {
+    expect(
+      prepareExit({ live: live(), book: { bid: 0.55 }, side: "down", up: 0n, down: 2n, decimals: 6 }),
+    ).toEqual({ ok: false, reason: "bad-price" });
+    expect(
+      prepareExit({ live: live(), book: { ask: 0.6 }, side: "up", up: 2n, down: 0n, decimals: 6 }),
+    ).toEqual({ ok: false, reason: "bad-price" });
   });
 });
 

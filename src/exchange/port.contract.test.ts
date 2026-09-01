@@ -12,6 +12,8 @@ const PORT_METHODS = [
   "listMarketFills",
   "watchAssetPrice",
   "assetPrice",
+  "marketById",
+  "fillsByPool",
   "onchainStatus",
   "iocBuy",
   "iocSell",

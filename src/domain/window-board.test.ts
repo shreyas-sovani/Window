@@ -203,6 +203,24 @@ describe("readBoard", () => {
     expect(board.downPlan.ok).toBe(false);
     expect(board.gate.action).toBe("wait");
   });
+
+  it("treats sub-decimal and enormous stake input as invalid instead of throwing", () => {
+    const input = {
+      windows: [live()],
+      asset: "BTC",
+      intervalSec: 900,
+      nowSec: 1_000,
+      book: { bid: 0.4, ask: 0.5 },
+      connected: true,
+      chainId: 50312,
+      expectedChainId: 50312,
+      allowance: 10_000_000n,
+    };
+    expect(() => readBoard({ ...input, stake: 0.0000001 })).not.toThrow();
+    expect(readBoard({ ...input, stake: 0.0000001 }).stakeRaw).toBe(0n);
+    expect(() => readBoard({ ...input, stake: 1e30 })).not.toThrow();
+    expect(readBoard({ ...input, stake: 1e30 }).stakeRaw).toBe(0n);
+  });
 });
 
 describe("windowTickets", () => {

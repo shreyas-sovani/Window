@@ -13,6 +13,15 @@ export type FilledCall = {
   proofs: WalletFill[];
 };
 
+export type FilledCallMatch = {
+  side: "up" | "down";
+  asset: string;
+  intervalSec: number;
+  marketId?: string;
+  txHash?: string;
+  sinceSec?: number;
+};
+
 /**
  * Reads a Call's actual fill off the wallet tape. With a tx hash it aggregates
  * that transaction's fills for the called side; without one it takes everything
@@ -22,14 +31,7 @@ export type FilledCall = {
  */
 export function filledCall(
   tape: WalletFill[],
-  match: {
-    side: "up" | "down";
-    asset: string;
-    intervalSec: number;
-    marketId?: string;
-    txHash?: string;
-    sinceSec?: number;
-  },
+  match: FilledCallMatch,
 ): FilledCall | null {
   const cadence = canonicalInterval(match.intervalSec);
   let rows = tape.filter(
@@ -61,6 +63,35 @@ export function filledCall(
     txHash: match.txHash ?? rows[0].txHash,
     proofs: rows,
   };
+}
+
+export type FillConfirmation =
+  | { kind: "verified"; filled: FilledCall }
+  | { kind: "unfilled" }
+  | { kind: "unavailable" };
+
+/** Bounded indexer confirmation after a write; transport failure is not an empty fill. */
+export async function confirmFilledCall(
+  readTape: () => Promise<WalletFill[]>,
+  match: FilledCallMatch,
+  opts: { attempts?: number; delayMs?: number } = {},
+): Promise<FillConfirmation> {
+  const attempts = Math.max(1, opts.attempts ?? 6);
+  const delayMs = Math.max(0, opts.delayMs ?? 750);
+  let successfulReads = 0;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const filled = filledCall(await readTape(), match);
+      successfulReads += 1;
+      if (filled) return { kind: "verified", filled };
+    } catch {
+      // Keep trying: the indexer can briefly lag or reject a read after the tx lands.
+    }
+    if (attempt + 1 < attempts && delayMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  return successfulReads > 0 ? { kind: "unfilled" } : { kind: "unavailable" };
 }
 
 /** The witnessed-fill receipt: every number comes from the tape, none from the intent. */

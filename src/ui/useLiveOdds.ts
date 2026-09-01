@@ -9,9 +9,11 @@ export function useLiveOdds(input: {
   marketId?: string;
   decimals: number;
   polled?: BookTop;
+  enabled?: boolean;
 }): { book: BookTop | undefined; depth: BookDepth } {
-  useWatchMarket(input.pool);
-  const live = useLiveBinaryOrderBookByMarket(input.marketId);
+  const enabled = input.enabled ?? true;
+  useWatchMarket(enabled ? input.pool : undefined);
+  const live = useLiveBinaryOrderBookByMarket(enabled ? input.marketId : undefined);
   const watched = bookTopFromBinary(live, input.decimals);
   const book = bookHasTop(watched) ? watched : input.polled;
   return { book, depth: bookDepthFromBinary(live, input.decimals) };

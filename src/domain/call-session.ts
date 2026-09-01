@@ -1,6 +1,5 @@
 import type { BookTop, LiveWindow, StakeQuote } from "../exchange/port";
 import { planCall, type CallPlan, type CallSide } from "./call-ticket";
-import { impliedUp } from "./implied";
 import { callability } from "./lifecycle";
 import { planRest, type RestPlan } from "./rest-quote";
 
@@ -25,7 +24,7 @@ export type CallWriter = {
 };
 
 function outcomeSymbol(live: LiveWindow, side: CallSide): string {
-  return side === "up" ? live.upSymbol : (live.downSymbol ?? live.upSymbol);
+  return side === "up" ? live.upSymbol : live.downSymbol;
 }
 
 export function prepareCall(input: {
@@ -43,7 +42,10 @@ export function prepareCall(input: {
     intervalSec: input.live.intervalSec,
   });
   if (!gate.callable) return { ok: false, reason: gate.reason };
-  const upPrice = impliedUp(input.book);
+  // The adapter exposes the YES book. Buying YES crosses its ask; buying NO
+  // crosses the complementary price of the YES bid. Never substitute the
+  // opposite side of the spread when the required level is absent.
+  const upPrice = input.side === "up" ? input.book?.ask : input.book?.bid;
   if (upPrice === undefined) return { ok: false, reason: "bad-price" };
   const plan = planCall({
     stake: input.stake,
@@ -129,7 +131,8 @@ export function prepareExit(input: {
   if (!input.live) return { ok: false, reason: "no-window" };
   const raw = input.side === "up" ? input.up : input.down;
   if (raw === 0n) return { ok: false, reason: "empty" };
-  const upPx = input.book?.bid ?? input.book?.ask;
+  // Selling YES crosses its bid; selling NO crosses 1 - YES ask.
+  const upPx = input.side === "up" ? input.book?.bid : input.book?.ask;
   if (upPx === undefined) return { ok: false, reason: "bad-price" };
   return {
     ok: true,

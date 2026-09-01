@@ -15,9 +15,15 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-PRD is `needs-triage` locally (no hosted tracker). SDK-FEEDBACK has 9 items (new: operator/session-key gap for Event Contracts). W-060/W-061/W-062 done; Roll companion shipped as Rematch. Default Call stays IOC. DEMO.md is the 90-second Window Duel script (live two-wallet path, replay fallback, explicit DEMO HOLE until real Shannon duel hashes are pinned — fills are never invented).
+Current and truth-passed on 2026-09-01. `PRD.md` is Duel-first, `JUDGING.md` maps common criteria to inspectable evidence, and `DEMO.md` is the 2–5 minute proof-first flow. W-075–W-086 are the winner-readiness backlog; only W-083 (real finalized Shannon tuple, public deployment, recording) remains externally blocked. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
 
 ## Decision Log
+
+### 2026-09-01 — Winner-readiness truth pass and exact accept proof
+- **Change**: Rewrote `PRD.md` around the consumer/social Duel; added `JUDGING.md`; rewrote `DEMO.md` as a proof-first 2–5 minute flow; added W-075–W-086 to `BACKLOG.md`; and updated `PLAN.md` with current status and rejected scope. The completed Duel URL now documented as `#/app?d=…&a=<acceptTx>`: the acceptor tx is added only after fill verification, and unrelated opposite fills do not complete a challenge. Test counts, dependency disclosure, submission blockers, and the removed ticket-level “Use max” surface are current.
+- **Reasoning**: A judge needs one coherent product, a falsifiable proof story, and an executable demo—not stale build history or a manually selected outcome. Exact accept identity prevents busy-market traffic from being mislabeled as social consent.
+- **Rejected alternative(s)**: Inventing Shannon hashes or traction; adding a custom escrow contract, leaderboard, or autonomous bot; preserving the chronological-opponent heuristic; rewriting the entire historical PLAN instead of clearly marking it as history.
+- **Task/session**: Adversarial winner-readiness build.
 
 ### 2026-08-31 — DEMO.md rewritten for Window Duel
 - **Change**: 90-second script is now the duel loop: Call (tape-verified receipt) → Challenge a wallet link → second browser accepts on the pinned Window (unequal stakes) → result from settlement + two proofs → Rematch. Replay fallback section (`#/docs` judge tool, fail-closed), a live two-wallet path for short cadences, and fallbacks for self-accept/tampered-link/Locking refusals. Ecosystem line: one invite attempts two IOC takes on one canonical Window; volume is measured fills, not links sent.
