@@ -58,8 +58,8 @@ export function Landing() {
             Prove who won.
           </h1>
           <p>
-            Turn a filled Up/Down trade into a wallet challenge you can drop into any group chat. Two opposite
-            fills on one Window; the public tape and finalized market decide the result.
+            Turn a filled Up/Down trade into a wallet challenge you can drop into any group chat. Name the
+            opponent, two opposite fills on one Window; the public tape and finalized market decide the result.
           </p>
           <div className="hero-cta">
             <Button variant="primary" href={routeHref("app")}>
@@ -80,9 +80,10 @@ export function Landing() {
           <section className="l-section">
             <h2>One market take becomes a social challenge.</h2>
             <p>
-              Call a side, then share the proof link. The recipient sees your verified fill and one next action:
-              take the opposite side of that exact Window. The duel exists only after both fills appear on the
-              public tape; a submitted-but-unfilled transaction earns no receipt and no victory screen.
+              Call a side, then share the proof link — optionally addressed to one wallet. The recipient sees
+              your verified fill and one next action: a FOK take on the opposite side, at or above your stake.
+              The invite is short-lived. The duel exists only after both fills appear on the public tape; a
+              submitted-but-unfilled transaction earns no receipt and no victory screen.
             </p>
           </section>
         </Reveal>
@@ -108,11 +109,12 @@ export function Landing() {
               </li>
               <li>
                 <Badge tone="clay">2</Badge>
-                Challenge — share the verified fill; another wallet takes the opposite side.
+                Challenge — share the verified fill; name a wallet or leave it open. They take the opposite side.
               </li>
               <li>
                 <Badge tone="clay">3</Badge>
-                Prove — both transactions and the finalized winner resolve from chain data.
+                Prove — both transactions and the finalized winner resolve from chain data. Claim or rematch
+                the same opponent on the next Window.
               </li>
             </ol>
           </section>

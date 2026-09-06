@@ -62,6 +62,15 @@ it("challenge: shows the verified fill, the opposite side to take, and the socia
   expect(screen.getByRole("button", { name: /call down to accept challenge/i })).toBeTruthy();
 });
 
+it("challenge: shows the stake floor the accept must meet", () => {
+  const state: DuelState = {
+    kind: "challenge",
+    challenge: { ...base, challenger: CHALLENGER, side: "up", stake: 9.9, contracts: 18, avgOdds: 0.55, txHash: "0xchallengerfill", to: ACCEPTOR, minStake: 9.9 },
+  };
+  render(<Duel duel={state} onAccept={() => {}} acceptBusy={false} />);
+  expect(screen.getByText(/stake at least 9\.90 tusdc/i)).toBeTruthy();
+});
+
 it("open: both wallets, both explorer txs, unequal stakes visible, settles at lock", () => {
   const state: DuelState = {
     kind: "open",
@@ -94,6 +103,67 @@ it("settled: names the winner by wallet and side, with both proofs and the Line"
   expect(links).toContain("https://shannon-explorer.somnia.network/tx/0xchallengerfill");
 });
 
+it("settled: a participant can re-challenge the opponent on the successor Window", () => {
+  const state: DuelState = {
+    kind: "settled",
+    ...base,
+    winner: challengerFill,
+    loser: acceptorFill,
+  };
+  render(
+    <Duel
+      duel={state}
+      onAccept={() => {}}
+      acceptBusy={false}
+      rematch={{ opponent: ACCEPTOR, side: "up", cadence: "15m" }}
+      onRematch={() => {}}
+    />,
+  );
+  const btn = screen.getByRole("button", { name: /rematch .*00bb/i });
+  expect(btn.textContent).toContain("UP");
+});
+
+it("settled: the winner can claim straight from the result", () => {
+  const state: DuelState = {
+    kind: "settled",
+    ...base,
+    winner: challengerFill,
+    loser: acceptorFill,
+  };
+  render(
+    <Duel duel={state} onAccept={() => {}} acceptBusy={false} claimLabel="Claim 1 Window · 17.8 tUSDC" onClaim={() => {}} />,
+  );
+  expect(screen.getByRole("button", { name: /Claim 1 Window/i })).toBeTruthy();
+});
+
+it("void: either participant can claim at half", () => {
+  const state: DuelState = {
+    kind: "void",
+    duel: { ...base, challengerFill, acceptorFill },
+  };
+  render(
+    <Duel duel={state} onAccept={() => {}} acceptBusy={false} claimLabel="Claim 1 Window · 9.6 tUSDC" onClaim={() => {}} />,
+  );
+  expect(screen.getByRole("button", { name: /Claim 1 Window/i })).toBeTruthy();
+});
+
+it("void: either participant can re-challenge on the successor Window", () => {
+  const state: DuelState = {
+    kind: "void",
+    duel: { ...base, challengerFill, acceptorFill },
+  };
+  render(
+    <Duel
+      duel={state}
+      onAccept={() => {}}
+      acceptBusy={false}
+      rematch={{ opponent: CHALLENGER, side: "down", cadence: "15m" }}
+      onRematch={() => {}}
+    />,
+  );
+  expect(screen.getByRole("button", { name: /rematch .*00aa/i })).toBeTruthy();
+});
+
 it("void: a draw — no winner is invented", () => {
   const state: DuelState = {
     kind: "void",
@@ -107,9 +177,30 @@ it("void: a draw — no winner is invented", () => {
 it("expired: one fill before lock is an expired challenge, not a win", () => {
   const state: DuelState = {
     kind: "expired",
+    cause: "window",
     challenge: { ...base, challenger: CHALLENGER, side: "up", stake: 9.9, contracts: 18, avgOdds: 0.55, txHash: "0xchallengerfill" },
   };
   render(<Duel duel={state} onAccept={() => {}} acceptBusy={false} />);
   expect(screen.getAllByText(/expired/i).length).toBeGreaterThan(0);
   expect(screen.getByText(/not a win/i)).toBeTruthy();
+});
+
+it("expired: an invite TTL is not a Window lock and not a win", () => {
+  const state: DuelState = {
+    kind: "expired",
+    cause: "invite",
+    challenge: { ...base, challenger: CHALLENGER, side: "up", stake: 9.9, contracts: 18, avgOdds: 0.55, txHash: "0xchallengerfill", until: 1_290 },
+  };
+  render(<Duel duel={state} onAccept={() => {}} acceptBusy={false} />);
+  expect(screen.getByText(/invite closed/i)).toBeTruthy();
+  expect(screen.getByText(/not a win/i)).toBeTruthy();
+});
+
+it("challenge: names the invite close so a late fill is not an accept", () => {
+  const state: DuelState = {
+    kind: "challenge",
+    challenge: { ...base, challenger: CHALLENGER, side: "up", stake: 9.9, contracts: 18, avgOdds: 0.55, txHash: "0xchallengerfill", until: 1_699_999_090 },
+  };
+  render(<Duel duel={state} onAccept={() => {}} acceptBusy={false} />);
+  expect(screen.getByText(/invite closes/i)).toBeTruthy();
 });

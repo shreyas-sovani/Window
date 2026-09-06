@@ -38,7 +38,7 @@ Choose a stake and Call Up or Down. Sign once.
 
 > Submission is not success. Window polls the wallet tape and only builds this receipt after the fill appears. An indexer outage and a confirmed no-fill are different states.
 
-Open the receipt's challenge strip and copy the real `#/app?d=…` URL.
+Open the receipt's challenge strip, name the opponent wallet (the link is then addressed — only that wallet can accept), and copy the real `#/app?d=…` URL. The minted link floors the accept at the challenger's stake and closes the invite after the Window's Call headroom from the fill — do not sit on the link.
 
 ### 1:15 — Wallet B accepts
 
@@ -46,7 +46,7 @@ Open the link in profile B.
 
 > The URL is only a locator. Window reads the exact market and challenger transaction back from the public tape. The recipient gets one next action and only the opposite side.
 
-Set an unequal stake to make the independent-book-take model visible. Use the single CTA; complete any prerequisite it names, then Call the opposite side. Sign.
+Set a higher stake to make the independent-book-take model visible (equal-or-higher is accepted; lower is refused as an undershoot). Use the single CTA; complete any prerequisite it names, then Call the opposite side. Sign — the accept is a FOK take, so it fills whole or not at all.
 
 > These wallets are social opponents, not exchange counterparties. There is no pretend matched pot: both Calls are independent IOC takes against dreamDEX.
 
@@ -66,13 +66,13 @@ Open both explorer links. If time permits, alter one hash and show the fail-clos
 
 ### 2:25 — Close
 
-> Zero custom contracts, zero custody, zero backend referee. This is a consumer and social distribution layer over dreamDEX Event Contracts on Somnia: one invitation can create a second real take, and every result is independently inspectable. The integration produced nine concrete SDK feedback items and 319 deterministic tests.
+> Zero custom contracts, zero custody, zero backend referee. This is a consumer and social distribution layer over dreamDEX Event Contracts on Somnia: one invitation can create a second real take, and every result is independently inspectable. The integration produced nine concrete SDK feedback items and 353 deterministic tests.
 
 Show `docs/JUDGING.md` only if a judge asks for the evidence map.
 
 ## Live-settlement extension — up to 5 minutes
 
-If a short live Window finalizes during the demo, return to either challenge URL and show the settled result directly, then Claim or trigger the caller's Rematch on the successor. Do not wait silently for settlement; the prepared replay is the deterministic proof beat.
+If a short live Window finalizes during the demo, return to either challenge URL and show the settled result directly, then press Claim on the result, or press Rematch to re-challenge the same opponent on the successor Window (your side, their side, one new link). Do not wait silently for settlement; the prepared replay is the deterministic proof beat.
 
 ## Honest fallbacks
 

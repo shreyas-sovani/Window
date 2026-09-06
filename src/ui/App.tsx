@@ -20,8 +20,9 @@ import { acceptedChallengeHref, decodeChallengeLink } from "../domain/challenge-
 import { readDuel, tapeDuelFill, type Duel as DuelState } from "../domain/duel";
 import { healthDetail, marketHealth } from "../domain/market-health";
 import { chipStatus, nextStep } from "../domain/onboarding";
-import { callSkipCopy, executeCall, executeExit, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
+import { callSkipCopy, executeCall, executeExit, executeFokCall, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
 import { callReceiptFromFill, confirmFilledCall } from "../domain/filled-call";
+import { cadenceLabel } from "../domain/series";
 import { pickWindow } from "../domain/pick-window";
 import { pnlCopy, pnlTotals, seriesPnl, seriesPnlCopy } from "../domain/pnl";
 import { settlePreview, settlePreviewCopy } from "../domain/settle-preview";
@@ -33,7 +34,7 @@ import { boardNotice } from "../domain/board-notice";
 import { claimReceiptCopy, claimSessionCopy } from "../domain/claim-session";
 import type { CallReceipt } from "../domain/proof-card";
 import { readBoard, windowTickets } from "../domain/window-board";
-import { rollPrompt, type LastCall } from "../domain/roll";
+import { rematchPrompt, rollPrompt, type LastCall } from "../domain/roll";
 import { bindWallet, somniaExchange } from "../exchange/somnia";
 import type { ExchangePort } from "../exchange/port";
 import { CallBoard } from "./CallBoard";
@@ -83,6 +84,7 @@ export function App({
   const [receipts, setReceipts] = useState<CallReceipt[]>([]);
   const [lastCall, setLastCall] = useState<LastCall | null>(null);
   const [dismissedRoll, setDismissedRoll] = useState<string>();
+  const [rematchTarget, setRematchTarget] = useState<{ to: string; side: "up" | "down"; marketId: string } | null>(null);
 
   useEffect(() => {
     if (exchange === somniaExchange) bindWallet(walletClient);
@@ -404,6 +406,39 @@ export function App({
 
   const duelAcceptSide = duel?.kind === "challenge" ? (duel.challenge.side === "up" ? ("down" as const) : ("up" as const)) : null;
 
+  // Successor rematch: a participant of a settled/void duel re-challenges the
+  // same opponent on the next Window of the series — each keeps their side, so
+  // the two Calls stay opposite. Never the dead marketId.
+  const duelRematch = useMemo(() => {
+    if (!address || (duel?.kind !== "settled" && duel?.kind !== "void")) return null;
+    const mine =
+      duel.kind === "settled"
+        ? [duel.winner, duel.loser].find((f) => f.account.toLowerCase() === address.toLowerCase())
+        : [duel.duel.challengerFill, duel.duel.acceptorFill].find(
+            (f) => f.account.toLowerCase() === address.toLowerCase(),
+          );
+    if (!mine) return null;
+    const opponentFill =
+      duel.kind === "settled"
+        ? [duel.winner, duel.loser].find((f) => f.account.toLowerCase() !== address.toLowerCase())!
+        : [duel.duel.challengerFill, duel.duel.acceptorFill].find(
+            (f) => f.account.toLowerCase() !== address.toLowerCase(),
+          )!;
+    const series =
+      duel.kind === "settled"
+        ? { asset: duel.asset, intervalSec: duel.intervalSec, marketId: duel.marketId }
+        : { asset: duel.duel.asset, intervalSec: duel.duel.intervalSec, marketId: duel.duel.marketId };
+    const successor = pickWindow(windowsQ.data ?? [], series.asset, series.intervalSec, now);
+    if (!successor || successor.marketId === series.marketId || successor.status !== 1) return null;
+    return {
+      opponent: opponentFill.account,
+      mySide: mine.side,
+      cadence: cadenceLabel(series.intervalSec),
+      series,
+      successor,
+    };
+  }, [duel, address, windowsQ.data, now]);
+
   const board = useMemo(
     () =>
       readBoard({
@@ -445,6 +480,21 @@ export function App({
   const primaryBusy =
     connecting || switching || writing || approveCooldown || approveWait.isLoading || busy !== null;
 
+  // Claim straight off the result: the winner on a settled duel, either wallet
+  // on a void (both redeem at half). Losers on settled markets hold nothing due.
+  const duelClaim = useMemo(() => {
+    if (!address) return null;
+    const owed =
+      duel?.kind === "settled"
+        ? duel.winner.account.toLowerCase() === address.toLowerCase()
+        : duel?.kind === "void" &&
+          [duel.duel.challengerFill, duel.duel.acceptorFill].some(
+            (f) => f.account.toLowerCase() === address.toLowerCase(),
+          );
+    if (!owed || claims.windows === 0) return null;
+    return { label: claimSessionCopy(claims, live?.decimals ?? TUSDC.decimals), busy: busy === "claim" };
+  }, [duel, address, claims, live?.decimals, busy]);
+
   const sttBal = useBalance({ address });
   const hasGas = sttBal.data === undefined ? undefined : sttBal.data.value > 0n;
   const step = useMemo(
@@ -467,13 +517,22 @@ export function App({
   );
   const ownChallenge =
     duel?.kind === "challenge" && Boolean(address) && duel.challenge.challenger.toLowerCase() === address!.toLowerCase();
+  // A named challenge is addressed: any viewer who is not that wallet —
+  // including no wallet at all — can see it but not accept it.
+  const duelWrongViewer =
+    duel?.kind === "challenge" &&
+    duel.challenge.to !== undefined &&
+    address?.toLowerCase() !== duel.challenge.to.toLowerCase() &&
+    !ownChallenge;
   const duelAcceptLabel = ownChallenge
     ? "Open this link with another wallet"
-    : step.kind === "call" && duelAcceptSide
-      ? `Call ${duelAcceptSide.toUpperCase()} to accept`
-      : step.kind === "wait"
-        ? "Window is no longer callable"
-        : `${step.action} to accept`;
+    : duelWrongViewer && duel?.kind === "challenge" && duel.challenge.to
+      ? `Open this link with ${shorten(duel.challenge.to)}`
+      : step.kind === "call" && duelAcceptSide
+        ? `Call ${duelAcceptSide.toUpperCase()} to accept`
+        : step.kind === "wait"
+          ? "Window is no longer callable"
+          : `${step.action} to accept`;
   const duelAcceptHref = !ownChallenge && step.kind === "gas" ? STT_FAUCET : undefined;
 
   const { impliedSamples, priceSamples } = usePulseSamples({
@@ -557,7 +616,7 @@ export function App({
     onError: (e) => setBanner({ kind: "err", text: revertCopy(e) }),
   });
 
-  async function callSide(side: "up" | "down") {
+  async function callSide(side: "up" | "down", mode: "ioc" | "fok" = "ioc") {
     const win = live;
     if (!win || !board.gate.canCall) return;
     const intent = side === "up" ? board.upPlan : board.downPlan;
@@ -573,7 +632,10 @@ export function App({
     const writeStartSec = Math.floor(Date.now() / 1000);
     await run(side, async () => {
       try {
-        const txHash = await executeCall(exchange, win, intent);
+        // A duel accept is FOK: the whole stake crosses or nothing does; a
+        // partial IOC undershoot is not an accept.
+        const txHash =
+          mode === "fok" ? await executeFokCall(exchange, win, intent) : await executeCall(exchange, win, intent);
         // The write result alone is not a fill. Read the wallet's tape back and
         // size the receipt, the roll, and any challenge from what actually filled.
         setBanner({ kind: "ok", text: "Transaction sent · verifying the fill…", txHash });
@@ -742,7 +804,20 @@ export function App({
   }
 
   const roll = useMemo(
+    () =>
+      rematchPrompt({
+        target: rematchTarget,
+        live,
+        canCall: board.gate.canCall,
+        sideOk: rematchTarget ? (rematchTarget.side === "up" ? board.upPlan.ok : board.downPlan.ok) : false,
+      }),
+    [rematchTarget, live, board.gate.canCall, board.upPlan.ok, board.downPlan.ok],
+  );
+
+  const soloRoll = useMemo(
     () => {
+      // An opponent-targeted rematch replaces the same-side solo roll.
+      if (roll) return null;
       const callableSide = lastCall
         ? lastCall.side === "up"
           ? board.upPlan.ok
@@ -755,7 +830,7 @@ export function App({
         dismissedMarketId: dismissedRoll,
       });
     },
-    [lastCall, live, board.gate.canCall, board.upPlan.ok, board.downPlan.ok, dismissedRoll],
+    [roll, lastCall, live, board.gate.canCall, board.upPlan.ok, board.downPlan.ok, dismissedRoll],
   );
 
   const loadErr = windowsQ.error ? revertCopy(windowsQ.error) : null;
@@ -800,13 +875,39 @@ export function App({
           acceptBusy={primaryBusy || (duelAcceptSide !== null && busy === duelAcceptSide)}
           acceptLabel={duelAcceptLabel}
           acceptHref={duelAcceptHref}
-          acceptDisabled={Boolean(ownChallenge) || step.kind === "wait"}
+          acceptDisabled={
+            Boolean(ownChallenge) ||
+            duelWrongViewer ||
+            step.kind === "wait" ||
+            (duelAcceptSide !== null && !(duelAcceptSide === "up" ? board.upPlan.ok : board.downPlan.ok))
+          }
           onAccept={() => {
             if (!duelAcceptSide || ownChallenge || step.kind === "gas" || step.kind === "wait") return;
-            if (step.kind === "call") void callSide(duelAcceptSide);
+            if (step.kind === "call") void callSide(duelAcceptSide, "fok");
             else if (step.kind === "mint") void mintCollateral();
             else void onPrimary();
           }}
+          claimLabel={duelClaim?.label}
+          claimBusy={duelClaim?.busy}
+          onClaim={duelClaim ? () => void claimAll() : undefined}
+          rematch={
+            duelRematch
+              ? { opponent: duelRematch.opponent, side: duelRematch.mySide, cadence: duelRematch.cadence }
+              : null
+          }
+          onRematch={
+            duelRematch
+              ? () => {
+                  setAsset(duelRematch.series.asset);
+                  setIntervalSec(duelRematch.series.intervalSec);
+                  setRematchTarget({
+                    to: duelRematch.opponent,
+                    side: duelRematch.mySide,
+                    marketId: duelRematch.successor.marketId,
+                  });
+                }
+              : undefined
+          }
         />
       )}
 
@@ -853,7 +954,7 @@ export function App({
         autoKey={autoTried.current || null}
         cadenceStates={cadenceStates}
         hotCadence={hotCadence}
-        roll={roll}
+        roll={roll ?? soloRoll}
         onRoll={(side) => void callSide(side)}
         onDismissRoll={() => live && setDismissedRoll(live.marketId)}
         faucetEnabled={isConnected && chainId === shannonChain.id}
@@ -862,7 +963,28 @@ export function App({
         onFaucet={() => void mintCollateral()}
       />
 
-      {duelRaw === null && <ChallengeGate receipts={receipts} address={address} now={now} />}
+      {duelRaw === null && (
+        <ChallengeGate
+          receipts={receipts}
+          address={address}
+          now={now}
+          to={
+            rematchTarget &&
+            receipts[0] &&
+            receipts[0].marketId.toLowerCase() === rematchTarget.marketId.toLowerCase() &&
+            receipts[0].side === rematchTarget.side
+              ? rematchTarget.to
+              : undefined
+          }
+          allow={(() => {
+            const newest = receipts[0];
+            if (!newest || !live || newest.marketId !== live.marketId) return false;
+            // The opponent's side is the opposite of the challenged fill's side; a
+            // link against a dead opposite book can only ever expire.
+            return newest.side === "up" ? board.downPlan.ok : board.upPlan.ok;
+          })()}
+        />
+      )}
 
       {primary.kind === "claim" && (
         <section className="rewards" aria-label="Claim rewards">

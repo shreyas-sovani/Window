@@ -2,7 +2,7 @@
 
 Original plan: 2026-08-28. Winner-readiness truth pass: 2026-09-01.
 
-> **Status: code-ready; submission evidence pending.** The solo terminal below is the original build plan, retained as history. Duel is now the product: a verified Call → shareable challenge → one gated opposite Call → two-fill result from the finalized market. Current scope and truth live in `docs/PRD.md`, `docs/JUDGING.md`, `docs/BACKLOG.md`, and the nearest `AGENTS.md` files.
+> **Status: code-ready; submission evidence pending.** The solo terminal below is the original build plan, retained as history. Duel is now the product: a verified Call → shareable, addressed challenge (named opponent, stake floor) → one gated FOK opposite Call → two-fill result from the finalized market → claim or re-challenge the same opponent on the successor. Current scope and truth live in `docs/PRD.md`, `docs/JUDGING.md`, `docs/BACKLOG.md`, and the nearest `AGENTS.md` files.
 
 ## Winner-readiness plan
 
@@ -52,7 +52,7 @@ Judged demo is **Shannon**. Fallback HTTP RPC seen in Somnia dApp tutorials: `ht
 - Testnet constructor (npm README, confirmed in prior session): indexer `https://dev.smk.somnia.host/v1/graphql`, chain `somniaShannon`, WS `wss://api.infra.testnet.somnia.network/ws`, `SOMNIA_TESTNET_ADDRESSES`.
 - Testnet collateral: **tUSDC** `0x70a86D8842FB63C4Ad2b7cdddF530eBf1BB25d8E`, 6 decimals, `exchange.trader.faucet()` cap 10_000.
 - Mainnet collateral: **USDso** 18 decimals. Never copy a 6-decimal constant to mainnet.
-- Writes: gate `getMarketOnchain` status `=== 1`. Unified `createOrder` receipt is on `order.info`. Consumer path is **IOC**.
+- Writes: gate `getMarketOnchain` status `=== 1`. Unified `createOrder` receipt is on `order.info`. Consumer path is **IOC**; duel accepts are **FOK** via the same unified TIF.
 - Claims: `listBinaryMarkets({ venueId, status: "Finalized" })` then `trader.redeem`. Void → both outcomes; resolved → winner only; skip zero balance and losers.
 
 ## Deep modules (build first, TDD)

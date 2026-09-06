@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { CallReceipt } from "../domain/proof-card";
+import { decodeChallengeLink } from "../domain/challenge-link";
 import { ChallengeGate, ChallengeStrip } from "./ChallengeStrip";
 
 afterEach(cleanup);
@@ -45,19 +46,56 @@ const receipt = (over: Partial<CallReceipt> = {}): CallReceipt => ({
 
 it("the gate shows the link the moment this session has a verified, live fill", () => {
   const { container } = render(
-    <ChallengeGate receipts={[receipt()]} address="0x00000000000000000000000000000000000000aa" now={1_699_999_100} />,
+    <ChallengeGate receipts={[receipt()]} address="0x00000000000000000000000000000000000000aa" now={1_699_999_050} />,
   );
   const link = screen.getByRole("link", { name: /open the challenge link/i }) as HTMLAnchorElement;
-  expect(link.getAttribute("href")).toMatch(/^#\/app\?d=1\./);
+  expect(link.getAttribute("href")).toMatch(/^#\/app\?d=2\./);
   expect(container.querySelector("a")).toBe(link);
+});
+
+it("keeps the opponent field inside the challenge strip", () => {
+  const { container } = render(
+    <ChallengeGate receipts={[receipt()]} address="0x00000000000000000000000000000000000000aa" now={1_699_999_050} />,
+  );
+  expect(container.querySelector(".challenge-strip .challenge-to")).toBeTruthy();
+});
+
+it("names the opponent in the link when the challenger types one", async () => {
+  render(<ChallengeGate receipts={[receipt()]} address="0x00000000000000000000000000000000000000aa" now={1_699_999_050} />);
+  const input = screen.getByLabelText(/opponent/i) as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "0x00000000000000000000000000000000000000bb" } });
+  await waitFor(() => {
+    const a = screen.getByRole("link", { name: /open the challenge link/i }) as HTMLAnchorElement;
+    const d = a.getAttribute("href")!.match(/d=([A-Za-z0-9._-]+)/)![1];
+    expect(decodeChallengeLink(d)?.to?.toLowerCase()).toBe("0x00000000000000000000000000000000000000bb");
+  });
+  // An invalid opponent is ignored, not encoded.
+  fireEvent.change(input, { target: { value: "nope" } });
+  await waitFor(() => {
+    const a = screen.getByRole("link", { name: /open the challenge link/i }) as HTMLAnchorElement;
+    const raw = a.getAttribute("href")!.match(/d=([A-Za-z0-9._-]+)/)![1];
+    expect(decodeChallengeLink(raw)?.to).toBeUndefined();
+  });
+});
+
+it("mints no link while the opposite side of the Window has no executable depth", () => {
+  const { container } = render(
+    <ChallengeGate
+      receipts={[receipt()]}
+      address="0x00000000000000000000000000000000000000aa"
+      now={1_699_999_050}
+      allow={false}
+    />,
+  );
+  expect(container.querySelector("a")).toBeNull();
 });
 
 it("no verified fill, no wallet, or an expired Window — no strip at all", () => {
   const { rerender, container } = render(
-    <ChallengeGate receipts={[receipt({ txHash: "" })]} address="0xaa" now={1_699_999_100} />,
+    <ChallengeGate receipts={[receipt({ txHash: "" })]} address="0xaa" now={1_699_999_050} />,
   );
   expect(container.querySelector("a")).toBeNull();
-  rerender(<ChallengeGate receipts={[receipt()]} now={1_699_999_100} />);
+  rerender(<ChallengeGate receipts={[receipt()]} now={1_699_999_050} />);
   expect(container.querySelector("a")).toBeNull();
   rerender(
     <ChallengeGate receipts={[receipt()]} address="0x00000000000000000000000000000000000000aa" now={1_700_000_001} />,

@@ -1,4 +1,5 @@
 import type { MarketFill } from "../exchange/port";
+import { inviteUntil } from "./challenge-link";
 import type { FilledCall } from "./filled-call";
 
 export type DuelSide = "up" | "down";
@@ -44,6 +45,12 @@ export type ChallengeHint = {
   stake: number;
   txHash: string;
   expiry: number;
+  /** Intended opponent — when set, only that wallet's fill can accept. */
+  to?: string;
+  /** Accept escrow must meet this floor. */
+  minStake?: number;
+  /** Social invite close. Absent on legacy links — those last until Window expiry. */
+  until?: number;
 };
 
 export type VerifiedChallenge = {
@@ -58,6 +65,10 @@ export type VerifiedChallenge = {
   contracts: number;
   avgOdds: number;
   txHash: string;
+  to?: string;
+  minStake?: number;
+  until?: number;
+  fillTs?: number;
 };
 
 export type OpenDuel = {
@@ -90,6 +101,9 @@ export type DuelRefusalReason =
   | "wrong-market"
   | "self-accept"
   | "same-side"
+  | "not-your-duel"
+  | "below-floor"
+  | "invite-expired"
   | "not-trading"
   | "verification-unavailable";
 
@@ -99,7 +113,23 @@ export type Duel =
   | { kind: "open"; duel: OpenDuel }
   | SettledDuelState
   | { kind: "void"; duel: OpenDuel }
-  | { kind: "expired"; challenge: VerifiedChallenge };
+  | { kind: "expired"; challenge: VerifiedChallenge; cause: "window" | "invite" };
+
+/**
+ * When the hint names an invite close, the verified fill time caps a tampered
+ * late `until`. Legacy links without `until` last until the Window expires.
+ */
+function inviteCloseSec(
+  challenge: { expiry: number; intervalSec: number; until?: number },
+  fillTs: number,
+): number | null {
+  if (challenge.until === undefined) return null;
+  const from = fillTs > 0 ? fillTs : challenge.until;
+  return Math.min(
+    challenge.until,
+    inviteUntil({ windowExpiry: challenge.expiry, fromSec: from, intervalSec: challenge.intervalSec }),
+  );
+}
 
 /** Lift a tape-verified fill into the chain-shaped duel record. */
 export function duelFill(account: string, marketId: string, filled: FilledCall, ts: number): DuelFill {
@@ -186,6 +216,10 @@ export function verifyChallenge(
       contracts: fill.contracts,
       avgOdds: fill.avgOdds,
       txHash: fill.txHash,
+      to: hint.to,
+      minStake: hint.minStake,
+      until: hint.until,
+      fillTs: fill.ts,
     },
   };
 }
@@ -204,6 +238,20 @@ export function verifyAccept(
   if (fill.account.toLowerCase() === challenger) return { ok: false, reason: "self-accept" };
   if (fill.marketId !== challenge.marketId) return { ok: false, reason: "wrong-market" };
   if (fill.side === challenge.side) return { ok: false, reason: "same-side" };
+  // A named challenge is addressed: only the intended wallet's fill accepts —
+  // on the live accept path and on any completed proof URL alike.
+  if (challenge.to && fill.account.toLowerCase() !== challenge.to.toLowerCase()) {
+    return { ok: false, reason: "not-your-duel" };
+  }
+  // An undershoot is not an accept: the floor (the challenger's stake on new
+  // links) keeps a partial IOC from claiming the duel.
+  if (challenge.minStake !== undefined && fill.escrow < challenge.minStake - 1e-6) {
+    return { ok: false, reason: "below-floor" };
+  }
+  const inviteClose = inviteCloseSec(challenge, challenge.fillTs ?? 0);
+  if (inviteClose !== null && fill.ts > 0 && fill.ts > inviteClose) {
+    return { ok: false, reason: "invite-expired" };
+  }
   if (input.windowStatus !== 1) return { ok: false, reason: "not-trading" };
   return {
     ok: true,
@@ -272,7 +320,13 @@ export function readDuel(input: {
     if (!accepted.ok) return { kind: "invalid", reason: accepted.reason };
     return settleDuel(accepted.duel, input.settlement ?? { result: "unknown" });
   }
-  if (input.nowSec > input.window!.expiry) return { kind: "expired", challenge: verified.challenge };
+  const inviteClose = inviteCloseSec(verified.challenge, input.challengerFill?.ts ?? 0);
+  if (inviteClose !== null && input.nowSec > inviteClose) {
+    return { kind: "expired", challenge: verified.challenge, cause: "invite" };
+  }
+  if (input.nowSec > input.window!.expiry) {
+    return { kind: "expired", challenge: verified.challenge, cause: "window" };
+  }
   return { kind: "challenge", challenge: verified.challenge };
 }
 
@@ -292,6 +346,12 @@ export function duelRefusalCopy(reason: DuelRefusalReason): string {
       return "The same wallet cannot accept its own challenge.";
     case "same-side":
       return "Duels take opposite sides — this wallet already holds that side.";
+    case "not-your-duel":
+      return "This challenge is addressed to another wallet.";
+    case "below-floor":
+      return "That fill staked less than the challenge floor, so it is not an accept.";
+    case "invite-expired":
+      return "That fill landed after the invite closed, so it is not an accept.";
     case "not-trading":
       return "The Window is not Trading, so a new Call cannot cross.";
     case "verification-unavailable":

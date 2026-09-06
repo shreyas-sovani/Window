@@ -33,6 +33,13 @@ export function Duel(props: {
   acceptLabel?: string;
   acceptDisabled?: boolean;
   acceptHref?: string;
+  /** Successor rematch for a participant: same two wallets, opposite sides. */
+  rematch?: { opponent: string; side: "up" | "down"; cadence: string } | null;
+  onRematch?: () => void;
+  /** Claim for a due participant: winner on settled, either on void (half). */
+  claimLabel?: string;
+  claimBusy?: boolean;
+  onClaim?: () => void;
 }) {
   const d = props.duel;
 
@@ -54,6 +61,12 @@ export function Duel(props: {
         <div className="kicker">{c.asset} {cadenceLabel(c.intervalSec)} · Line {c.line ? Number(c.line).toFixed(2) : "—"}</div>
         <FillRow label="" fill={{ ...c, escrow: c.stake, account: c.challenger, marketId: c.marketId, ts: 0 }} />
         <p className="duel-note">Opponents are not counterparties — each Call is its own take.</p>
+        {c.minStake !== undefined && (
+          <small className="mono duel-floor">Stake at least {n2(c.minStake)} tUSDC — a smaller fill is not an accept.</small>
+        )}
+        {c.until !== undefined && (
+          <small className="mono duel-floor">Invite closes before lock — a later fill is not an accept.</small>
+        )}
         <Button
           variant="primary"
           autoFocus
@@ -93,6 +106,17 @@ export function Duel(props: {
         </p>
         <FillRow label="" fill={d.winner} />
         <FillRow label="" fill={d.loser} />
+        {props.claimLabel && props.onClaim && (
+          <Button variant="primary" disabled={props.claimBusy} onClick={props.onClaim}>
+            {props.claimBusy ? "Claiming…" : props.claimLabel}
+          </Button>
+        )}
+        {props.rematch && props.onRematch && (
+          <Button variant="ghost" onClick={props.onRematch}>
+            Rematch {shorten(props.rematch.opponent)} — Call {props.rematch.side.toUpperCase()} on the next{" "}
+            {props.rematch.cadence} Window
+          </Button>
+        )}
       </section>
     );
   }
@@ -107,6 +131,17 @@ export function Duel(props: {
         </p>
         <FillRow label="" fill={d.duel.challengerFill} />
         <FillRow label="" fill={d.duel.acceptorFill} />
+        {props.claimLabel && props.onClaim && (
+          <Button variant="primary" disabled={props.claimBusy} onClick={props.onClaim}>
+            {props.claimBusy ? "Claiming…" : props.claimLabel}
+          </Button>
+        )}
+        {props.rematch && props.onRematch && (
+          <Button variant="ghost" onClick={props.onRematch}>
+            Rematch {shorten(props.rematch.opponent)} — Call {props.rematch.side.toUpperCase()} on the next{" "}
+            {props.rematch.cadence} Window
+          </Button>
+        )}
       </section>
     );
   }
@@ -114,7 +149,11 @@ export function Duel(props: {
   return (
     <section className="duel expired" aria-label="Challenge expired">
       <h1 className="duel-h">Challenge</h1>
-      <p>Only one side filled before this Window locked — an expired challenge, not a win.</p>
+      <p>
+        {d.cause === "invite"
+          ? "The invite closed before anyone accepted — an expired challenge, not a win."
+          : "Only one side filled before this Window locked — an expired challenge, not a win."}
+      </p>
     </section>
   );
 }

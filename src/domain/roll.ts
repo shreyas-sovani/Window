@@ -42,3 +42,33 @@ export function rollPrompt(input: {
     side: last.side,
   };
 }
+
+export type RematchTarget = { to: string; side: "up" | "down"; marketId: string };
+
+/**
+ * The opponent-targeted rematch banner: after a settled duel, the participant
+ * Calls their own side on the successor Window, then challenges the same
+ * opponent from the strip — the two wallets keep opposite sides. Replaces the
+ * same-side solo roll while active. Never the dead marketId.
+ */
+export function rematchPrompt(input: {
+  target: RematchTarget | null;
+  live: LiveWindow | null;
+  canCall: boolean;
+  sideOk: boolean;
+}): RollPrompt | null {
+  const { target, live } = input;
+  if (!target || !live) return null;
+  if (live.marketId.toLowerCase() !== target.marketId.toLowerCase()) return null;
+  if (!input.canCall || !input.sideOk) return null;
+  const side = target.side === "up" ? "Up" : "Down";
+  return {
+    title: `Rematch — open the next Window against ${shortenAddress(target.to)}`,
+    action: `Call ${side} to open the rematch`,
+    side: target.side,
+  };
+}
+
+function shortenAddress(a: string): string {
+  return a.length < 12 ? a : `${a.slice(0, 6)}…${a.slice(-4)}`;
+}

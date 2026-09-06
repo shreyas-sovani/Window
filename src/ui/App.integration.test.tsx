@@ -373,3 +373,234 @@ it("does not turn an unrelated opposite fill into an accepted challenge", async 
   expect(screen.queryByLabelText("Duel open")).toBeNull();
   globalThis.window.location.hash = "#/app";
 });
+
+const OPPONENT = "0x00000000000000000000000000000000000000bb";
+const STRANGER_FILL = "0x00000000000000000000000000000000000000cc";
+
+it("a named challenge refuses the wrong wallet and accepts only its intended opponent", async () => {
+  const fake = createFakeExchange({
+    windows: [window],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+    statusByMarket: { [M]: 1 },
+    marketFills: {
+      "0x0000000000000000000000000000000000000001": [
+        {
+          id: "n1",
+          price: 0.55,
+          quantity: 18,
+          quote: 9.9,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 60,
+          txHash: "0xchallengerproof",
+          marketId: M,
+          taker: CHALLENGER,
+        },
+      ],
+    },
+  });
+  globalThis.window.location.hash = challengeHref({
+    marketId: M as `0x${string}`,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xchallengerproof",
+    expiry: window.expiry,
+    to: OPPONENT,
+  });
+  render(<Terminal fake={fake} />);
+  await waitFor(
+    () => {
+      // The connected mock wallet (…00ff) is not the named opponent (…00bb).
+      const accept = screen.getByRole("button", { name: /open this link with/i }) as HTMLButtonElement;
+      expect(accept.hasAttribute("disabled")).toBe(true);
+      expect(accept.textContent).toContain("…00bb");
+    },
+    { timeout: 5_000 },
+  );
+  globalThis.window.location.hash = "#/app";
+});
+
+it("a completed named proof with a stranger's accept fill is refused", async () => {
+  const fake = createFakeExchange({
+    windows: [window],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+    marketFills: {
+      "0x0000000000000000000000000000000000000001": [
+        {
+          id: "c1",
+          price: 0.55,
+          quantity: 18,
+          quote: 9.9,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 120,
+          txHash: "0xta",
+          marketId: M,
+          taker: CHALLENGER,
+        },
+        {
+          id: "c2",
+          price: 0.42,
+          quantity: 22,
+          quote: 9.24,
+          aggressor: "down",
+          ts: Math.floor(Date.now() / 1000) - 60,
+          txHash: "0xtb",
+          marketId: M,
+          taker: STRANGER_FILL,
+        },
+      ],
+    },
+  });
+  globalThis.window.location.hash = `${challengeHref({
+    marketId: M as `0x${string}`,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xta",
+    expiry: window.expiry,
+    to: OPPONENT,
+  })}&a=0xtb`;
+  render(<Terminal fake={fake} />);
+  await waitFor(
+    () => {
+      expect(screen.getByLabelText("Challenge refused")).toBeTruthy();
+      expect(screen.getByText(/addressed to another wallet/i)).toBeTruthy();
+    },
+    { timeout: 5_000 },
+  );
+  globalThis.window.location.hash = "#/app";
+});
+
+it("a completed proof whose accept fill undershot the floor is refused", async () => {
+  const fake = createFakeExchange({
+    windows: [window],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+    marketFills: {
+      "0x0000000000000000000000000000000000000001": [
+        {
+          id: "u1",
+          price: 0.55,
+          quantity: 18,
+          quote: 9.9,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 120,
+          txHash: "0xta",
+          marketId: M,
+          taker: CHALLENGER,
+        },
+        {
+          id: "u2",
+          price: 0.42,
+          quantity: 2,
+          quote: 0.84,
+          aggressor: "down",
+          ts: Math.floor(Date.now() / 1000) - 60,
+          txHash: "0xtb",
+          marketId: M,
+          taker: OPPONENT,
+        },
+      ],
+    },
+  });
+  globalThis.window.location.hash = `${challengeHref({
+    marketId: M as `0x${string}`,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xta",
+    expiry: window.expiry,
+    to: OPPONENT,
+    minStake: 9.9,
+  })}&a=0xtb`;
+  render(<Terminal fake={fake} />);
+  await waitFor(
+    () => {
+      expect(screen.getByLabelText("Challenge refused")).toBeTruthy();
+      expect(screen.getByText(/less than the challenge floor/i)).toBeTruthy();
+    },
+    { timeout: 5_000 },
+  );
+  globalThis.window.location.hash = "#/app";
+});
+
+it("a settled participant can re-challenge the opponent on the successor Window", async () => {
+  const ME = "0x00000000000000000000000000000000000000ff"; // the mock connector wallet
+  const settled: LiveWindow = {
+    ...window,
+    status: 4,
+    result: "up",
+    expiry: Math.floor(Date.now() / 1000) - 30,
+  };
+  const successor: LiveWindow = {
+    ...window,
+    marketId: ("0x" + "99".repeat(32)) as `0x${string}`,
+    upSymbol: "BTC#NEXT",
+    openingPrice: "68123.00",
+    expiry: Math.floor(Date.now() / 1000) + 700,
+  };
+  const fake = createFakeExchange({
+    windows: [settled, successor],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 }, "BTC#NEXT": { bid: 0.45, ask: 0.5 } },
+    marketFills: {
+      "0x0000000000000000000000000000000000000001": [
+        {
+          id: "r1",
+          price: 0.42,
+          quantity: 22,
+          quote: 9.24,
+          aggressor: "down",
+          ts: Math.floor(Date.now() / 1000) - 120,
+          txHash: "0xta",
+          marketId: M,
+          taker: CHALLENGER,
+        },
+        {
+          id: "r2",
+          price: 0.58,
+          quantity: 18,
+          quote: 10.44,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 60,
+          txHash: "0xtb",
+          marketId: M,
+          taker: ME,
+        },
+      ],
+    },
+  });
+  globalThis.window.location.hash = `${challengeHref({
+    marketId: M as `0x${string}`,
+    challenger: CHALLENGER,
+    side: "down",
+    stake: 9.24,
+    txHash: "0xta",
+    expiry: window.expiry - 400,
+    to: ME,
+    minStake: 9.24,
+  })}&a=0xtb`;
+  render(<Terminal fake={fake} />);
+  // Connect so the terminal knows which participant is viewing.
+  const connect = await waitFor(
+    () => screen.getByRole("button", { name: /connect wallet/i }) as HTMLButtonElement,
+    { timeout: 5_000 },
+  );
+  fireEvent.click(connect);
+  // The settled result names ME the winner (Up) and offers the rematch.
+  const rematch = await waitFor(
+    () => screen.getByRole("button", { name: /rematch .*00aa/i }) as HTMLButtonElement,
+    { timeout: 4_000 },
+  ).catch(() => {
+    console.log("DOM:", document.body.textContent?.slice(0, 900));
+    throw new Error("rematch button missing");
+  });
+  fireEvent.click(rematch);
+  await waitFor(
+    () => {
+      // The rematch retargets the successor Window (its own Line) and arms the
+      // opponent-addressed challenge for the strip once the Call fills.
+      expect(screen.getByText(/68,123/)).toBeTruthy();
+    },
+    { timeout: 5_000 },
+  );
+  globalThis.window.location.hash = "#/app";
+});

@@ -63,6 +63,19 @@ describe("fake ExchangeAdapter", () => {
     expect(fills.find((f) => f.txHash === hashB)?.side).toBe("down");
   });
 
+  it("records a FOK buy as a full fill or nothing", async () => {
+    const ex = createFakeExchange({
+      windows: [windowRow()],
+      books: { "BTC#YES": { ask: 0.5 } },
+      statusByMarket: { "0xabc": 1 },
+    });
+    const hash = await ex.fokBuy("BTC#YES", 20, 0.5);
+    expect(hash).toMatch(/^0xfake/);
+    expect(ex.state.foks).toEqual([{ symbol: "BTC#YES", contracts: 20, price: 0.5 }]);
+    const fills = await ex.listFills("0x0000000000000000000000000000000000000001");
+    expect(fills.find((f) => f.txHash === hash)?.quantity).toBe(20);
+  });
+
   it("can land an IOC that fills nothing — a hash with no tape row", async () => {
     const ex = createFakeExchange({
       windows: [windowRow()],

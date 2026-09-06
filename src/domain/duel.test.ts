@@ -154,6 +154,49 @@ describe("verifyAccept", () => {
     expect(got).toEqual({ ok: false, reason: "not-trading" });
   });
 
+  it("refuses a fill from the wrong wallet when the challenge names its opponent", () => {
+    const named = verifyChallenge({ ...hint, to: ACCEPTOR }, { window, challengerFill });
+    if (!named.ok) throw new Error("fixture");
+    expect(named.challenge.to?.toLowerCase()).toBe(ACCEPTOR);
+    const got = verifyAccept(named.challenge, {
+      acceptorFill: { ...acceptorFill, account: "0x00000000000000000000000000000000000000cc" },
+      windowStatus: 1,
+    });
+    expect(got).toEqual({ ok: false, reason: "not-your-duel" });
+    // The named opponent still accepts.
+    expect(verifyAccept(named.challenge, { acceptorFill, windowStatus: 1 }).ok).toBe(true);
+  });
+
+  it("refuses an accept that staked below the challenge floor, above it unequal stakes stay visible", () => {
+    const floored = verifyChallenge({ ...hint, minStake: 9.9 }, { window, challengerFill });
+    if (!floored.ok) throw new Error("fixture");
+    expect(floored.challenge.minStake).toBeCloseTo(9.9, 6);
+    const undershoot = verifyAccept(floored.challenge, {
+      acceptorFill: { ...acceptorFill, escrow: 3, contracts: 7, avgOdds: 0.42 },
+      windowStatus: 1,
+    });
+    expect(undershoot).toEqual({ ok: false, reason: "below-floor" });
+    const above = verifyAccept(floored.challenge, {
+      acceptorFill: { ...acceptorFill, escrow: 31.2, contracts: 74.3, avgOdds: 0.42 },
+      windowStatus: 1,
+    });
+    expect(above.ok).toBe(true);
+    if (above.ok) expect(above.duel.acceptorFill.escrow).toBeCloseTo(31.2, 6);
+  });
+
+  it("readDuel refuses a completed proof whose accept fill undershot the floor", () => {
+    const got = readDuel({
+      hint: { ...hint, minStake: 9.9 },
+      window,
+      windowStatus: 1,
+      challengerFill,
+      acceptorFill: { ...acceptorFill, escrow: 1, contracts: 2.4, avgOdds: 0.42 },
+      settlement: { result: "up" },
+      nowSec: 3_000,
+    });
+    expect(got).toEqual({ kind: "invalid", reason: "below-floor" });
+  });
+
   it("keeps unequal stakes visible — a duel is two independent book takes", () => {
     const got = verifyAccept(challenge.challenge, {
       acceptorFill: { ...acceptorFill, escrow: 31.2, contracts: 74.3, avgOdds: 0.42 },
@@ -223,6 +266,44 @@ describe("readDuel", () => {
       nowSec: 2_600,
     });
     expect(got.kind).toBe("expired");
+    if (got.kind === "expired") expect(got.cause).toBe("window");
+  });
+
+  it("an invite-until closes the challenge while the Window is still live", () => {
+    const got = readDuel({
+      hint: { ...hint, until: 1_290 },
+      window,
+      windowStatus: 1,
+      challengerFill,
+      acceptorFill: null,
+      settlement: null,
+      nowSec: 1_300,
+    });
+    expect(got.kind).toBe("expired");
+    if (got.kind === "expired") expect(got.cause).toBe("invite");
+  });
+
+  it("a fill after the invite-until is not an accept, even if the Window is still Trading", () => {
+    const named = verifyChallenge({ ...hint, until: 1_290 }, { window, challengerFill });
+    if (!named.ok) throw new Error("fixture");
+    const got = verifyAccept(named.challenge, {
+      acceptorFill: { ...acceptorFill, ts: 1_400 },
+      windowStatus: 1,
+    });
+    expect(got).toEqual({ ok: false, reason: "invite-expired" });
+  });
+
+  it("readDuel refuses a completed proof whose accept fill is not the named opponent", () => {
+    const got = readDuel({
+      hint: { ...hint, to: ACCEPTOR },
+      window,
+      windowStatus: 1,
+      challengerFill,
+      acceptorFill: { ...acceptorFill, account: "0x00000000000000000000000000000000000000cc" },
+      settlement: { result: "up" },
+      nowSec: 3_000,
+    });
+    expect(got).toEqual({ kind: "invalid", reason: "not-your-duel" });
   });
 
   it("a fill after expiry does not count as an accept", () => {
@@ -439,6 +520,9 @@ describe("duelRefusalCopy", () => {
     expect(duelRefusalCopy("unknown-market")).toContain("Window");
     expect(duelRefusalCopy("not-trading")).toContain("Trading");
     expect(duelRefusalCopy("no-challenge")).toContain("link");
+    expect(duelRefusalCopy("not-your-duel")).toContain("another wallet");
+    expect(duelRefusalCopy("below-floor")).toContain("floor");
+    expect(duelRefusalCopy("invite-expired")).toContain("invite");
     expect(duelRefusalCopy("verification-unavailable")).toContain("unavailable");
   });
 });

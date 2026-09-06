@@ -134,6 +134,8 @@ export type WindowFeed = {
 export type VenueWriter = {
   onchainStatus(marketId: `0x${string}`): Promise<number>;
   iocBuy(symbol: string, contracts: number, price: number): Promise<string | undefined>;
+  /** Fill-or-kill take: the whole size crosses at the limit or nothing does. */
+  fokBuy(symbol: string, contracts: number, price: number): Promise<string | undefined>;
   iocSell(symbol: string, contracts: number, price: number): Promise<string | undefined>;
   restBuy(symbol: string, contracts: number, price: number): Promise<string | undefined>;
   outcomeBalances(account: Address, marketId: `0x${string}`): Promise<OutcomeHoldings>;

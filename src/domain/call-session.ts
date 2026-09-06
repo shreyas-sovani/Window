@@ -19,6 +19,7 @@ export type PreparedExit =
 export type CallWriter = {
   onchainStatus(marketId: `0x${string}`): Promise<number>;
   iocBuy(symbol: string, contracts: number, price: number): Promise<string | undefined>;
+  fokBuy(symbol: string, contracts: number, price: number): Promise<string | undefined>;
   iocSell(symbol: string, contracts: number, price: number): Promise<string | undefined>;
   restBuy(symbol: string, contracts: number, price: number): Promise<string | undefined>;
 };
@@ -147,6 +148,14 @@ export async function executeCall(writer: CallWriter, live: LiveWindow, intent: 
   const status = await writer.onchainStatus(live.marketId);
   if (status !== 1) throw new Error("Window is not Trading");
   return writer.iocBuy(intent.symbol, intent.plan.contracts, intent.plan.price);
+}
+
+/** FOK take for duel accepts: the whole size or nothing — no partial undershoot. */
+export async function executeFokCall(writer: CallWriter, live: LiveWindow, intent: PreparedCall) {
+  if (!intent.ok) throw new Error("Call is not sized");
+  const status = await writer.onchainStatus(live.marketId);
+  if (status !== 1) throw new Error("Window is not Trading");
+  return writer.fokBuy(intent.symbol, intent.plan.contracts, intent.plan.price);
 }
 
 export async function executeExit(writer: CallWriter, live: LiveWindow, intent: PreparedExit) {

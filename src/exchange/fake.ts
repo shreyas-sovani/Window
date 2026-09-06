@@ -29,6 +29,7 @@ export type FakeExchangeState = {
   books: Record<string, { bid?: number; ask?: number }>;
   holdings: Record<string, OutcomeHoldings>;
   buys: { symbol: string; contracts: number; price: number }[];
+  foks: { symbol: string; contracts: number; price: number }[];
   sells: { symbol: string; contracts: number; price: number }[];
   rests: { symbol: string; contracts: number; price: number }[];
   claims: FakeClaimRow[];
@@ -119,6 +120,7 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     books: seed.books ?? {},
     holdings: seed.holdings ?? {},
     buys: seed.buys ?? [],
+    foks: seed.foks ?? [],
     sells: seed.sells ?? [],
     rests: seed.rests ?? [],
     claims: seed.claims ?? [],
@@ -208,6 +210,12 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
     async restBuy(symbol, contracts, price) {
       state.rests.push({ symbol, contracts, price });
       return nextTx();
+    },
+    async fokBuy(symbol, contracts, price) {
+      state.foks.push({ symbol, contracts, price });
+      const hash = nextTx();
+      if (state.iocFills) recordFill(state, symbol, contracts, price, "buy", hash);
+      return hash;
     },
     async outcomeBalances(account, marketId) {
       return state.holdings[`${account}:${marketId}`] ?? emptyHoldings();

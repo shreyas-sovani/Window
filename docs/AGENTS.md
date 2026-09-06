@@ -15,9 +15,15 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-Current and truth-passed on 2026-09-01. `PRD.md` is Duel-first, `JUDGING.md` maps common criteria to inspectable evidence, and `DEMO.md` is the 2–5 minute proof-first flow. W-075–W-086 are the winner-readiness backlog; only W-083 (real finalized Shannon tuple, public deployment, recording) remains externally blocked. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
+Current and truth-passed on 2026-09-06. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. W-075–W-095 are the winner-readiness + deepening backlog; only W-083 (real finalized Shannon tuple, public deployment, recording) remains externally blocked. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
 
 ## Decision Log
+
+### 2026-09-06 — Invite TTL and site copy catch-up
+- **Change**: `BACKLOG.md` W-094/W-095; `DEMO.md` / `JUDGING.md` name invite close (fill + Call headroom) and that a late fill is not an accept. Landing/Docs copy updated in `src/ui` (addressed invite, floor, FOK, rematch, Claim).
+- **Reasoning**: The deepening pass shipped in code on 2026-09-03 but `docs/AGENTS.md`, Landing, and Docs still described the open-ended invite. A group-chat link goes stale in one headroom slice; the docs have to say that or a judge waits out a live Window and thinks expiry is broken.
+- **Rejected alternative(s)**: Leaving Landing/Docs on the 2026-09-01 sentence (stale product); inventing Shannon hashes to close W-083.
+- **Task/session**: Finish what the deepening pass did not ship.
 
 ### 2026-09-01 — Winner-readiness truth pass and exact accept proof
 - **Change**: Rewrote `PRD.md` around the consumer/social Duel; added `JUDGING.md`; rewrote `DEMO.md` as a proof-first 2–5 minute flow; added W-075–W-086 to `BACKLOG.md`; and updated `PLAN.md` with current status and rejected scope. The completed Duel URL now documented as `#/app?d=…&a=<acceptTx>`: the acceptor tx is added only after fill verification, and unrelated opposite fills do not complete a challenge. Test counts, dependency disclosure, submission blockers, and the removed ticket-level “Use max” surface are current.

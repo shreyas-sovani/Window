@@ -4,7 +4,7 @@
 
 Window Duel is the consumer and social layer for [dreamDEX Event Contracts](https://docs.dreamdex.io/developers/event-contracts) on **Somnia Shannon** (chain 50312). A verified Up/Down fill becomes a challenge link. Another wallet takes the opposite side of the exact same Window. Two public fill proofs plus the finalized market reconstruct the winner—without a backend referee, custody, trusted outcome input, or custom contract.
 
-This is not a peer-to-peer escrow product. The wallets are social opponents, never exchange counterparties; each Call is an independent IOC take against dreamDEX, stakes may differ, and an invite cannot guarantee liquidity. The product fails closed instead of smoothing over those constraints.
+This is not a peer-to-peer escrow product. The wallets are social opponents, never exchange counterparties; each Call is its own take against dreamDEX (IOC by default, FOK for duel accepts), stakes may differ above the challenge floor, an invite names its opponent and cannot guarantee liquidity, and the product fails closed instead of smoothing over those constraints.
 
 The default terminal reduces the exchange to one Line, a depleting lock ring, live odds, bounded Risk → Win, and one next action. Advanced book, exits, tape P&L, oracle receipts, multi-venue claims, and rematch live behind that loop.
 
@@ -66,7 +66,7 @@ Window is the demand side that ecosystem is missing:
 
 ```
 src/
-├── domain/        SDK-free pure logic — unit-tested with the broader 319-test Vitest suite
+├── domain/        SDK-free pure logic — unit-tested with the broader 353-test Vitest suite
 │   ├── pick-window, window-board     read models for the live series
 │   ├── call-ticket, call-session      sizing (tick/lot grids), Call/Exit intents
 │   ├── claim-plan, claim-session      what redeems, and how

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LiveWindow } from "../exchange/port";
-import { executeCall, executeExit, executeRest, prepareCall, prepareExit, prepareQuotedCall } from "./call-session";
+import { createFakeExchange } from "../exchange/fake";
+import { executeCall, executeExit, executeFokCall, executeRest, prepareCall, prepareExit, prepareQuotedCall } from "./call-session";
 
 const takePlan = {
   kind: "take" as const,
@@ -253,5 +254,30 @@ describe("executeRest", () => {
     expect(iocs).toEqual([]);
     expect(rests).toEqual([["BTC#YES", 20, 0.5]]);
     expect(hash).toBe("0xrest");
+  });
+});
+
+describe("executeFokCall", () => {
+  it("sends the accept as FOK after re-checking Trading", async () => {
+    const ex = createFakeExchange({
+      windows: [live()],
+      books: { "BTC#YES": { bid: 0.5, ask: 0.6 } },
+      statusByMarket: { "0xabc": 1 },
+    });
+    const intent = prepareCall({ live: live(), book: { bid: 0.5, ask: 0.6 }, stake: 10, side: "down", nowSec: 1_000 });
+    expect(intent.ok).toBe(true);
+    const hash = await executeFokCall(ex, live(), intent);
+    expect(hash).toMatch(/^0xfake/);
+    expect(ex.state.foks).toEqual([{ symbol: "BTC#NO", contracts: 20, price: 0.5 }]);
+  });
+
+  it("refuses FOK on a Window that is not Trading", async () => {
+    const ex = createFakeExchange({
+      windows: [live()],
+      books: { "BTC#YES": { bid: 0.5, ask: 0.6 } },
+      statusByMarket: { "0xabc": 2 },
+    });
+    const intent = prepareCall({ live: live(), book: { bid: 0.5, ask: 0.6 }, stake: 10, side: "down", nowSec: 1_000 });
+    await expect(executeFokCall(ex, live(), intent)).rejects.toThrow("not Trading");
   });
 });

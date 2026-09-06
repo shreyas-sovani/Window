@@ -19,6 +19,13 @@ Working against SDK types. `LiveWindow` carries chain-derived `result`; `marketB
 
 ## Decision Log
 
+### 2026-09-03 — fokBuy seam
+- **Change**: `port.ts` `VenueWriter.fokBuy(symbol, contracts, price)`; `somnia.ts` refactors `placeIocBuy` into `placeTimedBuy(…, tif: "IOC" | "FOK", revertCopy)` on the unified `createOrder` TIF; `fake.ts` records `state.foks` and fills the tape like an IOC.
+- **Reasoning**: Duel accepts need whole-or-nothing execution. The unified path already exposes `timeInForce: "FOK"`, so no ADR-0002 fight and no raw trader call.
+- **Rejected alternative(s)**: Raw `trader.placeOrder` (bypasses the unified seam for no gain); reusing `iocBuy` for accepts (a partial undershoot would then rely on the floor refusal alone).
+- **Task/session**: Deepen-the-Duel pass — FOK accept.
+
+
 ### 2026-09-01 — Replay-grade result/error mapping and honest fake parity
 - **Change**: `LiveWindow.result` and Somnia `seriesResult` map voided/winningOutcome for Finalized replay. `marketById`, `fillsByPool`, and `listFills` now propagate proof-read failures; only optional display feeds remain best-effort. `FakeExchangeState` gained account-relative fill ownership, acting-wallet pool-tape stamps, exact quote behavior, `marketById`/`fillsByPool` parity, and configurable zero-fill IOC behavior. Port contract tests enforce the complete adapter surface.
 - **Reasoning**: Empty evidence and unavailable evidence have different safety meanings. The fake must exercise the same account, market, and tx boundaries as Shannon or green tests merely certify a different product.

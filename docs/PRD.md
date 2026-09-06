@@ -3,7 +3,7 @@
 Status: `built; live-evidence pending`
 Owner: Window product
 Network: Somnia Shannon (50312)
-Last truth pass: 2026-09-01
+Last truth pass: 2026-09-06
 
 ## Product in one sentence
 
@@ -39,8 +39,8 @@ Window may call this a duel or challenge, but must never imply peer-to-peer escr
 
 1. The visitor sees the best currently callable BTC/ETH Window with its Line, depleting lock ring, live odds, market-health signal, and bounded Risk → Win quote.
 2. The single onboarding action advances through connect → Shannon → gas → tUSDC → bounded approval → Call.
-3. The wallet sends an IOC take. Window re-reads the wallet tape with bounded retries. Only a verified fill creates a receipt and challenge URL.
-4. Another wallet opens the URL. The exact Window and challenger fill are re-verified. One CTA advances prerequisites and then offers only the opposite Call.
+3. The wallet sends an IOC take. Window re-reads the wallet tape with bounded retries. Only a verified fill creates a receipt and challenge URL; naming an opponent addresses the link, and no link is minted while the opposite side has no executable depth.
+4. Another wallet opens the URL. The exact Window and challenger fill are re-verified. One CTA advances prerequisites and then offers only the opposite Call as a FOK take (whole stake or nothing); an addressed link only lets the named wallet accept, a fill below the challenge floor is refused as an undershoot, and the invite closes after Call headroom from the challenger fill (a later fill is not an accept).
 5. After the opposite Call verifies, Window appends its exact transaction as `&a=…` and exposes a shareable verified-duel URL. Only that named transaction can complete the duel; unrelated opposite fills are ignored.
 6. The open duel shows both wallets, both transaction proofs, sides, odds, and unequal stakes.
 7. A finalized market result settles the view. The winner's filled side must match settlement. Claims remain explicit and fee-aware.
@@ -52,7 +52,7 @@ Window may call this a duel or challenge, but must never imply peer-to-peer escr
 - A disconnected challenge recipient sees exactly one next action, never an enabled trade button that silently does nothing.
 - Up buys use the YES ask; Down buys use `1 - YES bid`; Up exits use the YES bid; Down exits use `1 - YES ask`. Missing required liquidity disables only that side.
 - Wallet identity comparisons are case-insensitive and self-accept is determined from the verified fill owner, not the current viewer.
-- A challenge without `&a=` stays pending even if unrelated wallets trade the opposite side; an invalid named accept transaction is refused.
+- A challenge without `&a=` stays pending even if unrelated wallets trade the opposite side; an invalid named accept transaction is refused. A wrong wallet cannot accept an addressed challenge, a below-floor fill is not an accept, and the settled/void result drives Claim and the successor rematch for the owed participant.
 - Replay rejects non-finalized markets, missing market ownership, unknown wallets/sides, same-wallet or same-side legs, and inconsistent transaction rows.
 - Indexer failure and confirmed no-fill are different user states; neither creates a receipt or challenge.
 - Stake input outside token precision or safe numeric bounds disables execution without throwing.

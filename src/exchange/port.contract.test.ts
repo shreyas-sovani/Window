@@ -16,6 +16,7 @@ const PORT_METHODS = [
   "fillsByPool",
   "onchainStatus",
   "iocBuy",
+  "fokBuy",
   "iocSell",
   "restBuy",
   "outcomeBalances",

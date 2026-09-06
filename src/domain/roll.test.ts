@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rollPrompt, type LastCall } from "./roll";
+import { rematchPrompt, rollPrompt, type LastCall } from "./roll";
 import type { LiveWindow } from "../exchange/port";
 
 const win = (over: Partial<LiveWindow> = {}): LiveWindow => ({
@@ -70,5 +70,25 @@ describe("rollPrompt (Rematch)", () => {
 
   it("returns null with nothing remembered", () => {
     expect(rollPrompt({ last: null, live: win(), callable: true })).toBeNull();
+  });
+});
+
+describe("rematchPrompt", () => {
+  const successor = win({ marketId: "0x" + "99".repeat(32) });
+  const target = { to: "0x00000000000000000000000000000000000000bb", side: "up" as const, marketId: successor.marketId };
+
+  it("offers the opponent-targeted rematch once the successor Window is the live one", () => {
+    const p = rematchPrompt({ target, live: successor, canCall: true, sideOk: true });
+    expect(p).not.toBeNull();
+    expect(p!.title).toContain("…00bb");
+    expect(p!.action).toContain("Call Up");
+    expect(p!.side).toBe("up");
+  });
+
+  it("stays quiet on any other Window, when not callable, or when the side has no executable odds", () => {
+    expect(rematchPrompt({ target, live: win({ marketId: "0xother" }), canCall: true, sideOk: true })).toBeNull();
+    expect(rematchPrompt({ target, live: successor, canCall: false, sideOk: true })).toBeNull();
+    expect(rematchPrompt({ target, live: successor, canCall: true, sideOk: false })).toBeNull();
+    expect(rematchPrompt({ target: null, live: successor, canCall: true, sideOk: true })).toBeNull();
   });
 });

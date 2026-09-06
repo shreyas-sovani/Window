@@ -90,5 +90,14 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-084 | CI, license, clean build, dependency/advisory disclosure | release | P1 | done | yes |
 | W-085 | Completed Duel URL names the exact verified accept tx; unrelated public fills never imply social intent | Duel | P0 | done | yes |
 | W-086 | Empty-book notice refuses execution instead of promising a fabricated 50% price | Board notice | P0 | done | yes |
+| W-087 | Named challenges: `to` in the payload; wrong wallet cannot accept and stranger fills never complete a proof | Duel | P0 | done | yes |
+| W-088 | Stake floor: minted links carry `minStake`; a below-floor fill is refused as an undershoot | Duel | P0 | done | yes |
+| W-089 | Opposite-liquidity gate: no link against a dead opposite book; accept disabled without an executable side | Duel | P0 | done | yes |
+| W-090 | FOK accepts via unified `timeInForce`; default Call stays IOC | Duel | P0 | done | yes |
+| W-091 | Successor rematch re-challenges the same opponent (kept sides, new addressed link); replaces the solo roll while armed | Duel | P0 | done | yes |
+| W-092 | Claim from the settled/void result for the owed participant | Duel | P0 | done | yes |
+| W-093 | `d` payload versioned: v2 carries to/minStake/series; v1 decodes; smuggled shapes fail closed | Duel | P0 | done | yes |
+| W-094 | Invite TTL: minted `until` is fill + Call headroom, capped at lock; late fills are not accepts | Duel | P0 | done | yes |
+| W-095 | Opponent field styled inside the challenge strip; Landing/Docs name addressed invites, floor, FOK, rematch, Claim | ui | P1 | done | yes |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.

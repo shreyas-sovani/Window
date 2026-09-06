@@ -313,6 +313,9 @@ export const somniaExchange: ExchangePort = {
   async iocBuy(symbol, contracts, price) {
     return writeTxHash(await placeIocBuy(symbol, contracts, price));
   },
+  async fokBuy(symbol, contracts, price) {
+    return writeTxHash(await placeTimedBuy(symbol, contracts, price, "FOK", "FOK take reverted on-chain"));
+  },
   async iocSell(symbol, contracts, price) {
     return writeTxHash(await placeIocSell(symbol, contracts, price));
   },
@@ -407,14 +410,24 @@ export function selectSeries(windows: LiveWindow[], asset: string, intervalSec: 
 }
 
 export async function placeIocBuy(symbol: string, contracts: number, price: number) {
+  return placeTimedBuy(symbol, contracts, price, "IOC", "Call reverted on-chain");
+}
+
+export async function placeTimedBuy(
+  symbol: string,
+  contracts: number,
+  price: number,
+  tif: "IOC" | "FOK",
+  revertCopy: string,
+) {
   const snapped = getExchange().priceToPrecision(symbol, price);
   const size = getExchange().amountToPrecision(symbol, contracts);
   if (size === 0) throw new Error("below-lot");
   const order = await getExchange().createOrder(symbol, "limit", "buy", size, snapped, {
-    timeInForce: "IOC",
+    timeInForce: tif,
   });
   const receipt = (order.info as PlaceOrderResult | undefined)?.receipt;
-  if (receipt?.status === "reverted") throw new Error("Call reverted on-chain");
+  if (receipt?.status === "reverted") throw new Error(revertCopy);
   return order;
 }
 
