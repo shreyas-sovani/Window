@@ -230,6 +230,18 @@ export function verifyChallenge(
   };
 }
 
+/**
+ * The floor an accept escrow must meet, or null when there is none (legacy v1
+ * links). A minted link's floor means "the challenger's stake," and the
+ * challenger's real stake is on the tape — so a URL floor can only tighten the
+ * floor, never lower it. The UI previews and gates on this same number the
+ * verifier enforces.
+ */
+export function acceptFloor(challenge: VerifiedChallenge): number | null {
+  if (challenge.minStake === undefined) return null;
+  return Math.max(challenge.minStake, challenge.stake);
+}
+
 export function verifyAccept(
   challenge: VerifiedChallenge,
   input: { acceptorFill: DuelFill | null; windowStatus: number },
@@ -249,13 +261,10 @@ export function verifyAccept(
   if (challenge.to && fill.account.toLowerCase() !== challenge.to.toLowerCase()) {
     return { ok: false, reason: "not-your-duel" };
   }
-  // An undershoot is not an accept. A minted link's floor means "the challenger's
-  // stake," and the challenger's real stake is on the tape (`challenge.stake`) —
-  // so a URL floor can only tighten the floor, never lower it. Legacy v1 links
-  // carry no floor and stay floorless.
-  if (challenge.minStake !== undefined) {
-    const floor = Math.max(challenge.minStake, challenge.stake);
-    if (fill.escrow < floor - 1e-6) return { ok: false, reason: "below-floor" };
+  // An undershoot is not an accept (see acceptFloor for the tamper semantics).
+  const floor = acceptFloor(challenge);
+  if (floor !== null && fill.escrow < floor - 1e-6) {
+    return { ok: false, reason: "below-floor" };
   }
   const inviteClose = inviteCloseSec(challenge, challenge.fillTs ?? 0);
   if (inviteClose !== null && fill.ts > 0 && fill.ts > inviteClose) {

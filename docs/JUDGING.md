@@ -23,7 +23,7 @@ There is deliberately no pretend peer-to-peer pot. Each Call is an independent I
 | Problem and product | Clear retail user, painful exchange-shaped flow, social reason to return | `docs/PRD.md`; landing hero; one-screen `src/ui/CallBoard.tsx` |
 | Innovation | Public-market fills composed into a portable wallet challenge and deterministic replay | `src/domain/duel.ts`, `src/domain/challenge-link.ts`, `src/domain/replay.ts` |
 | Somnia / dreamDEX use | Real Event Contract markets, books, stake quotes, IOC orders, portfolio tape, settlement, oracle receipts, claims | `src/exchange/somnia.ts`; ADR-0002; `docs/SDK-FEEDBACK.md` |
-| Technical quality | Pure domain boundary, live/fake adapter parity, marketId isolation, bounded write and confirmation paths | `src/exchange/port.ts`; 378-test suite; `src/ui/App.integration.test.tsx`; `docs/VERIFICATION.md` |
+| Technical quality | Pure domain boundary, live/fake adapter parity, marketId isolation, bounded write and confirmation paths | `src/exchange/port.ts`; 383-test suite; `src/ui/App.integration.test.tsx`; `docs/VERIFICATION.md` |
 | Trust and safety | Wallet signs; no frontend key; exact approvals; no custom custody; fail-closed proofs; no invented odds; addressed challenges and stake floors | ADR-0001; `src/domain/wallet-gate.ts`; `src/domain/call-session.ts`; replay tests |
 | UX and completeness | Opportunity-first Window, depleting lock ring, Risk → Win quote, one challenge CTA, receipts, result, opponent-targeted rematch, claim from the result | `#/app`; `src/ui/App.tsx`; `src/ui/Duel.tsx`; `docs/DEMO.md` |
 | Ecosystem impact | Consumer abstraction and social invitation can add taker flow; SDK gaps documented from real integration work | README “Why the ecosystem needs this”; `docs/SDK-FEEDBACK.md` |
@@ -40,7 +40,7 @@ A judge should try these; they are intended behavior:
 - Name a nonexistent accepting tx: the completed proof is refused.
 - Open the challenge with the challenger's wallet: acceptance is disabled.
 - Open a named challenge (`to`) with any other wallet: acceptance is disabled and the completed proof refuses a stranger's accept fill.
-- Accept below the challenge floor (`minStake`, the challenger's stake on minted links): the fill is refused as an undershoot, not an accept. Accepts themselves are FOK takes — the whole stake crosses or nothing does.
+- Accept below the challenge floor (`minStake`, the challenger's stake on minted links): the fill is refused as an undershoot, not an accept. The terminal gates it earlier — the stake prefills to the enforced floor and the accept disables with its reason below it. Accepts themselves are FOK takes — the whole stake crosses or nothing does.
 - Wait out the invite TTL (`until`, fill + Call headroom) while the Window is still live: the challenge expires; a later opposite fill is not an accept.
 - Use two hashes from one wallet or one side: replay refuses.
 - Use a fill without its marketId or from a sibling Window: replay refuses.

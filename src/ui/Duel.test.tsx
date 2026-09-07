@@ -79,6 +79,17 @@ it("challenge: shows the stake floor the accept must meet", () => {
   expect(screen.getByText(/stake at least 9\.90 tusdc/i)).toBeTruthy();
 });
 
+it("challenge: the floor hint shows the enforced floor, not a tampered-down URL floor", () => {
+  const state: DuelState = {
+    kind: "challenge",
+    // URL floor zeroed by a tamperer; the challenger's tape escrow is 9.9.
+    challenge: { ...base, challenger: CHALLENGER, side: "up", stake: 9.9, contracts: 18, avgOdds: 0.55, txHash: "0xchallengerfill", minStake: 0 },
+  };
+  render(<Duel duel={state} onAccept={() => {}} acceptBusy={false} />);
+  expect(screen.getByText(/stake at least 9\.90 tusdc/i)).toBeTruthy();
+  expect(screen.queryByText(/stake at least 0\.00 tusdc/i)).toBeNull();
+});
+
 it("open: both wallets, both explorer txs, unequal stakes visible, settles at lock", () => {
   const state: DuelState = {
     kind: "open",

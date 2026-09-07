@@ -15,9 +15,15 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-Current and truth-passed on 2026-09-06. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command and marks the three live artifacts PENDING. W-075–W-103 are the winner-readiness + deepening + review-hardening backlog; only W-083 (real finalized Shannon tuple, recording) remains externally blocked — deployment is done by the human outside the repo. Counts say the 378-test suite. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
+Current and truth-passed on 2026-09-06. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command and marks the three live artifacts PENDING. W-075–W-105 are the winner-readiness + deepening + review-hardening backlog; only W-083 (real finalized Shannon tuple, recording) remains externally blocked — deployment is done by the human outside the repo. Counts say the 383-test suite. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
 
 ## Decision Log
+
+### 2026-09-06 — Floor-aware accept in the check lists
+- **Change**: `BACKLOG.md` W-104/W-105; `JUDGING.md` floor check now includes the input-time gate (stake prefills, accept disables with the reason); `VERIFICATION.md` same; `CONTEXT.md` floor entry names `acceptFloor` and the prefill/gate; landing hero carries the distribution one-liner.
+- **Reasoning**: The docs dared judges to "accept below the floor" — the honest answer now includes that the UI stops it before a fill is sent, not only that the verifier refuses it after.
+- **Rejected alternative(s)**: Documenting only the domain refusal (true but hides the better UX).
+- **Task/session**: Adversarial-review implementation pass 2.
 
 ### 2026-09-06 — VERIFICATION.md + review-hardening truth pass
 - **Change**: New `VERIFICATION.md` (reproducible claims table, independent duel verification steps, measured numbers, PENDING live artifacts). `BACKLOG.md` W-096–W-103 (verifying state, SELECTABLE_CADENCES, tape-derived floor, `wrong-fill`, paged tape reads, brand unification, labeled rows + unified share). `CONTEXT.md` Duel/Challenge-link/Cadence/Duel-tape-read entries updated for the tamper-hardened floor, `wrong-fill`, verifying state, paged tape, and the 60s exclusion. `JUDGING.md` count 378 + three new adversarial checks; `DEMO.md` close points at `VERIFICATION.md`; `README.md` title "Window Duel", count 378, share-sheet mention.

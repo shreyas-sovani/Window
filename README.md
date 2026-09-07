@@ -66,7 +66,7 @@ Window is the demand side that ecosystem is missing:
 
 ```
 src/
-├── domain/        SDK-free pure logic — unit-tested with the broader 378-test Vitest suite
+├── domain/        SDK-free pure logic — unit-tested with the broader 383-test Vitest suite
 │   ├── pick-window, window-board     read models for the live series
 │   ├── call-ticket, call-session      sizing (tick/lot grids), Call/Exit intents
 │   ├── claim-plan, claim-session      what redeems, and how

@@ -1,5 +1,5 @@
 import { explorerTx } from "../chain/shannon";
-import { duelRefusalCopy, type Duel as DuelState, type DuelFill } from "../domain/duel";
+import { acceptFloor, duelRefusalCopy, type Duel as DuelState, type DuelFill } from "../domain/duel";
 import { cadenceLabel } from "../domain/series";
 import { shorten } from "./format";
 import { Button } from "./kit";
@@ -75,8 +75,8 @@ export function Duel(props: {
         <div className="kicker">{c.asset} {cadenceLabel(c.intervalSec)} · Line {c.line ? Number(c.line).toFixed(2) : "—"}</div>
         <FillRow label="Challenger" fill={{ ...c, escrow: c.stake, account: c.challenger, marketId: c.marketId, ts: 0 }} />
         <p className="duel-note">Opponents are not counterparties — each Call is its own take.</p>
-        {c.minStake !== undefined && (
-          <small className="mono duel-floor">Stake at least {n2(c.minStake)} tUSDC — a smaller fill is not an accept.</small>
+        {acceptFloor(c) !== null && (
+          <small className="mono duel-floor">Stake at least {n2(acceptFloor(c) as number)} tUSDC — a smaller fill is not an accept.</small>
         )}
         {c.until !== undefined && (
           <small className="mono duel-floor">Invite closes before lock — a later fill is not an accept.</small>

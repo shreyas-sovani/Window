@@ -443,6 +443,49 @@ it("a named challenge refuses the wrong wallet and accepts only its intended opp
   globalThis.window.location.hash = "#/app";
 });
 
+it("gates the accept on the challenge floor: the stake prefills to it and a lower stake disables the accept with its reason", async () => {
+  const fake = createFakeExchange({
+    windows: [window],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+    statusByMarket: { [M]: 1 },
+    marketFills: {
+      "0x0000000000000000000000000000000000000001": [
+        {
+          id: "f1",
+          price: 0.55,
+          quantity: 18,
+          quote: 9.9,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 60,
+          txHash: "0xfloored",
+          marketId: M,
+          taker: CHALLENGER,
+        },
+      ],
+    },
+  });
+  globalThis.window.location.hash = challengeHref({
+    marketId: M as `0x${string}`,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 12,
+    txHash: "0xfloored",
+    expiry: window.expiry,
+    minStake: 12,
+  });
+  render(<Terminal fake={fake} />);
+  await waitFor(() => expect(screen.getByLabelText("Incoming challenge")).toBeTruthy(), { timeout: 5_000 });
+  // The enforced floor is max(URL 12, tape 9.9) = 12 — shown and prefilled.
+  expect(screen.getByText(/stake at least 12\.00 tusdc/i)).toBeTruthy();
+  const stakeInput = screen.getByLabelText(/stake \(tusdc\)/i) as HTMLInputElement;
+  await waitFor(() => expect(stakeInput.value).toBe("12"));
+  // Below the floor the accept names the reason and refuses to send.
+  fireEvent.change(stakeInput, { target: { value: "5" } });
+  const accept = await screen.findByRole("button", { name: /stake at least 12/i });
+  expect(accept.hasAttribute("disabled")).toBe(true);
+  globalThis.window.location.hash = "#/app";
+});
+
 it("a completed named proof with a stranger's accept fill is refused", async () => {
   const fake = createFakeExchange({
     windows: [window],

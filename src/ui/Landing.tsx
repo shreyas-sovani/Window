@@ -60,6 +60,7 @@ export function Landing() {
           <p>
             Turn a filled Up/Down trade into a wallet challenge you can drop into any group chat. Name the
             opponent, two opposite fills on one Window; the public tape and finalized market decide the result.
+            Every link you share is a second real order on the venue.
           </p>
           <div className="hero-cta">
             <Button variant="primary" href={routeHref("app")}>

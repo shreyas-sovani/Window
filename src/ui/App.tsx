@@ -17,7 +17,7 @@ import { explorerTx, oracleReceipt, STT_FAUCET, TUSDC } from "../chain/shannon";
 import { autoSeries, hottestCadence } from "../domain/auto-series";
 import { stakeUnits } from "../domain/call-ticket";
 import { acceptedChallengeHref, decodeChallengeLink } from "../domain/challenge-link";
-import { duelReadPending, readDuel, tapeDuelFill, type Duel as DuelState } from "../domain/duel";
+import { acceptFloor, duelReadPending, readDuel, tapeDuelFill, type Duel as DuelState } from "../domain/duel";
 import { healthDetail, marketHealth } from "../domain/market-health";
 import { chipStatus, nextStep } from "../domain/onboarding";
 import { callSkipCopy, executeCall, executeExit, executeFokCall, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
@@ -530,6 +530,22 @@ export function App({
   );
   const ownChallenge =
     duel?.kind === "challenge" && Boolean(address) && duel.challenge.challenger.toLowerCase() === address!.toLowerCase();
+  // The enforced accept floor (max of URL floor and challenger tape escrow) —
+  // null on floorless legacy links. The accept gate and the verifier agree.
+  const duelFloor = duel?.kind === "challenge" ? acceptFloor(duel.challenge) : null;
+  const belowFloor = duelFloor !== null && stakeNum < duelFloor - 1e-6;
+  // Prefill the stake to the floor once per challenge so the golden path
+  // starts acceptable; after that the user owns the number and the gate
+  // explains, not rewrites.
+  const duelFlooredFor = useRef("");
+  const duelChallengeMarket = duel?.kind === "challenge" ? duel.challenge.marketId : null;
+  useEffect(() => {
+    if (duelFloor === null || duelChallengeMarket === null) return;
+    if (duelFlooredFor.current === duelChallengeMarket) return;
+    duelFlooredFor.current = duelChallengeMarket;
+    if (stakeNum < duelFloor) setStake(String(Math.round(duelFloor * 100) / 100));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duelFloor, duelChallengeMarket]);
   // A named challenge is addressed: any viewer who is not that wallet —
   // including no wallet at all — can see it but not accept it.
   const duelWrongViewer =
@@ -541,11 +557,13 @@ export function App({
     ? "Open this link with another wallet"
     : duelWrongViewer && duel?.kind === "challenge" && duel.challenge.to
       ? `Open this link with ${shorten(duel.challenge.to)}`
-      : step.kind === "call" && duelAcceptSide
-        ? `Call ${duelAcceptSide.toUpperCase()} to accept`
-        : step.kind === "wait"
-          ? "Window is no longer callable"
-          : `${step.action} to accept`;
+      : belowFloor && duelFloor !== null
+        ? `Stake at least ${duelFloor.toFixed(2)} tUSDC to accept`
+        : step.kind === "call" && duelAcceptSide
+          ? `Call ${duelAcceptSide.toUpperCase()} to accept`
+          : step.kind === "wait"
+            ? "Window is no longer callable"
+            : `${step.action} to accept`;
   const duelAcceptHref = !ownChallenge && step.kind === "gas" ? STT_FAUCET : undefined;
 
   const { impliedSamples, priceSamples } = usePulseSamples({
@@ -891,6 +909,7 @@ export function App({
           acceptDisabled={
             Boolean(ownChallenge) ||
             duelWrongViewer ||
+            belowFloor ||
             step.kind === "wait" ||
             (duelAcceptSide !== null && !(duelAcceptSide === "up" ? board.upPlan.ok : board.downPlan.ok))
           }

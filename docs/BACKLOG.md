@@ -106,6 +106,8 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-100 | `fillsByPool` pages the indexer tape (`readTapePages`, hard cap 2000 rows) — a named tx deep in a busy pool still verifies | exchange | P1 | done | yes |
 | W-101 | Brand unified as Window Duel (landing masthead, README title) | product | P2 | done | no |
 | W-102 | Duel fill rows labeled Challenger/Acceptor/Winner/Loser; `share.ts` unifies Web Share → clipboard for the challenge strip and receipts | ui | P1 | done | yes |
-| W-103 | `docs/VERIFICATION.md` evidence file; counts refreshed to the 378-test suite | docs | P1 | done | no |
+| W-103 | `docs/VERIFICATION.md` evidence file; counts refreshed to the 383-test suite | docs | P1 | done | no |
+| W-104 | Floor-aware accept: `acceptFloor` is the single floor (`max(URL minStake, challenger tape escrow)`); stake prefills to it, accept disables with the reason below it, and the hint shows the enforced floor | Duel / ui | P0 | done | yes |
+| W-105 | Distribution one-liner on the landing hero ("every link you share is a second real order on the venue"); floor-gating added to the adversarial check lists | product | P2 | done | no |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.

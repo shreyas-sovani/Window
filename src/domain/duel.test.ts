@@ -4,6 +4,7 @@ import type { LiveWindow } from "../exchange/port";
 import { executeCall, prepareCall } from "./call-session";
 import { filledCall, type FilledCall } from "./filled-call";
 import {
+  acceptFloor,
   duelReadPending,
   duelRefusalCopy,
   duelFill,
@@ -107,6 +108,28 @@ describe("verifyChallenge", () => {
   it("matches the named transaction case-insensitively", () => {
     const got = verifyChallenge(hint, { window, challengerFill: { ...challengerFill, txHash: "0XCHALLENGER" } });
     expect(got.ok).toBe(true);
+  });
+});
+
+describe("acceptFloor", () => {
+  it("is null without a URL floor — legacy links stay floorless", () => {
+    const got = verifyChallenge(hint, { window, challengerFill });
+    if (!got.ok) throw new Error("fixture");
+    expect(acceptFloor(got.challenge)).toBeNull();
+  });
+
+  it("is the challenger's tape escrow when the URL floor matches or is lowered", () => {
+    const minted = verifyChallenge({ ...hint, minStake: 9.9 }, { window, challengerFill });
+    const tampered = verifyChallenge({ ...hint, minStake: 0 }, { window, challengerFill });
+    if (!minted.ok || !tampered.ok) throw new Error("fixture");
+    expect(acceptFloor(minted.challenge)).toBeCloseTo(9.9, 6);
+    expect(acceptFloor(tampered.challenge)).toBeCloseTo(9.9, 6);
+  });
+
+  it("keeps a raised URL floor — the URL can only tighten", () => {
+    const raised = verifyChallenge({ ...hint, minStake: 20 }, { window, challengerFill });
+    if (!raised.ok) throw new Error("fixture");
+    expect(acceptFloor(raised.challenge)).toBeCloseTo(20, 6);
   });
 });
 

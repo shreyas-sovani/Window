@@ -19,6 +19,12 @@ Winner-pass UI plus the 2026-09-03/06 duel deepening. `#/` leads with the group-
 
 ## Decision Log
 
+### 2026-09-06 — Floor-aware accept and the distribution one-liner
+- **Change**: `App.tsx` — `duelFloor` from domain `acceptFloor`; the stake input prefills to the floor once per challenge marketId (`duelFlooredFor` ref); the accept button disables with "Stake at least N tUSDC to accept" below the floor (label priority: own-challenge → wrong-wallet → floor → step). `Duel.tsx` — the floor hint prints `acceptFloor(c)` (the enforced floor), not the raw URL `minStake`. `Landing.tsx` hero adds "Every link you share is a second real order on the venue."
+- **Reasoning**: A below-floor FOK filled on-chain and only then got refused — money moved for a "duel" that could never exist; and a tampered link's hint could promise "0.00" while the verifier floored at the challenger's real stake. One number (`acceptFloor`) now feeds verifier, hint, and gate, so they cannot disagree.
+- **Rejected alternative(s)**: Re-deriving max() in the UI (drift); clamping the input continuously (fights the user after the prefill — the gate explains instead); disabling below-floor presets too (the ticket's own gate already speaks).
+- **Task/session**: Adversarial-review implementation pass 2 — BACKLOG W-104/W-105.
+
 ### 2026-09-06 — Verifying state, labeled proof rows, unified share, brand
 - **Change**: `Duel.tsx` — new `DuelVerifying` section; `FillRow` labels real (Challenger/Acceptor, Winner/Loser — the dead `label=""` prop is gone). `App.tsx` — `duelPending` from `duelReadPending` gates `<DuelVerifying>` ahead of `<Duel>`; chip states derive from `SELECTABLE_CADENCES` (inline `CADENCE_KEYS` deleted). New `share.ts` (`shareLink`/`shareText`: native sheet → clipboard → honest "failed"; a dismissed sheet is cancel, not copy). `ChallengeStrip` Copy → Share ("Link shared"/"Link copied"); `ReceiptStrip` drops its local helper for the shared one. `Landing.tsx` masthead and README title unified to "Window Duel".
 - **Reasoning**: Adversarial review found cold challenge links flashing refusal copy before reads landed, winner/loser rows distinguishable only by order, a copy-only strip contradicting the "drop into any group chat" claim, two copies of share logic drifting (dismiss semantics differed), and the brand split between "Window" and "Window Duel".

@@ -6,7 +6,7 @@ How to check every claim this submission makes. Nothing below requires trusting 
 
 | Claim | How to verify |
 |---|---|
-| Deterministic test suite — 378 tests, offline | `npm install && npm test` (Vitest; no indexer calls in the default run) |
+| Deterministic test suite — 383 tests, offline | `npm install && npm test` (Vitest; no indexer calls in the default run) |
 | Typecheck + production build | `npm run build` (`tsc --noEmit` + Vite) |
 | CI runs both from a clean install and rejects critical advisories | `.github/workflows/ci.yml` |
 | Zero custom contracts | No Solidity anywhere in this repo; every write goes through `@somnia-chain/markets-sdk` (ADR-0002). Only the dreamDEX `BinaryMarketsModule` and pools are touched |
@@ -19,7 +19,7 @@ The judge replay at `#/docs?m=<marketId>&a=<challengerTx>&b=<acceptTx>` reconstr
 
 Adversarial checks that are intended behavior (see `docs/JUDGING.md` for the full list):
 
-- Change a link's side, stake, or floor: the tape-derived fill wins; a tampered-down `minStake` cannot admit an undersized accept (the floor is the challenger's tape escrow at minimum).
+- Change a link's side, stake, or floor: the tape-derived fill wins; a tampered-down `minStake` cannot admit an undersized accept (the floor is the challenger's tape escrow at minimum, and the accept CTA disables below it before anything is sent).
 - Open any challenge link cold: it says **verifying** while the market/tape reads are in flight — never a refusal it has no evidence for.
 - Name the challenger's *other* fill on the same market: refused (`wrong-fill`) — the named transaction is the challenge.
 - Omit the accepting tx: the challenge stays pending; unrelated opposite fills never complete it.
@@ -30,7 +30,7 @@ Both fill transactions link to the Shannon explorer from every duel view, so wal
 
 | Number | Value | Source |
 |---|---|---|
-| Deterministic tests | 378 passing | `npm test` |
+| Deterministic tests | 383 passing | `npm test` |
 | Cold direct `#/app` entry | ~10–15 s to a live question (Shannon indexer `loadMarkets(true)`) | measured during the 2026-08-30 warm-start pass |
 | Landing-warmed entry | ~5 s | same session |
 | SDK feedback items | 9, evidence-backed | `docs/SDK-FEEDBACK.md` |
