@@ -1,5 +1,5 @@
 import { defineChain } from "viem";
-import { SHANNON } from "./shannon";
+import { envUrl, SHANNON } from "./shannon";
 
 export const shannonChain = defineChain({
   id: SHANNON.id,
@@ -8,7 +8,7 @@ export const shannonChain = defineChain({
   rpcUrls: {
     default: {
       http: [...SHANNON.rpcUrls.default.http],
-      webSocket: [import.meta.env.VITE_WS_RPC_URL ?? "wss://api.infra.testnet.somnia.network/ws"],
+      webSocket: [envUrl(import.meta.env.VITE_WS_RPC_URL, "wss://api.infra.testnet.somnia.network/ws")],
     },
   },
   blockExplorers: {

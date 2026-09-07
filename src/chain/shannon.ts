@@ -47,3 +47,13 @@ export function explorerAddress(addr: string): string {
 export function oracleReceipt(oracleQuestionId: string): string {
   return `https://prd.oracle.somnia.host/questions/${oracleQuestionId}?view=graph`;
 }
+
+/**
+ * An env override that is absent OR blank falls back — `??` alone passes the
+ * empty string through, and hosters (Vercel) happily inject blank vars, which
+ * the SDK rejects as "needs indexerUrl". Only a trimmed non-empty value wins.
+ */
+export function envUrl(raw: string | undefined, fallback: string): string {
+  const v = raw?.trim();
+  return v ? v : fallback;
+}

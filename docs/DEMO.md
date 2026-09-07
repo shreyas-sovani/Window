@@ -66,7 +66,7 @@ Open both explorer links. If time permits, alter one hash and show the fail-clos
 
 ### 2:25 — Close
 
-> Zero custom contracts, zero custody, zero backend referee. This is a consumer and social distribution layer over dreamDEX Event Contracts on Somnia: one invitation can create a second real take, and every result is independently inspectable. The integration produced nine concrete SDK feedback items and 383 deterministic tests — `docs/VERIFICATION.md` maps every claim to its command.
+> Zero custom contracts, zero custody, zero backend referee. This is a consumer and social distribution layer over dreamDEX Event Contracts on Somnia: one invitation can create a second real take, and every result is independently inspectable. The integration produced nine concrete SDK feedback items and 386 deterministic tests — `docs/VERIFICATION.md` maps every claim to its command.
 
 Show `docs/JUDGING.md` only if a judge asks for the evidence map.
 

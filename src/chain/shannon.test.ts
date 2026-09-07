@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { explorerAddress, explorerTx, oracleReceipt } from "./shannon";
+import { envUrl, explorerAddress, explorerTx, oracleReceipt } from "./shannon";
+
+describe("envUrl", () => {
+  it("falls back when the env var is absent", () => {
+    expect(envUrl(undefined, "https://default.test")).toBe("https://default.test");
+  });
+
+  it("falls back when the env var is set but blank — the Vercel empty-string trap", () => {
+    expect(envUrl("", "https://default.test")).toBe("https://default.test");
+    expect(envUrl("   ", "https://default.test")).toBe("https://default.test");
+  });
+
+  it("uses a real override as-is (trimmed)", () => {
+    expect(envUrl(" https://override.test ", "https://default.test")).toBe("https://override.test");
+  });
+});
 
 describe("explorer proof", () => {
   it("points a Call tx at Shannon explorer", () => {

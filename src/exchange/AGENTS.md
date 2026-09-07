@@ -19,6 +19,12 @@ Working against SDK types. `LiveWindow` carries chain-derived `result`; `marketB
 
 ## Decision Log
 
+### 2026-09-07 — Blank-safe env URLs on the SDK constructor
+- **Change**: `somnia.ts` reads `VITE_INDEXER_URL`/`VITE_WS_RPC_URL` through `envUrl` (from `src/chain/shannon.ts`) — a blank or whitespace var now falls back to the Shannon default instead of reaching `new SomniaMarkets` as `""`.
+- **Reasoning**: The Vercel deploy crashed `#/app` with `createClient — needs indexerUrl` because `??` passes empty strings through; see `src/chain/AGENTS.md` 2026-09-07 for the full trace.
+- **Rejected alternative(s)**: Local-only fix (`||` in somnia.ts) — chain/wagmi reads had the same trap.
+- **Task/session**: Vercel deploy bug — BACKLOG W-106.
+
 ### 2026-09-06 — Paged tape reads for proof verification
 - **Change**: New `tape-pages.ts` — `readTapePages(fetchPage, pageSize, hardCap)` + `tape-pages.test.ts`; `somnia.ts fillsByPool` pages via the SDK `FillsOptions.offset` (page 400, hard cap 2000 rows).
 - **Reasoning**: Duel/replay proofs name exact transactions; a single tail-capped `getFills` can miss the named tx on a busy pool and refuse a valid link (`missing-fill`/`missing-accept-fill`). The SDK supports `offset` paging, so the read pages until the tape is short or the cap stops a hostile pool from looping the reader.

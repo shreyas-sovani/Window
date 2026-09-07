@@ -7,6 +7,7 @@ import {
   type UnifiedMarket,
 } from "@somnia-chain/markets-sdk";
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
+import { envUrl } from "../chain/shannon";
 import type { Address, WalletClient } from "viem";
 import type { BinarySide } from "@somnia-chain/markets-sdk";
 import { executeClaims, readClaimSession, type SettledWindow } from "../domain/claim-session";
@@ -25,8 +26,8 @@ import type {
   WalletFill,
 } from "./port";
 
-const indexerUrl = import.meta.env.VITE_INDEXER_URL ?? "https://dev.smk.somnia.host/v1/graphql";
-const wsRpcUrl = import.meta.env.VITE_WS_RPC_URL ?? "wss://api.infra.testnet.somnia.network/ws";
+const indexerUrl = envUrl(import.meta.env.VITE_INDEXER_URL, "https://dev.smk.somnia.host/v1/graphql");
+const wsRpcUrl = envUrl(import.meta.env.VITE_WS_RPC_URL, "wss://api.infra.testnet.somnia.network/ws");
 
 let exchange: SomniaMarkets | null = null;
 let lastFullLoad = 0;
