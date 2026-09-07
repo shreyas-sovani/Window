@@ -19,7 +19,7 @@ Working. Duel proofs require exact market-owned transactions; mixed or incomplet
 
 ## Decision Log
 
-### 2026-09-06 — acceptFloor: one floor number for verifier, hint, and accept gate
+### 2026-09-07 — acceptFloor: one floor number for verifier, hint, and accept gate
 - **Change**: `duel.ts` — new `acceptFloor(challenge)` returning `max(minStake, challenge.stake)` or null on floorless v1; `verifyAccept` refactored onto it. The floor semantics are unchanged — this extracts the number so the UI can gate and preview the exact value the verifier enforces.
 - **Reasoning**: Second adversarial pass found the accept path never consulted the floor at input time: a below-floor FOK would fill on-chain and only then be refused, and the hint could display a tampered-down URL floor the verifier would not honor.
 - **Rejected alternative(s)**: UI-side `max()` re-derivation (two sources of one invariant drift); disabling the input entirely (the recipient may stake anything at or above the floor).
