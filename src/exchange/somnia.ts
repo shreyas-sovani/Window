@@ -16,6 +16,7 @@ import { pickWindow } from "../domain/pick-window";
 import { canonicalInterval } from "../domain/series";
 import { parseSettlementFeeBps } from "../domain/settle-preview";
 import { readTapePages } from "./tape-pages";
+import { withTimeoutMs } from "./timeout";
 import type {
   ExchangePort,
   LiveWindow,
@@ -33,11 +34,10 @@ let exchange: SomniaMarkets | null = null;
 let lastFullLoad = 0;
 let inflight: Promise<void> | null = null;
 
-/** One loadMarkets(true) sweep at a time; the gate stamps only on success. */
+/** One loadMarkets(true) sweep at a time; the gate stamps only on success. A sweep that hangs past 45s rejects — the warm gate stays unstamped so the next poll retries instead of wedging every listLiveWindows caller on one dead promise. */
 function fullLoad(): Promise<void> {
   if (!inflight) {
-    inflight = getExchange()
-      .loadMarkets(true)
+    inflight = withTimeoutMs(getExchange().loadMarkets(true), 45_000, "loadMarkets sweep")
       .then(() => {
         lastFullLoad = Date.now();
       })
@@ -96,11 +96,11 @@ async function liveFromBinary(
   let tick = 1000n;
   let lot = 1000n;
   try {
-    const grid = await getExchange().client.getBinaryBookParams(pool);
+    const grid = await withTimeoutMs(getExchange().client.getBinaryBookParams(pool), 10_000, "book params read");
     tick = grid.tickSize;
     lot = grid.lotSize;
   } catch {
-    /* keep testnet-ish defaults only if the pool read fails */
+    /* keep testnet-ish defaults if the pool read fails or hangs */
   }
   const quoteDec = info.quoteDecimals || 6;
   const intervalSec = canonicalInterval(Number(info.intervalSec ?? 900));
@@ -148,13 +148,13 @@ export const somniaExchange: ExchangePort = {
     // so: reload at most every 45s — first paint is instant when landing or docs
     // warmed the store, and successor Windows still appear within a roll.
     if (Date.now() - lastFullLoad > 45_000) await fullLoad();
-    const markets = Object.values(await ex.loadMarkets(false));
+    const markets = Object.values(await withTimeoutMs(ex.loadMarkets(false), 15_000, "warm market store"));
     const fromLoad = await Promise.all(markets.filter((m) => m.type === "binary").map(toLive));
     let waiting: LiveWindow[] = [];
     try {
       const [locked, settling] = await Promise.all([
-        ex.client.listPastBinaryMarkets({ status: "Locked", limit: 40 }),
-        ex.client.listPastBinaryMarkets({ status: "Settling", limit: 20 }),
+        withTimeoutMs(ex.client.listPastBinaryMarkets({ status: "Locked", limit: 40 }), 15_000, "locked windows read"),
+        withTimeoutMs(ex.client.listPastBinaryMarkets({ status: "Settling", limit: 20 }), 15_000, "settling windows read"),
       ]);
       waiting = (
         await Promise.all([...locked, ...settling].map((row) => liveFromBinary(row)))
@@ -168,7 +168,11 @@ export const somniaExchange: ExchangePort = {
     }
     const live = [...byId.values()];
     try {
-      const opens = await ex.client.getOpeningPrices(live.map((w) => w.marketId));
+      const opens = await withTimeoutMs(
+        ex.client.getOpeningPrices(live.map((w) => w.marketId)),
+        15_000,
+        "opening prices read",
+      );
       for (const w of live) {
         const raw = opens[w.marketId] ?? opens[w.marketId.toLowerCase()];
         if (raw) w.openingPrice = raw;
@@ -179,16 +183,20 @@ export const somniaExchange: ExchangePort = {
     return live;
   },
   async book(upSymbol) {
-    const book = await getExchange().fetchOrderBook(upSymbol, 5);
+    const book = await withTimeoutMs(getExchange().fetchOrderBook(upSymbol, 5), 15_000, "order book read");
     return { bid: book.bids[0]?.[0], ask: book.asks[0]?.[0] };
   },
   async quoteStake(marketId, side, stakeRaw) {
     try {
-      const q = await getExchange().client.quoteBinaryStake({
-        marketId,
-        side: side === "up" ? "BUY_YES" : "BUY_NO",
-        stake: stakeRaw,
-      });
+      const q = await withTimeoutMs(
+        getExchange().client.quoteBinaryStake({
+          marketId,
+          side: side === "up" ? "BUY_YES" : "BUY_NO",
+          stake: stakeRaw,
+        }),
+        10_000,
+        "stake quote read",
+      );
       if (!q) return null;
       return { quantity: q.quantity, limitPrice: q.limitPrice, escrow: q.escrow };
     } catch {
@@ -197,7 +205,7 @@ export const somniaExchange: ExchangePort = {
   },
   async settlementFeeBps(marketId) {
     try {
-      const fees = await getExchange().client.getMarketFees(marketId);
+      const fees = await withTimeoutMs(getExchange().client.getMarketFees(marketId), 10_000, "market fees read");
       return parseSettlementFeeBps(fees?.settlementFeeBps);
     } catch {
       return 0n;
@@ -207,12 +215,16 @@ export const somniaExchange: ExchangePort = {
     const ex = getExchange();
     let rows;
     try {
-      rows = await ex.client.listPastBinaryMarkets({
-        asset,
-        venueId: venueId || undefined,
-        status: "Finalized",
-        limit: 40,
-      });
+      rows = await withTimeoutMs(
+        ex.client.listPastBinaryMarkets({
+          asset,
+          venueId: venueId || undefined,
+          status: "Finalized",
+          limit: 40,
+        }),
+        15_000,
+        "series history read",
+      );
     } catch {
       return [];
     }
@@ -220,7 +232,11 @@ export const somniaExchange: ExchangePort = {
     rows = rows.filter((r) => canonicalInterval(Number(r.intervalSec ?? 0)) === cadence).slice(0, 12);
     let opens: Record<string, string | null> = {};
     try {
-      opens = await ex.client.getOpeningPrices(rows.map((r) => r.marketId));
+      opens = await withTimeoutMs(
+        ex.client.getOpeningPrices(rows.map((r) => r.marketId)),
+        15_000,
+        "opening prices read",
+      );
     } catch {
       /* Line stays blank */
     }
@@ -275,7 +291,7 @@ export const somniaExchange: ExchangePort = {
     return p ? { asset: p.asset, price: p.price, ema: p.ema } : null;
   },
   async marketById(marketId) {
-    const m = await getExchange().client.getMarket(marketId);
+    const m = await withTimeoutMs(getExchange().client.getMarket(marketId), 15_000, "market read");
     const info = m && isBinaryMarket(m) ? m : null;
     if (!info) return null;
     return liveFromBinary(info, undefined, { finalizedOk: true });
@@ -284,9 +300,10 @@ export const somniaExchange: ExchangePort = {
     const dec = decimals || 6;
     // Proof reads name exact transactions; a tail-capped single query can miss
     // one on a busy pool, so the tape pages — bounded so one pool cannot loop
-    // the reader.
+    // the reader. Each page carries a deadline: a hung tape read must surface
+    // as verification-unavailable, not a permanent spinner.
     const rows = await readTapePages(
-      (offset) => getExchange().client.getFills(pool, { limit, offset }),
+      (offset) => withTimeoutMs(getExchange().client.getFills(pool, { limit, offset }), 15_000, "pool tape read"),
       limit,
       2_000,
     );
@@ -316,7 +333,7 @@ export const somniaExchange: ExchangePort = {
     }));
   },
   async onchainStatus(marketId) {
-    const oc = await getExchange().client.getMarketOnchain(marketId);
+    const oc = await withTimeoutMs(getExchange().client.getMarketOnchain(marketId), 15_000, "on-chain status read");
     return oc.status;
   },
   async iocBuy(symbol, contracts, price) {
@@ -337,7 +354,7 @@ export const somniaExchange: ExchangePort = {
   claimFinalized,
   async listOpenTickets(symbol) {
     try {
-      const rows = await getExchange().fetchOpenOrders(symbol, 50);
+      const rows = await withTimeoutMs(getExchange().fetchOpenOrders(symbol, 50), 15_000, "open orders read");
       return rows
         .filter((o) => o.status === "open" && o.remaining > 0)
         .map(
@@ -357,7 +374,11 @@ export const somniaExchange: ExchangePort = {
     return writeTxHash(await getExchange().cancelOrder(id, symbol));
   },
   async listFills(account) {
-    const p = await getExchange().client.getPortfolio(account, { tradesLimit: 50 });
+    const p = await withTimeoutMs(
+      getExchange().client.getPortfolio(account, { tradesLimit: 50 }),
+      15_000,
+      "portfolio read",
+    );
     return p.trades
       .filter((t) => t.side !== null)
       .map((t) => {
@@ -378,7 +399,11 @@ export const somniaExchange: ExchangePort = {
   },
   async listPositionPnl(account) {
     try {
-      const rows = await getExchange().client.getOpenPositionsWithPnL(account);
+      const rows = await withTimeoutMs(
+        getExchange().client.getOpenPositionsWithPnL(account),
+        15_000,
+        "positions read",
+      );
       return rows.map(
         (r): PositionPnl => ({
           marketId: r.market.id as `0x${string}`,
@@ -466,9 +491,17 @@ export async function placePostOnlyBuy(symbol: string, contracts: number, price:
 
 export async function outcomeBalances(account: Address, marketId: `0x${string}`) {
   const ex = getExchange();
-  const oc = await ex.client.getMarketOnchain(marketId);
-  const up = await ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.yesId });
-  const down = await ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.noId });
+  const oc = await withTimeoutMs(ex.client.getMarketOnchain(marketId), 15_000, "on-chain market read");
+  const up = await withTimeoutMs(
+    ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.yesId }),
+    15_000,
+    "outcome balance read",
+  );
+  const down = await withTimeoutMs(
+    ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.noId }),
+    15_000,
+    "outcome balance read",
+  );
   return { up, down, decimals: oc.decimals };
 }
 
@@ -479,20 +512,32 @@ export async function mintTestCollateral() {
 
 async function listSettledSnapshots(account: Address, venueId?: string): Promise<SettledWindow[]> {
   const ex = getExchange();
-  const settled = await ex.client.listBinaryMarkets({
-    venueId,
-    status: "Finalized",
-    limit: 80,
-  });
+  const settled = await withTimeoutMs(
+    ex.client.listBinaryMarkets({
+      venueId,
+      status: "Finalized",
+      limit: 80,
+    }),
+    15_000,
+    "finalized windows read",
+  );
   settled.sort((a, b) => Number(b.expiry ?? 0) - Number(a.expiry ?? 0));
   const snapshots: SettledWindow[] = [];
   const seen = new Set<string>();
   for (const row of settled.slice(0, 40)) {
     if (seen.has(row.marketId)) continue;
     seen.add(row.marketId);
-    const oc = await ex.client.getMarketOnchain(row.marketId);
-    const up = await ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.yesId });
-    const down = await ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.noId });
+    const oc = await withTimeoutMs(ex.client.getMarketOnchain(row.marketId), 15_000, "claim market read");
+    const up = await withTimeoutMs(
+      ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.yesId }),
+      15_000,
+      "claim balance read",
+    );
+    const down = await withTimeoutMs(
+      ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.noId }),
+      15_000,
+      "claim balance read",
+    );
     snapshots.push({
       marketId: row.marketId,
       market: oc.marketAddress,

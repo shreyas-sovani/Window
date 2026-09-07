@@ -19,6 +19,12 @@ Working against SDK types. `LiveWindow` carries chain-derived `result`; `marketB
 
 ## Decision Log
 
+### 2026-09-07 — Read deadlines: a hung indexer request can no longer wedge the board
+- **Change**: New `timeout.ts` — `withTimeoutMs(read, ms, label)` (+ tests: pass-through, early-reject propagation, deadline rejection, no post-resolve rejection). Wired across every awaited read in `somnia.ts`: the `loadMarkets` sweep (45s — gate still stamps only on success), warm store + past-Locked/Settling + opening prices + series history (15s), `marketById`, `onchainStatus`, `outcomeBalances`, `fetchOrderBook`, `fetchOpenOrders`, `getPortfolio`, `getOpenPositionsWithPnL`, per-page `getFills`, and the 40-row claim scan's reads (15s each); `quoteBinaryStake`/`getMarketFees` at 10s into their existing catches. Writes untouched.
+- **Reasoning**: Live deploy wedged on "Reading the indexer…" indefinitely while other GraphQL traffic flowed — one pending-forever promise (no try/catch can save a hang) held `windowsQ.isLoading` true with no path to the Retry banner. Deadlines turn a hang into the same rejection every catch path already handles honestly.
+- **Rejected alternative(s)**: SDK-level AbortController (SDK takes no signal); timeout only on the sweep (any single read could hang); timing out writes (a mined tx reported failed is worse than slow).
+- **Task/session**: Live-deploy infinite-loading bug — BACKLOG W-108.
+
 ### 2026-09-07 — Blank-safe env URLs on the SDK constructor
 - **Change**: `somnia.ts` reads `VITE_INDEXER_URL`/`VITE_WS_RPC_URL` through `envUrl` (from `src/chain/shannon.ts`) — a blank or whitespace var now falls back to the Shannon default instead of reaching `new SomniaMarkets` as `""`.
 - **Reasoning**: The Vercel deploy crashed `#/app` with `createClient — needs indexerUrl` because `??` passes empty strings through; see `src/chain/AGENTS.md` 2026-09-07 for the full trace.
