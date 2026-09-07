@@ -76,8 +76,11 @@ export async function confirmFilledCall(
   match: FilledCallMatch,
   opts: { attempts?: number; delayMs?: number } = {},
 ): Promise<FillConfirmation> {
-  const attempts = Math.max(1, opts.attempts ?? 6);
-  const delayMs = Math.max(0, opts.delayMs ?? 750);
+  // Shannon's indexer can trail the explorer by well over the old ~4.5s window;
+  // a real on-chain fill that reports "unverified" loses its receipt and
+  // challenge forever, so the default window is ten reads with a growing delay.
+  const attempts = Math.max(1, opts.attempts ?? 10);
+  const delayMs = Math.max(0, opts.delayMs ?? 900);
   let successfulReads = 0;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {

@@ -19,6 +19,12 @@ Winner-pass UI plus the 2026-09-03/06 duel deepening. `#/` leads with the group-
 
 ## Decision Log
 
+### 2026-09-07 — Late fill reconciliation: a sent Call stays pending until the tape answers
+- **Change**: `App.tsx` — post-fill completion extracted into `completeFill` (banner, receipt with txHash dedupe, lastCall, duel `&a=` publish, refetches); new `pendingVerify` state; a `fillsQ.data` effect re-runs `filledCall` for the pending match and completes it whenever the indexer catches up. The give-up banners now say Window keeps reading the tape instead of implying the story ended.
+- **Reasoning**: Live deploy: on-chain Success in 0.1s, indexer behind, `unavailable` banner — and previously the fill was orphaned forever (no receipt, no challenge, no roll), the worst possible product break on the money moment. Reconciliation keeps the honest rule (receipt only from tape) while making indexer lag a delay, not a loss.
+- **Rejected alternative(s)**: Minting the receipt from the tx alone (violates the tape-only invariant); localStorage persistence (receipts are session-witnessed by spec); dropping pending at expiry (a late receipt still joins settled history and Claim).
+- **Task/session**: Live-deploy fill-verification bug — BACKLOG W-107 (domain half in src/domain/AGENTS.md).
+
 ### 2026-09-07 — Floor-aware accept and the distribution one-liner
 - **Change**: `App.tsx` — `duelFloor` from domain `acceptFloor`; the stake input prefills to the floor once per challenge marketId (`duelFlooredFor` ref); the accept button disables with "Stake at least N tUSDC to accept" below the floor (label priority: own-challenge → wrong-wallet → floor → step). `Duel.tsx` — the floor hint prints `acceptFloor(c)` (the enforced floor), not the raw URL `minStake`. `Landing.tsx` hero adds "Every link you share is a second real order on the venue."
 - **Reasoning**: A below-floor FOK filled on-chain and only then got refused — money moved for a "duel" that could never exist; and a tampered link's hint could promise "0.00" while the verifier floored at the challenger's real stake. One number (`acceptFloor`) now feeds verifier, hint, and gate, so they cannot disagree.

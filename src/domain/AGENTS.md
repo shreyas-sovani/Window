@@ -15,9 +15,15 @@ Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas 
 - External systems touched: none
 
 ## Current State
-Working. Duel proofs require exact market-owned transactions; mixed or incomplete rows refuse, accepting identity comes from the completed proof URL, settlement comes from the Finalized market, and no public-tape chronology is treated as intent. The challenger fill must be the transaction the link names (`wrong-fill`), the accept floor is tape-derived (a URL `minStake` can only tighten it), and a pending proof read renders verifying, never a refusal. Up/Down Call and Exit pricing use the correct complementary side; missing liquidity and unsafe stake inputs fail closed. Fill confirmation distinguishes unavailable reads from confirmed no-fill. Auto-selection and the `best` badge score only `SELECTABLE_CADENCES` (5m–24h) — never the chipless 60s venue. Covered by the 386-test suite with fake two-wallet, replay, adapter-contract, and UI integration paths.
+Working. Duel proofs require exact market-owned transactions; mixed or incomplete rows refuse, accepting identity comes from the completed proof URL, settlement comes from the Finalized market, and no public-tape chronology is treated as intent. The challenger fill must be the transaction the link names (`wrong-fill`), the accept floor is tape-derived (a URL `minStake` can only tighten it), and a pending proof read renders verifying, never a refusal. Up/Down Call and Exit pricing use the correct complementary side; missing liquidity and unsafe stake inputs fail closed. Fill confirmation distinguishes unavailable reads from confirmed no-fill. Auto-selection and the `best` badge score only `SELECTABLE_CADENCES` (5m–24h) — never the chipless 60s venue. Covered by the 387-test suite with fake two-wallet, replay, adapter-contract, and UI integration paths.
 
 ## Decision Log
+
+### 2026-09-07 — Wider fill-confirmation window
+- **Change**: `filled-call.ts` — `confirmFilledCall` defaults widened from 6×750ms (~4.5s) to 10×900ms (~9s+read time); new test pins that a fill landing on the 9th read still verifies. `filledCall` semantics unchanged.
+- **Reasoning**: Live Shannon evidence (`0xa2c8…1999`, explorer-confirmed in 0.1s) showed the indexer trailing past the old window, so a real fill returned `unavailable` and its receipt/challenge were orphaned.
+- **Rejected alternative(s)**: Unbounded retry inside the write mutex (holds all wallet actions hostage); treating a throw as empty (collapses the unavailable/unfilled distinction).
+- **Task/session**: Live-deploy fill-verification bug — BACKLOG W-107 (with the App-level reconciliation in src/ui/AGENTS.md).
 
 ### 2026-09-07 — acceptFloor: one floor number for verifier, hint, and accept gate
 - **Change**: `duel.ts` — new `acceptFloor(challenge)` returning `max(minStake, challenge.stake)` or null on floorless v1; `verifyAccept` refactored onto it. The floor semantics are unchanged — this extracts the number so the UI can gate and preview the exact value the verifier enforces.

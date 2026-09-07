@@ -110,5 +110,6 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-104 | Floor-aware accept: `acceptFloor` is the single floor (`max(URL minStake, challenger tape escrow)`); stake prefills to it, accept disables with the reason below it, and the hint shows the enforced floor | Duel / ui | P0 | done | yes |
 | W-105 | Distribution one-liner on the landing hero ("every link you share is a second real order on the venue"); floor-gating added to the adversarial check lists | product | P2 | done | no |
 | W-106 | Blank-safe env overrides (`envUrl`): absent OR blank/whitespace `VITE_*` URL falls back to the Shannon default — kills the Vercel empty-string `createClient — needs indexerUrl` crash on `#/app` | chain / exchange | P0 | done | yes |
+| W-107 | Fill reconciliation: confirmation window widened to 10 reads, and a sent-but-unverified Call stays pending against the fills query — the receipt, roll, and duel proof mint the moment the indexer catches up | Filled receipt / ui | P0 | done | yes |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.

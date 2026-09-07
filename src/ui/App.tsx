@@ -21,7 +21,13 @@ import { acceptFloor, duelReadPending, readDuel, tapeDuelFill, type Duel as Duel
 import { healthDetail, marketHealth } from "../domain/market-health";
 import { chipStatus, nextStep } from "../domain/onboarding";
 import { callSkipCopy, executeCall, executeExit, executeFokCall, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
-import { callReceiptFromFill, confirmFilledCall } from "../domain/filled-call";
+import {
+  callReceiptFromFill,
+  confirmFilledCall,
+  filledCall,
+  type FilledCall,
+  type FilledCallMatch,
+} from "../domain/filled-call";
 import { cadenceLabel, SELECTABLE_CADENCES } from "../domain/series";
 import { pickWindow } from "../domain/pick-window";
 import { pnlCopy, pnlTotals, seriesPnl, seriesPnlCopy } from "../domain/pnl";
@@ -36,7 +42,7 @@ import type { CallReceipt } from "../domain/proof-card";
 import { readBoard, windowTickets } from "../domain/window-board";
 import { rematchPrompt, rollPrompt, type LastCall } from "../domain/roll";
 import { bindWallet, somniaExchange } from "../exchange/somnia";
-import type { ExchangePort } from "../exchange/port";
+import type { ExchangePort, LiveWindow } from "../exchange/port";
 import { CallBoard } from "./CallBoard";
 import { ChallengeGate, ChallengeStrip } from "./ChallengeStrip";
 import { Duel, DuelVerifying } from "./Duel";
@@ -83,6 +89,14 @@ export function App({
   const [copied, setCopied] = useState(false);
   const [receipts, setReceipts] = useState<CallReceipt[]>([]);
   const [lastCall, setLastCall] = useState<LastCall | null>(null);
+  // A sent Call whose fill the indexer has not read back yet. The fills query
+  // keeps reconciling it: a real on-chain fill must never be lost to indexer
+  // lag — the receipt, roll, and challenge mint the moment the tape catches up.
+  const [pendingVerify, setPendingVerify] = useState<{
+    match: FilledCallMatch;
+    win: LiveWindow;
+    side: "up" | "down";
+  } | null>(null);
   const [dismissedRoll, setDismissedRoll] = useState<string>();
   const [rematchTarget, setRematchTarget] = useState<{ to: string; side: "up" | "down"; marketId: string } | null>(null);
 
@@ -646,6 +660,53 @@ export function App({
     onError: (e) => setBanner({ kind: "err", text: revertCopy(e) }),
   });
 
+  /** Everything a tape-verified fill earns: receipt, roll, banner, duel proof. */
+  function completeFill(side: "up" | "down", win: LiveWindow, filled: FilledCall) {
+    setBanner({
+      kind: "ok",
+      text: `Called ${side.toUpperCase()} · filled ${fmt(filled.contracts, 3)} contracts @ ${fmt(filled.avgOdds * 100, 1)}%`,
+      txHash: filled.txHash,
+    });
+    const receipt = callReceiptFromFill(win, filled, Math.floor(Date.now() / 1000));
+    setReceipts((prev) =>
+      prev.some((r) => r.txHash === filled.txHash && r.marketId === win.marketId)
+        ? prev
+        : [receipt, ...prev].slice(0, 8),
+    );
+    setLastCall({
+      asset: win.asset,
+      intervalSec: win.intervalSec,
+      side,
+      stake: filled.escrow,
+      marketId: win.marketId,
+    });
+    if (
+      duelHint &&
+      win.marketId.toLowerCase() === duelHint.marketId.toLowerCase() &&
+      side !== duelHint.side
+    ) {
+      // Publish the exact accepting tx into the shareable proof URL only
+      // after the wallet tape has verified that it actually filled.
+      window.location.hash = acceptedChallengeHref(duelHint, filled.txHash);
+    }
+    void posQ.refetch().then(() => {
+      void qc.invalidateQueries({ queryKey: ["fills"] });
+      void qc.invalidateQueries({ queryKey: ["pnl"] });
+    });
+  }
+
+  // Late reconciliation: while a sent Call awaits its fill on the tape, every
+  // fills refetch is a fresh chance to verify it. A Shannon indexer that trails
+  // the explorer by a minute must not orphan a real fill.
+  useEffect(() => {
+    if (!pendingVerify || !address || !fillsQ.data) return;
+    const filled = filledCall(fillsQ.data, pendingVerify.match);
+    if (!filled) return;
+    setPendingVerify(null);
+    completeFill(pendingVerify.side, pendingVerify.win, filled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingVerify, fillsQ.data, address]);
+
   async function callSide(side: "up" | "down", mode: "ioc" | "fok" = "ioc") {
     const win = live;
     if (!win || !board.gate.canCall) return;
@@ -682,44 +743,24 @@ export function App({
             )
           : ({ kind: "unavailable" } as const);
         if (confirmation.kind !== "verified") {
+          // The fill stays pending: every fills refetch reconciles it, and the
+          // receipt lands the moment the indexer reads the tx back.
+          setPendingVerify({
+            match: { side, asset: win.asset, intervalSec: win.intervalSec, txHash, sinceSec: writeStartSec },
+            win,
+            side,
+          });
           setBanner({
             kind: "err",
             text:
               confirmation.kind === "unavailable"
-                ? "Call sent, but the indexer could not verify it yet. Check the transaction; no receipt or challenge was invented."
-                : "Sent, but no fill appeared after confirmation — leftovers cancelled, nothing resting. No receipt or challenge.",
+                ? "Call sent — the indexer is behind. Window keeps reading the tape; the receipt appears the moment it verifies. Nothing is invented meanwhile."
+                : "Sent, and no fill has appeared yet — leftovers cancel, nothing rests. Window keeps reading the tape in case the indexer is behind.",
             txHash,
           });
           return;
         }
-        const filled = confirmation.filled;
-        const receipt = callReceiptFromFill(win, filled, Math.floor(now));
-        setBanner({
-          kind: "ok",
-          text: `Called ${side.toUpperCase()} · filled ${fmt(filled.contracts, 3)} contracts @ ${fmt(filled.avgOdds * 100, 1)}%`,
-          txHash: filled.txHash,
-        });
-        setReceipts((prev) => [receipt, ...prev].slice(0, 8));
-        setLastCall({
-          asset: win.asset,
-          intervalSec: win.intervalSec,
-          side,
-          stake: filled.escrow,
-          marketId: win.marketId,
-        });
-        if (
-          duelHint &&
-          win.marketId.toLowerCase() === duelHint.marketId.toLowerCase() &&
-          side !== duelHint.side
-        ) {
-          // Publish the exact accepting tx into the shareable proof URL only
-          // after the wallet tape has verified that it actually filled.
-          window.location.hash = acceptedChallengeHref(duelHint, filled.txHash);
-        }
-        void posQ.refetch().then(() => {
-          void qc.invalidateQueries({ queryKey: ["fills"] });
-          void qc.invalidateQueries({ queryKey: ["pnl"] });
-        });
+        completeFill(side, win, confirmation.filled);
       } catch (e) {
         setBanner({ kind: "err", text: revertCopy(e) });
       }

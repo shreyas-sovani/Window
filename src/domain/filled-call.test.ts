@@ -166,4 +166,19 @@ describe("confirmFilledCall", () => {
       kind: "unfilled",
     });
   });
+
+  it("survives a Shannon-sized indexer lag by default — the window is at least ten reads", async () => {
+    const proof = fill({ side: "up", price: 0.55, quantity: 10, txHash: "0xverylate" });
+    let reads = 0;
+    const got = await confirmFilledCall(
+      async () => {
+        reads += 1;
+        return reads < 9 ? [] : [proof];
+      },
+      { side: "up", asset: "BTC", intervalSec: 900, txHash: "0xverylate" },
+      { delayMs: 0 },
+    );
+    expect(got.kind).toBe("verified");
+    expect(reads).toBe(9);
+  });
 });
