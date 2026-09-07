@@ -709,7 +709,9 @@ export function App({
   });
   useEffect(() => {
     if (!pendingVerify || !address) return;
-    const fromWallet = fillsQ.data ? filledCall(fillsQ.data, pendingVerify.match) : null;
+    // The pool tape first: it carries the fill kind, so mint-a-pair fills
+    // price at real net cost. The portfolio read has no kind field and would
+    // mis-price them, so it is the fallback only.
     const fromTape =
       pendingVerify.match.txHash && pendingTapeQ.data
         ? filledCallFromTape(pendingTapeQ.data, {
@@ -719,7 +721,8 @@ export function App({
             side: pendingVerify.match.side,
           })
         : null;
-    const filled = fromWallet ?? fromTape;
+    const fromWallet = fromTape ? null : fillsQ.data ? filledCall(fillsQ.data, pendingVerify.match) : null;
+    const filled = fromTape ?? fromWallet;
     if (!filled) return;
     setPendingVerify(null);
     completeFill(pendingVerify.side, pendingVerify.win, filled);

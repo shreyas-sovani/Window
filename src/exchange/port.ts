@@ -73,6 +73,8 @@ export type MarketFill = {
   taker?: string | null;
   /** Maker (resting) wallet, when the tape names it. */
   maker?: string | null;
+  /** Fill kind — MINT_A_PAIR fills report the sold leg's price, not net cost. */
+  kind?: string | null;
 };
 
 /** Latest feed read for an underlying asset. */

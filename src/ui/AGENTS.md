@@ -19,6 +19,12 @@ Winner-pass UI plus the 2026-09-03/06 duel deepening. `#/` leads with the group-
 
 ## Decision Log
 
+### 2026-09-07 — Reconciliation prefers the pool tape (kind-aware pricing)
+- **Change**: `App.tsx` — the pending-fill effect now tries the pool tape FIRST and the portfolio read only as fallback. `Replay.tsx` passes `kind` through to `ReplayRow`.
+- **Reasoning**: The portfolio query has no fill-kind field; a MINT_A_PAIR fill through it would mint a receipt priced at the sold leg (0.375 tUSDC for a 25-contract Call). The tape carries `kind` and `fillEscrow` prices it at net cost. Same Fill table underneath — the tape read is strictly more truthful.
+- **Rejected alternative(s)**: Portfolio-first with a plausibility filter on price (legit fills exist at any price); dropping the portfolio path entirely (tape query can fail while portfolio succeeds).
+- **Task/session**: Live-deploy fill-verification bug 3 — BACKLOG W-110.
+
 ### 2026-09-07 — Reconciliation reads the pool tape too
 - **Change**: `App.tsx` — new `pendingTapeQ` (`fillsByPool` on the pending Call's pool, 8s refetch, enabled only while pending); the reconciliation effect now tries the wallet tape first and the pool tape second (`filledCallFromTape`), completing on whichever answers.
 - **Reasoning**: The portfolio aggregation can lag or skip a venue's fills entirely (live ETH-24h evidence); the pool tape is the same replay-grade read duels already trust. Two witnesses, one completion path.

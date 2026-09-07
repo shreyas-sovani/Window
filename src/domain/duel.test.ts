@@ -625,3 +625,42 @@ describe("duelRefusalCopy", () => {
     expect(duelRefusalCopy("verification-unavailable")).toContain("unavailable");
   });
 });
+
+describe("tapeDuelFill escrow for mint-a-pair fills", () => {
+  it("prices a MINT_A_PAIR leg at net cost, not the sold leg's proceeds", () => {
+    // Live shape: 25.024 NO contracts, pool sold the YES leg at 0.015 for 0.375 —
+    // the wallet's real escrow is one collateral per pair minus those proceeds.
+    const got = tapeDuelFill(
+      [
+        {
+          id: "mp",
+          price: 0.015,
+          quantity: 25.024,
+          quote: 0.37536,
+          aggressor: "down",
+          ts: 1_500,
+          txHash: "0xmintpair",
+          marketId: M,
+          taker: ACCEPTOR,
+          kind: "MINT_A_PAIR",
+        },
+      ],
+      { marketId: M, txHash: "0xmintpair", taker: ACCEPTOR, side: "down" },
+    );
+    expect(got).not.toBeNull();
+    expect(got!.escrow).toBeCloseTo(24.64864, 4);
+    expect(got!.avgOdds).toBeCloseTo(0.9850064, 4);
+  });
+
+  it("sums mixed rows per-row: a mint-pair leg and a resting-order leg", () => {
+    const got = tapeDuelFill(
+      [
+        { id: "a", price: 0.015, quantity: 10, quote: 0.15, aggressor: "down", ts: 1, txHash: "0xmix", marketId: M, taker: ACCEPTOR, kind: "MINT_A_PAIR" },
+        { id: "b", price: 0.5, quantity: 10, quote: 5, aggressor: "down", ts: 1, txHash: "0xmix", marketId: M, taker: ACCEPTOR },
+      ],
+      { marketId: M, txHash: "0xmix", taker: ACCEPTOR, side: "down" },
+    );
+    // (10 - 0.15) + 5 = 14.85 over 20 contracts.
+    expect(got!.escrow).toBeCloseTo(14.85, 6);
+  });
+});

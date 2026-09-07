@@ -45,6 +45,7 @@ export function Replay(props: {
         quantity: f.quantity,
         price: f.price,
         ts: f.ts,
+        kind: f.kind,
       }));
       const got = replayDuel(
         {

@@ -147,6 +147,25 @@ export function duelFill(account: string, marketId: string, filled: FilledCall, 
 }
 
 /**
+ * One fill row's real escrow. A MINT_A_PAIR fill reports the SOLD leg's price
+ * and proceeds (e.g. 25 NO contracts, sold the YES leg at 0.015 for 0.375) —
+ * the wallet's actual cost is one collateral per pair minus those proceeds.
+ * Every displayed stake and odds number flows through here.
+ */
+export function fillEscrow(row: {
+  quantity: number;
+  kind?: string | null;
+  /** Tape rows carry the collateral quote directly. */
+  quote?: number;
+  /** Replay rows carry only the price. */
+  price?: number;
+}): number {
+  const proceeds = row.quote ?? (row.price !== undefined ? row.quantity * row.price : 0);
+  if (row.kind === "MINT_A_PAIR") return Math.max(0, row.quantity - proceeds);
+  return proceeds;
+}
+
+/**
  * Aggregates the pool's public tape into one wallet's duel fill. Matches by
  * marketId first — a sibling Window of the same series is a different market —
  * then by tx hash and/or taker and side. Rows without a side are not a fill.
@@ -178,7 +197,7 @@ export function tapeDuelFill(
   const taker = [...proofTakers][0];
   if (!side || !taker) return null;
   const contracts = mine.reduce((s, r) => s + r.quantity, 0);
-  const escrow = mine.reduce((s, r) => s + r.quote, 0);
+  const escrow = mine.reduce((s, r) => s + fillEscrow(r), 0);
   if (!(contracts > 0)) return null;
   return {
     account: taker,

@@ -148,3 +148,38 @@ describe("replayRefusalCopy", () => {
     expect(replayRefusalCopy("bogus" as never)).toContain("cannot");
   });
 });
+
+describe("replay escrow for mint-a-pair fills", () => {
+  it("prices a MINT_A_PAIR leg at net cost (contracts minus sold-leg proceeds)", () => {
+    const rows = [
+      {
+        txHash: "0xmp",
+        marketId: "0x" + "ab".repeat(32),
+        taker: "0x00000000000000000000000000000000000000aa",
+        side: "down" as const,
+        quantity: 25.024,
+        price: 0.015,
+        ts: 1_000,
+        kind: "MINT_A_PAIR",
+      },
+      {
+        txHash: "0xother",
+        marketId: "0x" + "ab".repeat(32),
+        taker: "0x00000000000000000000000000000000000000bb",
+        side: "up" as const,
+        quantity: 20,
+        price: 0.5,
+        ts: 1_100,
+      },
+    ];
+    const got = replayDuel(
+      { marketId: "0x" + "ab".repeat(32), txA: "0xmp", txB: "0xother", settlement: "down" },
+      rows,
+    );
+    expect(got.ok).toBe(true);
+    if (got.ok && got.verdict.kind === "settled") {
+      expect(got.verdict.winner.escrow).toBeCloseTo(24.64864, 4);
+      expect(got.verdict.winner.avgOdds).toBeCloseTo(0.9850064, 4);
+    }
+  });
+});

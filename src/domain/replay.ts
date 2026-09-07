@@ -1,4 +1,4 @@
-import { settleDuel, type DuelFill, type OpenDuel, type SettledDuelState } from "./duel";
+import { fillEscrow, settleDuel, type DuelFill, type OpenDuel, type SettledDuelState } from "./duel";
 
 /**
  * Judge replay — reconstruct one real duel from a pinned marketId, two tx
@@ -16,6 +16,8 @@ export type ReplayRow = {
   quantity: number;
   price: number;
   ts: number;
+  /** Fill kind — MINT_A_PAIR rows price at net cost (see fillEscrow). */
+  kind?: string | null;
 };
 
 export type ReplayOutcome = "up" | "down" | "void";
@@ -50,7 +52,7 @@ function leg(
   const side = mine.find((r) => r.side)?.side ?? null;
   if (!side) return { ok: false, reason: "unknown-side" };
   const contracts = mine.reduce((s, r) => s + r.quantity, 0);
-  const escrow = mine.reduce((s, r) => s + r.quantity * r.price, 0);
+  const escrow = mine.reduce((s, r) => s + fillEscrow(r), 0);
   return {
     ok: true,
     leg: {

@@ -330,6 +330,7 @@ export const somniaExchange: ExchangePort = {
       marketId: f.market,
       taker: f.taker,
       maker: f.maker,
+      kind: f.kind,
     }));
   },
   async onchainStatus(marketId) {
