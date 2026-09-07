@@ -1,5 +1,6 @@
-import type { LiveWindow, WalletFill } from "../exchange/port";
+import type { LiveWindow, MarketFill, WalletFill } from "../exchange/port";
 import { canonicalInterval } from "./series";
+import { tapeDuelFill } from "./duel";
 import type { CallReceipt } from "./proof-card";
 
 /** A Call the chain says filled — the only thing receipts, rolls, and challenges may be built from. */
@@ -62,6 +63,29 @@ export function filledCall(
     escrow,
     txHash: match.txHash ?? rows[0].txHash,
     proofs: rows,
+  };
+}
+
+/**
+ * Verifies a fill from the pool's public tape — the second, independent source.
+ * The portfolio read (`getPortfolio`) is an indexer aggregation that can trail
+ * or skip a venue's fills entirely; the pool tape is keyed by pool and carries
+ * taker, side, and marketId. Same rule as everywhere: no matching rows, no
+ * receipt — never a proof from a transaction hash alone.
+ */
+export function filledCallFromTape(
+  rows: MarketFill[],
+  match: { marketId: string; txHash: string; taker: string; side: "up" | "down" },
+): FilledCall | null {
+  const fill = tapeDuelFill(rows, match);
+  if (!fill) return null;
+  return {
+    side: fill.side,
+    contracts: fill.contracts,
+    avgOdds: fill.avgOdds,
+    escrow: fill.escrow,
+    txHash: fill.txHash,
+    proofs: [],
   };
 }
 

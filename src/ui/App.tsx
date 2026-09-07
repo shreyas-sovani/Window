@@ -25,6 +25,7 @@ import {
   callReceiptFromFill,
   confirmFilledCall,
   filledCall,
+  filledCallFromTape,
   type FilledCall,
   type FilledCallMatch,
 } from "../domain/filled-call";
@@ -695,17 +696,35 @@ export function App({
     });
   }
 
-  // Late reconciliation: while a sent Call awaits its fill on the tape, every
-  // fills refetch is a fresh chance to verify it. A Shannon indexer that trails
-  // the explorer by a minute must not orphan a real fill.
+  // Late reconciliation, from two independent sources: the wallet tape
+  // (portfolio trades) and the pool's public tape. A Shannon indexer can trail
+  // the explorer on either — never on both — so a real fill is verified the
+  // moment one of them answers.
+  const pendingTapeQ = useQuery({
+    queryKey: ["pendingtape", pendingVerify?.win.pool, pendingVerify?.match.txHash],
+    queryFn: () => exchange.fillsByPool(pendingVerify!.win.pool, pendingVerify!.win.decimals),
+    enabled: Boolean(pendingVerify),
+    refetchInterval: 8_000,
+    retry: 1,
+  });
   useEffect(() => {
-    if (!pendingVerify || !address || !fillsQ.data) return;
-    const filled = filledCall(fillsQ.data, pendingVerify.match);
+    if (!pendingVerify || !address) return;
+    const fromWallet = fillsQ.data ? filledCall(fillsQ.data, pendingVerify.match) : null;
+    const fromTape =
+      pendingVerify.match.txHash && pendingTapeQ.data
+        ? filledCallFromTape(pendingTapeQ.data, {
+            marketId: pendingVerify.win.marketId,
+            txHash: pendingVerify.match.txHash,
+            taker: address,
+            side: pendingVerify.match.side,
+          })
+        : null;
+    const filled = fromWallet ?? fromTape;
     if (!filled) return;
     setPendingVerify(null);
     completeFill(pendingVerify.side, pendingVerify.win, filled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingVerify, fillsQ.data, address]);
+  }, [pendingVerify, fillsQ.data, pendingTapeQ.data, address]);
 
   async function callSide(side: "up" | "down", mode: "ioc" | "fok" = "ioc") {
     const win = live;

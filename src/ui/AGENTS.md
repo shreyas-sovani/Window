@@ -19,6 +19,12 @@ Winner-pass UI plus the 2026-09-03/06 duel deepening. `#/` leads with the group-
 
 ## Decision Log
 
+### 2026-09-07 — Reconciliation reads the pool tape too
+- **Change**: `App.tsx` — new `pendingTapeQ` (`fillsByPool` on the pending Call's pool, 8s refetch, enabled only while pending); the reconciliation effect now tries the wallet tape first and the pool tape second (`filledCallFromTape`), completing on whichever answers.
+- **Reasoning**: The portfolio aggregation can lag or skip a venue's fills entirely (live ETH-24h evidence); the pool tape is the same replay-grade read duels already trust. Two witnesses, one completion path.
+- **Rejected alternative(s)**: Pool-tape-only (portfolio still useful when pool tape is cold); polling inside `confirmFilledCall` (the mutex-bound window should stay short).
+- **Task/session**: Live-deploy fill-verification bug 2 — BACKLOG W-109.
+
 ### 2026-09-07 — Late fill reconciliation: a sent Call stays pending until the tape answers
 - **Change**: `App.tsx` — post-fill completion extracted into `completeFill` (banner, receipt with txHash dedupe, lastCall, duel `&a=` publish, refetches); new `pendingVerify` state; a `fillsQ.data` effect re-runs `filledCall` for the pending match and completes it whenever the indexer catches up. The give-up banners now say Window keeps reading the tape instead of implying the story ended.
 - **Reasoning**: Live deploy: on-chain Success in 0.1s, indexer behind, `unavailable` banner — and previously the fill was orphaned forever (no receipt, no challenge, no roll), the worst possible product break on the money moment. Reconciliation keeps the honest rule (receipt only from tape) while making indexer lag a delay, not a loss.

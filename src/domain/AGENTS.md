@@ -15,9 +15,15 @@ Wrong Grid → InvalidPrice or silent zero-size orders. Wrong ClaimPlan → gas 
 - External systems touched: none
 
 ## Current State
-Working. Duel proofs require exact market-owned transactions; mixed or incomplete rows refuse, accepting identity comes from the completed proof URL, settlement comes from the Finalized market, and no public-tape chronology is treated as intent. The challenger fill must be the transaction the link names (`wrong-fill`), the accept floor is tape-derived (a URL `minStake` can only tighten it), and a pending proof read renders verifying, never a refusal. Up/Down Call and Exit pricing use the correct complementary side; missing liquidity and unsafe stake inputs fail closed. Fill confirmation distinguishes unavailable reads from confirmed no-fill. Auto-selection and the `best` badge score only `SELECTABLE_CADENCES` (5m–24h) — never the chipless 60s venue. Covered by the 391-test suite with fake two-wallet, replay, adapter-contract, and UI integration paths.
+Working. Duel proofs require exact market-owned transactions; mixed or incomplete rows refuse, accepting identity comes from the completed proof URL, settlement comes from the Finalized market, and no public-tape chronology is treated as intent. The challenger fill must be the transaction the link names (`wrong-fill`), the accept floor is tape-derived (a URL `minStake` can only tighten it), and a pending proof read renders verifying, never a refusal. Up/Down Call and Exit pricing use the correct complementary side; missing liquidity and unsafe stake inputs fail closed. Fill confirmation distinguishes unavailable reads from confirmed no-fill. Auto-selection and the `best` badge score only `SELECTABLE_CADENCES` (5m–24h) — never the chipless 60s venue. Covered by the 394-test suite with fake two-wallet, replay, adapter-contract, and UI integration paths.
 
 ## Decision Log
+
+### 2026-09-07 — Dual-source fill verification: pool tape as second witness
+- **Change**: `filled-call.ts` — new `filledCallFromTape(rows, {marketId, txHash, taker, side})` mapping `tapeDuelFill` into a `FilledCall` (proofs empty — the pool tape is the witness); tests cover verify, wrong-tx refusal, and mixed-row refusal.
+- **Reasoning**: Live ETH-24h Call (`0x3868…1576`, on-chain Success, 3m+) never verified — the portfolio read (`getPortfolio`) is an indexer aggregation that can trail or skip a venue's fills, while the pool tape is keyed by pool and already carries taker/side/marketId. Two independent sources: a fill real on either is real.
+- **Rejected alternative(s)**: Receipt from the tx hash alone (violates tape-only); waiting longer on the single portfolio source (the source itself is the gap).
+- **Task/session**: Live-deploy fill-verification bug 2 — BACKLOG W-109.
 
 ### 2026-09-07 — Wider fill-confirmation window
 - **Change**: `filled-call.ts` — `confirmFilledCall` defaults widened from 6×750ms (~4.5s) to 10×900ms (~9s+read time); new test pins that a fill landing on the 9th read still verifies. `filledCall` semantics unchanged.

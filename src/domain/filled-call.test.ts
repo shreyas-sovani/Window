@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LiveWindow, WalletFill } from "../exchange/port";
-import { callReceiptFromFill, confirmFilledCall, filledCall } from "./filled-call";
+import { callReceiptFromFill, confirmFilledCall, filledCall, filledCallFromTape } from "./filled-call";
 
 const live: LiveWindow = {
   marketId: "0xabc",
@@ -180,5 +180,47 @@ describe("confirmFilledCall", () => {
     );
     expect(got.kind).toBe("verified");
     expect(reads).toBe(9);
+  });
+});
+
+describe("filledCallFromTape", () => {
+  const M = "0x" + "ab".repeat(32);
+  const ME = "0x00000000000000000000000000000000000000aa";
+  const row = (over: Partial<import("../exchange/port").MarketFill> = {}) => ({
+    id: "r1",
+    price: 0.55,
+    quantity: 10,
+    quote: 5.5,
+    aggressor: "up" as const,
+    ts: 1_500,
+    txHash: "0xproof",
+    marketId: M,
+    taker: ME,
+    ...over,
+  });
+
+  it("verifies a fill from the pool tape when the portfolio lags behind", () => {
+    const got = filledCallFromTape([row()], { marketId: M, txHash: "0xproof", taker: ME, side: "up" });
+    expect(got).not.toBeNull();
+    expect(got!.contracts).toBeCloseTo(10, 6);
+    expect(got!.escrow).toBeCloseTo(5.5, 6);
+    expect(got!.avgOdds).toBeCloseTo(0.55, 6);
+    expect(got!.txHash).toBe("0xproof");
+    expect(got!.proofs).toEqual([]);
+  });
+
+  it("refuses a tape without the named transaction — no orphan proof", () => {
+    expect(
+      filledCallFromTape([row({ txHash: "0xother" })], { marketId: M, txHash: "0xproof", taker: ME, side: "up" }),
+    ).toBeNull();
+  });
+
+  it("refuses mixed rows — one proof is one wallet on one side", () => {
+    expect(
+      filledCallFromTape(
+        [row({ id: "a" }), row({ id: "b", aggressor: "down" })],
+        { marketId: M, txHash: "0xproof", taker: ME, side: "up" },
+      ),
+    ).toBeNull();
   });
 });

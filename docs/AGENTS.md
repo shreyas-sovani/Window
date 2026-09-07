@@ -15,7 +15,7 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-Current and truth-passed on 2026-09-07. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command and marks the three live artifacts PENDING. W-075–W-106 are the winner-readiness + deepening + review-hardening backlog; only W-083 (real finalized Shannon tuple, recording) remains externally blocked — deployment is done by the human outside the repo. Counts say the 391-test suite. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
+Current and truth-passed on 2026-09-07. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command and marks the three live artifacts PENDING. W-075–W-106 are the winner-readiness + deepening + review-hardening backlog; only W-083 (real finalized Shannon tuple, recording) remains externally blocked — deployment is done by the human outside the repo. Counts say the 394-test suite. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
 
 ## Decision Log
 

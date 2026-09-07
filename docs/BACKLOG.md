@@ -112,5 +112,6 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-106 | Blank-safe env overrides (`envUrl`): absent OR blank/whitespace `VITE_*` URL falls back to the Shannon default — kills the Vercel empty-string `createClient — needs indexerUrl` crash on `#/app` | chain / exchange | P0 | done | yes |
 | W-107 | Fill reconciliation: confirmation window widened to 10 reads, and a sent-but-unverified Call stays pending against the fills query — the receipt, roll, and duel proof mint the moment the indexer catches up | Filled receipt / ui | P0 | done | yes |
 | W-108 | Read deadlines (`withTimeoutMs`): every indexer/RPC read rejects past its budget (sweep 45s, reads 10–15s) — a hung request surfaces as the board Retry / verifying-unavailable states instead of "Reading the indexer…" forever | exchange | P0 | done | yes |
+| W-109 | Dual-source fill verification: a pending Call reconciles against the wallet tape AND the pool's public tape (`filledCallFromTape`) — the portfolio aggregation lagging a venue's fills can no longer orphan a real fill | Filled receipt / ui | P0 | done | yes |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.
