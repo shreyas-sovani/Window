@@ -4,6 +4,7 @@ import type { LiveWindow } from "../exchange/port";
 import { executeCall, prepareCall } from "./call-session";
 import { filledCall, type FilledCall } from "./filled-call";
 import {
+  duelReadPending,
   duelRefusalCopy,
   duelFill,
   tapeDuelFill,
@@ -97,6 +98,16 @@ describe("verifyChallenge", () => {
     const got = verifyChallenge(hint, { window, challengerFill: { ...challengerFill, marketId: "0x" + "33".repeat(32) } });
     expect(got).toEqual({ ok: false, reason: "wrong-market" });
   });
+
+  it("refuses a verified fill that is not the transaction the link names — the named tx is the challenge", () => {
+    const got = verifyChallenge(hint, { window, challengerFill: { ...challengerFill, txHash: "0xsomeothertx" } });
+    expect(got).toEqual({ ok: false, reason: "wrong-fill" });
+  });
+
+  it("matches the named transaction case-insensitively", () => {
+    const got = verifyChallenge(hint, { window, challengerFill: { ...challengerFill, txHash: "0XCHALLENGER" } });
+    expect(got.ok).toBe(true);
+  });
 });
 
 describe("verifyAccept", () => {
@@ -182,6 +193,39 @@ describe("verifyAccept", () => {
     });
     expect(above.ok).toBe(true);
     if (above.ok) expect(above.duel.acceptorFill.escrow).toBeCloseTo(31.2, 6);
+  });
+
+  it("floors a v2 accept at the challenger's tape escrow even when the URL floor was tampered down", () => {
+    // Minted links carry minStake = the challenger's stake; a tampered link can
+    // lower that field, but the floor's meaning is the challenger's real stake.
+    const tampered = verifyChallenge({ ...hint, minStake: 0 }, { window, challengerFill });
+    if (!tampered.ok) throw new Error("fixture");
+    const undershoot = verifyAccept(tampered.challenge, {
+      acceptorFill: { ...acceptorFill, escrow: 3, contracts: 7, avgOdds: 0.42 },
+      windowStatus: 1,
+    });
+    expect(undershoot).toEqual({ ok: false, reason: "below-floor" });
+  });
+
+  it("a URL floor above the challenger's stake still applies — the floor can only tighten", () => {
+    const raised = verifyChallenge({ ...hint, minStake: 20 }, { window, challengerFill });
+    if (!raised.ok) throw new Error("fixture");
+    const mid = verifyAccept(raised.challenge, {
+      acceptorFill: { ...acceptorFill, escrow: 12, contracts: 28.6, avgOdds: 0.42 },
+      windowStatus: 1,
+    });
+    expect(mid).toEqual({ ok: false, reason: "below-floor" });
+  });
+
+  it("legacy v1 links without a floor stay floorless — anyone may accept at any stake", () => {
+    const legacy = verifyChallenge(hint, { window, challengerFill });
+    if (!legacy.ok) throw new Error("fixture");
+    expect(legacy.challenge.minStake).toBeUndefined();
+    const small = verifyAccept(legacy.challenge, {
+      acceptorFill: { ...acceptorFill, escrow: 1, contracts: 2.4, avgOdds: 0.42 },
+      windowStatus: 1,
+    });
+    expect(small.ok).toBe(true);
   });
 
   it("readDuel refuses a completed proof whose accept fill undershot the floor", () => {
@@ -509,6 +553,38 @@ describe("duel through the fake adapter (two wallets, one Window)", () => {
     });
     expect(got).toEqual({ kind: "invalid", reason: "missing-fill" });
     expect(tape).toEqual([]);
+  });
+});
+
+describe("duelReadPending", () => {
+  it("is not pending without a challenge link", () => {
+    expect(
+      duelReadPending({ hint: false, marketLoading: true, window: null, tapeLoading: true }),
+    ).toBe(false);
+  });
+
+  it("stays pending while the market read is still loading", () => {
+    expect(
+      duelReadPending({ hint: true, marketLoading: true, window: null, tapeLoading: false }),
+    ).toBe(true);
+  });
+
+  it("stays pending while the pool tape is still loading", () => {
+    expect(
+      duelReadPending({ hint: true, marketLoading: false, window, tapeLoading: true }),
+    ).toBe(true);
+  });
+
+  it("is not pending once market and tape have both landed", () => {
+    expect(
+      duelReadPending({ hint: true, marketLoading: false, window, tapeLoading: false }),
+    ).toBe(false);
+  });
+
+  it("is not pending when reads have finished and found nothing", () => {
+    expect(
+      duelReadPending({ hint: true, marketLoading: false, window: null, tapeLoading: false }),
+    ).toBe(false);
   });
 });
 

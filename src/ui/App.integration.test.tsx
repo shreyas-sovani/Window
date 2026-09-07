@@ -329,6 +329,29 @@ it("a settled duel renders from a Finalized Window result and both tape proofs",
   globalThis.window.location.hash = "#/app";
 });
 
+it("a challenge link says verifying on first paint — never a refusal flash", async () => {
+  const fake = createFakeExchange({
+    windows: [window],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+  });
+  globalThis.window.location.hash = `${challengeHref({
+    marketId: M as `0x${string}`,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xta",
+    expiry: window.expiry,
+  })}&a=0xtb`;
+  render(<Terminal fake={fake} />);
+  // Before any chain read lands, the only honest state is verifying.
+  expect(screen.getByLabelText("Challenge verifying")).toBeTruthy();
+  expect(screen.queryByText(/not on this chain/i)).toBeNull();
+  expect(screen.queryByText(/could not be verified/i)).toBeNull();
+  // And once the reads land on missing evidence, the honest refusal appears.
+  await waitFor(() => expect(screen.getByLabelText("Challenge refused")).toBeTruthy(), { timeout: 5_000 });
+  globalThis.window.location.hash = "#/app";
+});
+
 it("does not turn an unrelated opposite fill into an accepted challenge", async () => {
   const fake = createFakeExchange({
     windows: [window],

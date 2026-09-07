@@ -15,9 +15,15 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-Current and truth-passed on 2026-09-06. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. W-075–W-095 are the winner-readiness + deepening backlog; only W-083 (real finalized Shannon tuple, public deployment, recording) remains externally blocked. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
+Current and truth-passed on 2026-09-06. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command and marks the three live artifacts PENDING. W-075–W-103 are the winner-readiness + deepening + review-hardening backlog; only W-083 (real finalized Shannon tuple, recording) remains externally blocked — deployment is done by the human outside the repo. Counts say the 378-test suite. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
 
 ## Decision Log
+
+### 2026-09-06 — VERIFICATION.md + review-hardening truth pass
+- **Change**: New `VERIFICATION.md` (reproducible claims table, independent duel verification steps, measured numbers, PENDING live artifacts). `BACKLOG.md` W-096–W-103 (verifying state, SELECTABLE_CADENCES, tape-derived floor, `wrong-fill`, paged tape reads, brand unification, labeled rows + unified share). `CONTEXT.md` Duel/Challenge-link/Cadence/Duel-tape-read entries updated for the tamper-hardened floor, `wrong-fill`, verifying state, paged tape, and the 60s exclusion. `JUDGING.md` count 378 + three new adversarial checks; `DEMO.md` close points at `VERIFICATION.md`; `README.md` title "Window Duel", count 378, share-sheet mention.
+- **Reasoning**: Adversarial review of the whole submission demanded an evidence file (rival teams set that bar), and the code hardening pass needed its docs to stay truthful in the same change (Section 1 protocol).
+- **Rejected alternative(s)**: Inventing the PENDING proof tuple (forbidden); putting verification steps only in README (judges get one named file).
+- **Task/session**: Adversarial-review implementation pass — BACKLOG W-103.
 
 ### 2026-09-06 — Invite TTL and site copy catch-up
 - **Change**: `BACKLOG.md` W-094/W-095; `DEMO.md` / `JUDGING.md` name invite close (fill + Call headroom) and that a late fill is not an accept. Landing/Docs copy updated in `src/ui` (addressed invite, floor, FOK, rematch, Claim).

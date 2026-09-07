@@ -1,4 +1,4 @@
-# Window
+# Window Duel
 
 **Make a Call. Challenge another wallet. Prove who won.**
 
@@ -33,7 +33,7 @@ Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h.
 
 | Capability | Detail |
 |---|---|
-| Wallet challenge | A tape-verified Call becomes `#/app?d=…`; the recipient sees one prerequisite-aware CTA, and a verified accept produces a completed URL naming both exact transactions |
+| Wallet challenge | A tape-verified Call becomes `#/app?d=…` (native share sheet → clipboard); the recipient sees one prerequisite-aware CTA, and a verified accept produces a completed URL naming both exact transactions |
 | Deterministic judge replay | `marketId + two tx hashes` reconstruct both legs and reads settlement from the Finalized market; missing or contradictory evidence refuses |
 | Question-first board | "Will BTC close above 67,214.5?" — the Line on its dashed price axis, the lock countdown as a **depleting ring**, implied odds, volume, trades |
 | Market health | One grade per Window from spread, walked executable depth, and time-to-lock — a cold depth watch grades the spread and says "top of book", never claims depth it cannot see |
@@ -66,7 +66,7 @@ Window is the demand side that ecosystem is missing:
 
 ```
 src/
-├── domain/        SDK-free pure logic — unit-tested with the broader 353-test Vitest suite
+├── domain/        SDK-free pure logic — unit-tested with the broader 378-test Vitest suite
 │   ├── pick-window, window-board     read models for the live series
 │   ├── call-ticket, call-session      sizing (tick/lot grids), Call/Exit intents
 │   ├── claim-plan, claim-session      what redeems, and how

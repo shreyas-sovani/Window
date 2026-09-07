@@ -43,7 +43,7 @@ export function Landing() {
     <div className="landing">
       <WarmExchange />
       <header className="l-mast">
-        <span className="l-brand">Window</span>
+        <span className="l-brand">Window Duel</span>
         <nav className="l-nav">
           <a href={routeHref("docs")}>Docs</a>
           <a href={routeHref("app")}>Terminal</a>

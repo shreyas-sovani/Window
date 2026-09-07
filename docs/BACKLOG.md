@@ -99,5 +99,13 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-093 | `d` payload versioned: v2 carries to/minStake/series; v1 decodes; smuggled shapes fail closed | Duel | P0 | done | yes |
 | W-094 | Invite TTL: minted `until` is fill + Call headroom, capped at lock; late fills are not accepts | Duel | P0 | done | yes |
 | W-095 | Opponent field styled inside the challenge strip; Landing/Docs name addressed invites, floor, FOK, rematch, Claim | ui | P1 | done | yes |
+| W-096 | Verifying state for duel links: a pending market/tape read renders verifying, never a refusal it has no evidence for | Duel / ui | P0 | done | yes |
+| W-097 | `SELECTABLE_CADENCES` single source: autoSeries and `best` badge never retarget into the chipless 60s venue; chips derive from the same constant | Window board | P1 | done | yes |
+| W-098 | Tape-derived accept floor: effective floor is max(URL `minStake`, challenger tape escrow) — a tampered-down floor cannot admit an undersized accept; v1 stays floorless | Duel | P0 | done | yes |
+| W-099 | `verifyChallenge` binds the challenger fill to the named transaction (`wrong-fill` refusal) — same-wallet other fills are not the challenge | Duel | P0 | done | yes |
+| W-100 | `fillsByPool` pages the indexer tape (`readTapePages`, hard cap 2000 rows) — a named tx deep in a busy pool still verifies | exchange | P1 | done | yes |
+| W-101 | Brand unified as Window Duel (landing masthead, README title) | product | P2 | done | no |
+| W-102 | Duel fill rows labeled Challenger/Acceptor/Winner/Loser; `share.ts` unifies Web Share → clipboard for the challenge strip and receipts | ui | P1 | done | yes |
+| W-103 | `docs/VERIFICATION.md` evidence file; counts refreshed to the 378-test suite | docs | P1 | done | no |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.

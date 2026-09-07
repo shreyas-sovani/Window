@@ -15,9 +15,15 @@ If this is wrong, the UI shows the wrong Window, Calls the wrong symbol, or cann
 - External systems touched: indexer `dev.smk.somnia.host`, Shannon WS RPC, BinaryMarketsModule
 
 ## Current State
-Working against SDK types. `LiveWindow` carries chain-derived `result`; `marketById` resolves Finalized Windows; and replay-grade `fillsByPool` preserves marketId, taker, and side. Proof reads propagate indexer errors so the UI says verification unavailable instead of “no fill.” The account-aware fake implements every port method, writes distinct tx hashes, stamps fill ownership, and never fabricates a 50% quote. Default tests stay offline. Warm loading remains one `loadMarkets(true)` sweep at most every 45s, with landing/docs prewarming the SDK store.
+Working against SDK types. `LiveWindow` carries chain-derived `result`; `marketById` resolves Finalized Windows; and replay-grade `fillsByPool` preserves marketId, taker, and side, paging the indexer tape (`readTapePages`, 400/page, hard cap 2000 rows) so a named tx deeper than one tail still verifies. Proof reads propagate indexer errors so the UI says verification unavailable instead of “no fill.” The account-aware fake implements every port method, writes distinct tx hashes, stamps fill ownership, and never fabricates a 50% quote. Default tests stay offline. Warm loading remains one `loadMarkets(true)` sweep at most every 45s, with landing/docs prewarming the SDK store.
 
 ## Decision Log
+
+### 2026-09-06 — Paged tape reads for proof verification
+- **Change**: New `tape-pages.ts` — `readTapePages(fetchPage, pageSize, hardCap)` + `tape-pages.test.ts`; `somnia.ts fillsByPool` pages via the SDK `FillsOptions.offset` (page 400, hard cap 2000 rows).
+- **Reasoning**: Duel/replay proofs name exact transactions; a single tail-capped `getFills` can miss the named tx on a busy pool and refuse a valid link (`missing-fill`/`missing-accept-fill`). The SDK supports `offset` paging, so the read pages until the tape is short or the cap stops a hostile pool from looping the reader.
+- **Rejected alternative(s)**: One bigger `limit` (still one tail, unbounded trust in its size); unbounded paging (reader abuse surface); paging in the domain (SDK transport mechanics belong to the adapter).
+- **Task/session**: Adversarial-review implementation pass — BACKLOG W-100.
 
 ### 2026-09-03 — fokBuy seam
 - **Change**: `port.ts` `VenueWriter.fokBuy(symbol, contracts, price)`; `somnia.ts` refactors `placeIocBuy` into `placeTimedBuy(…, tif: "IOC" | "FOK", revertCopy)` on the unified `createOrder` TIF; `fake.ts` records `state.foks` and fills the tape like an IOC.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cadenceLabel, canonicalInterval } from "./series";
+import { cadenceLabel, canonicalInterval, SELECTABLE_CADENCES } from "./series";
 
 describe("canonicalInterval", () => {
   it("snaps a 3598s indexer window onto the 1h series", () => {
@@ -23,5 +23,11 @@ describe("cadenceLabel", () => {
 
   it("snaps indexer noise before labeling", () => {
     expect(cadenceLabel(3598)).toBe("1h");
+  });
+});
+
+describe("SELECTABLE_CADENCES", () => {
+  it("is exactly the cadences the terminal offers as chips — the 60s venue is not selectable", () => {
+    expect(SELECTABLE_CADENCES).toEqual([300, 900, 3600, 14400, 86400]);
   });
 });

@@ -14,6 +14,7 @@ import { statusCode } from "../domain/lifecycle";
 import { pickWindow } from "../domain/pick-window";
 import { canonicalInterval } from "../domain/series";
 import { parseSettlementFeeBps } from "../domain/settle-preview";
+import { readTapePages } from "./tape-pages";
 import type {
   ExchangePort,
   LiveWindow,
@@ -280,7 +281,14 @@ export const somniaExchange: ExchangePort = {
   },
   async fillsByPool(pool, decimals, limit = 400) {
     const dec = decimals || 6;
-    const rows = await getExchange().client.getFills(pool, { limit });
+    // Proof reads name exact transactions; a tail-capped single query can miss
+    // one on a busy pool, so the tape pages — bounded so one pool cannot loop
+    // the reader.
+    const rows = await readTapePages(
+      (offset) => getExchange().client.getFills(pool, { limit, offset }),
+      limit,
+      2_000,
+    );
     return rows.map((f) => ({
       id: f.id,
       price: Number(f.fillPrice) / 10 ** dec,

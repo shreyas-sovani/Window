@@ -4,26 +4,10 @@ import { proofCard, settledProofCard, type CallReceipt } from "../domain/proof-c
 import type { PastWindow } from "../exchange/port";
 import { cadenceLabel } from "../domain/series";
 import { fmt } from "./format";
+import { shareText } from "./share";
 
 function resultFor(history: PastWindow[] | undefined, marketId: string): PastWindow | undefined {
   return history?.find((h) => h.marketId === marketId && h.result !== "unknown");
-}
-
-async function shareText(text: string): Promise<"shared" | "copied" | "failed"> {
-  try {
-    if (navigator.share) {
-      await navigator.share({ title: "Window call receipt", text });
-      return "shared";
-    }
-  } catch {
-    /* user dismissed the share sheet — fall through to copy */
-  }
-  try {
-    await navigator.clipboard.writeText(text);
-    return "copied";
-  } catch {
-    return "failed";
-  }
 }
 
 /** Session receipts for Calls this terminal witnessed. Result + oracle link arrive when the Window settles. */
@@ -57,7 +41,7 @@ export function ReceiptStrip(props: { receipts: CallReceipt[]; history?: PastWin
                 className="linklike"
                 type="button"
                 onClick={async () => {
-                  const outcome = await shareText(text);
+                  const outcome = await shareText(text, "Window Duel call receipt");
                   setFlash(`${r.marketId}-${r.ts}:${outcome}`);
                   setTimeout(() => setFlash(null), 1600);
                 }}

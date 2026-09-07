@@ -38,7 +38,7 @@ Choose a stake and Call Up or Down. Sign once.
 
 > Submission is not success. Window polls the wallet tape and only builds this receipt after the fill appears. An indexer outage and a confirmed no-fill are different states.
 
-Open the receipt's challenge strip, name the opponent wallet (the link is then addressed — only that wallet can accept), and copy the real `#/app?d=…` URL. The minted link floors the accept at the challenger's stake and closes the invite after the Window's Call headroom from the fill — do not sit on the link.
+Open the receipt's challenge strip, name the opponent wallet (the link is then addressed — only that wallet can accept), and **Share** the real `#/app?d=…` URL into a chat (native share sheet, clipboard fallback). The minted link floors the accept at the challenger's stake and closes the invite after the Window's Call headroom from the fill — do not sit on the link.
 
 ### 1:15 — Wallet B accepts
 
@@ -50,7 +50,7 @@ Set a higher stake to make the independent-book-take model visible (equal-or-hig
 
 > These wallets are social opponents, not exchange counterparties. There is no pretend matched pot: both Calls are independent IOC takes against dreamDEX.
 
-After the fill verifies, point out that the URL now contains `&a=<acceptTx>` and the **Share verified duel** strip appears. Copy this completed proof link.
+After the fill verifies, point out that the URL now contains `&a=<acceptTx>` and the **Share verified duel** strip appears. Share this completed proof link.
 
 > A busy public book may contain other opposite fills. Window never calls those “the opponent.” The completed URL names Wallet B's exact verified transaction, so anyone opening it sees the same two proofs.
 
@@ -66,7 +66,7 @@ Open both explorer links. If time permits, alter one hash and show the fail-clos
 
 ### 2:25 — Close
 
-> Zero custom contracts, zero custody, zero backend referee. This is a consumer and social distribution layer over dreamDEX Event Contracts on Somnia: one invitation can create a second real take, and every result is independently inspectable. The integration produced nine concrete SDK feedback items and 353 deterministic tests.
+> Zero custom contracts, zero custody, zero backend referee. This is a consumer and social distribution layer over dreamDEX Event Contracts on Somnia: one invitation can create a second real take, and every result is independently inspectable. The integration produced nine concrete SDK feedback items and 378 deterministic tests — `docs/VERIFICATION.md` maps every claim to its command.
 
 Show `docs/JUDGING.md` only if a judge asks for the evidence map.
 

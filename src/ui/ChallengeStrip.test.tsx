@@ -15,12 +15,22 @@ it("renders the challenge as a real link, not a copy-only button", () => {
   expect(link.getAttribute("href")).toBe(HREF);
 });
 
-it("copies exactly the full URL — origin + path + hash — and announces it", async () => {
+it("shares the full URL through the native sheet — the group-chat claim, made literal", async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "share", { value: share, configurable: true });
+  render(<ChallengeStrip href={HREF} />);
+  fireEvent.click(screen.getByRole("button", { name: "Share" }));
+  await waitFor(() => expect(screen.getByText("Link shared")).toBeTruthy());
+  const expected = `${globalThis.window.location.origin}${globalThis.window.location.pathname}${HREF}`;
+  expect(share).toHaveBeenCalledExactlyOnceWith({ title: "Window Duel challenge", url: expected });
+});
+
+it("copies exactly the full URL — origin + path + hash — when there is no share sheet", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
   Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
   render(<ChallengeStrip href={HREF} />);
-  fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+  fireEvent.click(screen.getByRole("button", { name: "Share" }));
   await waitFor(() => expect(screen.getByText("Link copied")).toBeTruthy());
   const expected = `${globalThis.window.location.origin}${globalThis.window.location.pathname}${HREF}`;
   expect(writeText).toHaveBeenCalledExactlyOnceWith(expected);

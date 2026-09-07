@@ -17,12 +17,12 @@ import { explorerTx, oracleReceipt, STT_FAUCET, TUSDC } from "../chain/shannon";
 import { autoSeries, hottestCadence } from "../domain/auto-series";
 import { stakeUnits } from "../domain/call-ticket";
 import { acceptedChallengeHref, decodeChallengeLink } from "../domain/challenge-link";
-import { readDuel, tapeDuelFill, type Duel as DuelState } from "../domain/duel";
+import { duelReadPending, readDuel, tapeDuelFill, type Duel as DuelState } from "../domain/duel";
 import { healthDetail, marketHealth } from "../domain/market-health";
 import { chipStatus, nextStep } from "../domain/onboarding";
 import { callSkipCopy, executeCall, executeExit, executeFokCall, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
 import { callReceiptFromFill, confirmFilledCall } from "../domain/filled-call";
-import { cadenceLabel } from "../domain/series";
+import { cadenceLabel, SELECTABLE_CADENCES } from "../domain/series";
 import { pickWindow } from "../domain/pick-window";
 import { pnlCopy, pnlTotals, seriesPnl, seriesPnlCopy } from "../domain/pnl";
 import { settlePreview, settlePreviewCopy } from "../domain/settle-preview";
@@ -39,7 +39,7 @@ import { bindWallet, somniaExchange } from "../exchange/somnia";
 import type { ExchangePort } from "../exchange/port";
 import { CallBoard } from "./CallBoard";
 import { ChallengeGate, ChallengeStrip } from "./ChallengeStrip";
-import { Duel } from "./Duel";
+import { Duel, DuelVerifying } from "./Duel";
 import { BookDrawer } from "./BookDrawer";
 import { fmt, shorten } from "./format";
 import { historyLabel } from "./format";
@@ -406,6 +406,19 @@ export function App({
 
   const duelAcceptSide = duel?.kind === "challenge" ? (duel.challenge.side === "up" ? ("down" as const) : ("up" as const)) : null;
 
+  // A pending read is not a refusal: while the market or tape read is in flight
+  // the app has no evidence to refuse with, so it says verifying instead.
+  const duelPending = useMemo(
+    () =>
+      duelReadPending({
+        hint: duelRaw !== null && Boolean(duelHint),
+        marketLoading: duelMarketQ.isLoading,
+        window: duelWindow,
+        tapeLoading: duelTapeQ.isLoading,
+      }),
+    [duelRaw, duelHint, duelMarketQ.isLoading, duelWindow, duelTapeQ.isLoading],
+  );
+
   // Successor rematch: a participant of a settled/void duel re-challenges the
   // same opponent on the next Window of the series — each keeps their side, so
   // the two Calls stay opposite. Never the dead marketId.
@@ -542,10 +555,9 @@ export function App({
     now,
   });
 
-  const CADENCE_KEYS = [300, 900, 3600, 14400, 86400];
   const cadenceStates = useMemo(() => {
     const out: Record<string, "trading" | "waiting" | "none"> = {};
-    for (const c of CADENCE_KEYS) {
+    for (const c of SELECTABLE_CADENCES) {
       out[String(c)] = chipStatus(windowsQ.data ?? [], asset, c, now);
     }
     return out;
@@ -869,7 +881,8 @@ export function App({
         </div>
       </header>
 
-      {duel && (
+      {duel && duelPending && <DuelVerifying />}
+      {duel && !duelPending && (
         <Duel
           duel={duel}
           acceptBusy={primaryBusy || (duelAcceptSide !== null && busy === duelAcceptSide)}

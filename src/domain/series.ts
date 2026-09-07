@@ -1,6 +1,13 @@
 /** Cadences the Shannon venues actually roll. Indexer `intervalSec` is derived from expiry − start and can be off by a few seconds. */
 export const SERIES_CADENCES = [60, 300, 900, 3600, 14400, 86400] as const;
 
+/**
+ * Cadences the terminal offers as chips. The 60s venue rolls too fast for a
+ * selectable series (a 1m Window is mostly lock headroom), so auto-selection
+ * and the `best` badge must never retarget into a cadence with no chip.
+ */
+export const SELECTABLE_CADENCES = [300, 900, 3600, 14400, 86400] as const;
+
 export const SERIES_CHIPS = [
   { asset: "BTC", intervalSec: 300, label: "BTC 5m" },
   { asset: "BTC", intervalSec: 900, label: "BTC 15m" },

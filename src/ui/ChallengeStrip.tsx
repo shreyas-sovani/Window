@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { challengeHref, challengePayloadFromReceipt, challengeableReceipt } from "../domain/challenge-link";
 import type { CallReceipt } from "../domain/proof-card";
+import { shareLink } from "./share";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
@@ -58,7 +59,7 @@ export function ChallengeStrip(props: {
   linkLabel?: string;
   children?: ReactNode;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "shared" | "copied">("idle");
   const url = `${location.origin}${location.pathname}${props.href}`;
   return (
     <section className="challenge-strip" aria-label={props.ariaLabel ?? "Challenge link"}>
@@ -75,16 +76,12 @@ export function ChallengeStrip(props: {
         type="button"
         className="ghost"
         onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(url);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1600);
-          } catch {
-            setCopied(false);
-          }
+          const got = await shareLink(url, "Window Duel challenge");
+          setShareState(got === "failed" ? "idle" : got);
+          setTimeout(() => setShareState("idle"), 1600);
         }}
       >
-        {copied ? "Link copied" : "Copy"}
+        {shareState === "shared" ? "Link shared" : shareState === "copied" ? "Link copied" : "Share"}
       </button>
       {props.children}
     </section>

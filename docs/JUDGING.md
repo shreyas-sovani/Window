@@ -23,7 +23,7 @@ There is deliberately no pretend peer-to-peer pot. Each Call is an independent I
 | Problem and product | Clear retail user, painful exchange-shaped flow, social reason to return | `docs/PRD.md`; landing hero; one-screen `src/ui/CallBoard.tsx` |
 | Innovation | Public-market fills composed into a portable wallet challenge and deterministic replay | `src/domain/duel.ts`, `src/domain/challenge-link.ts`, `src/domain/replay.ts` |
 | Somnia / dreamDEX use | Real Event Contract markets, books, stake quotes, IOC orders, portfolio tape, settlement, oracle receipts, claims | `src/exchange/somnia.ts`; ADR-0002; `docs/SDK-FEEDBACK.md` |
-| Technical quality | Pure domain boundary, live/fake adapter parity, marketId isolation, bounded write and confirmation paths | `src/exchange/port.ts`; 353-test suite; `src/ui/App.integration.test.tsx` |
+| Technical quality | Pure domain boundary, live/fake adapter parity, marketId isolation, bounded write and confirmation paths | `src/exchange/port.ts`; 378-test suite; `src/ui/App.integration.test.tsx`; `docs/VERIFICATION.md` |
 | Trust and safety | Wallet signs; no frontend key; exact approvals; no custom custody; fail-closed proofs; no invented odds; addressed challenges and stake floors | ADR-0001; `src/domain/wallet-gate.ts`; `src/domain/call-session.ts`; replay tests |
 | UX and completeness | Opportunity-first Window, depleting lock ring, Risk → Win quote, one challenge CTA, receipts, result, opponent-targeted rematch, claim from the result | `#/app`; `src/ui/App.tsx`; `src/ui/Duel.tsx`; `docs/DEMO.md` |
 | Ecosystem impact | Consumer abstraction and social invitation can add taker flow; SDK gaps documented from real integration work | README “Why the ecosystem needs this”; `docs/SDK-FEEDBACK.md` |
@@ -33,7 +33,9 @@ There is deliberately no pretend peer-to-peer pot. Each Call is an independent I
 
 A judge should try these; they are intended behavior:
 
-- Change a challenge URL's side or stake: the tape-derived fill wins.
+- Change a challenge URL's side, stake, or `minStake`: the tape-derived fill wins, and the accept floor is the challenger's tape escrow at minimum — a tampered-down floor admits nothing.
+- Open any challenge link while its chain reads are still loading: it says verifying, never a refusal it has no evidence for.
+- Name the challenger's *other* fill on the same market instead of the linked transaction: refused as `wrong-fill` — the named tx is the challenge.
 - Omit the accepting tx while another wallet trades the opposite side: the challenge remains pending; public chronology is never treated as social intent.
 - Name a nonexistent accepting tx: the completed proof is refused.
 - Open the challenge with the challenger's wallet: acceptance is disabled.

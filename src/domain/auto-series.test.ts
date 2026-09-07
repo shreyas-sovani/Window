@@ -81,3 +81,22 @@ describe("hottestCadence", () => {
     expect(hottestCadence([drifted], "BTC", 1_000)).toBe(3600);
   });
 });
+
+describe("selectable cadence floor", () => {
+  it("never scores a 60s Window as an opportunity — it has no selectable chip", () => {
+    const one = win({ intervalSec: 60, expiry: 1_050, marketId: "0x1m" });
+    expect(seriesScore(one, 1_000)).toBe(-1);
+  });
+
+  it("does not auto-jump into a 60s series even with the best headroom", () => {
+    const one = win({ intervalSec: 60, expiry: 1_050, marketId: "0x1m" });
+    const quarter = win({ intervalSec: 900, expiry: 1_400, marketId: "0x15m" });
+    expect(autoSeries([one, quarter], 1_000)).toEqual({ asset: "BTC", intervalSec: 900 });
+  });
+
+  it("keeps the 60s exclusion out of hottestCadence — no badge for a chipless cadence", () => {
+    const one = win({ intervalSec: 60, expiry: 1_050, marketId: "0x1m" });
+    const quarter = win({ intervalSec: 900, expiry: 1_400, marketId: "0x15m" });
+    expect(hottestCadence([one, quarter], "BTC", 1_000)).toBe(900);
+  });
+});

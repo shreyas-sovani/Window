@@ -1,6 +1,6 @@
 import type { LiveWindow } from "../exchange/port";
 import { callability } from "./lifecycle";
-import { canonicalInterval } from "./series";
+import { canonicalInterval, SELECTABLE_CADENCES } from "./series";
 
 export type SeriesKey = { asset: string; intervalSec: number };
 
@@ -8,7 +8,9 @@ export type SeriesKey = { asset: string; intervalSec: number };
  * Opportunity score for one live Window: Trading, has a Line, and outside lock
  * headroom. Higher is better (longer safe headroom); -1 means not an opportunity.
  * Venue is deliberately ignored — the pin exists to stop cross-venue Window
- * mixing per series, not to hide a tradable Window on the other venue.
+ * mixing per series, not to hide a tradable Window on the other venue. Cadences
+ * without a selectable chip (the 60s venue) never score — auto-jumping into a
+ * series the nav cannot show strands the board.
  */
 export function seriesScore(w: LiveWindow, nowSec: number): number {
   const gate = callability({
@@ -19,6 +21,7 @@ export function seriesScore(w: LiveWindow, nowSec: number): number {
   });
   if (!gate.callable) return -1;
   if (!w.openingPrice) return -1;
+  if (!(SELECTABLE_CADENCES as readonly number[]).includes(canonicalInterval(w.intervalSec))) return -1;
   return w.expiry - nowSec;
 }
 

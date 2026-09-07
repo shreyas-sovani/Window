@@ -22,6 +22,20 @@ function FillRow(props: { label: string; fill: DuelFill }) {
 }
 
 /**
+ * The duel surface while its chain reads are still in flight. A pending read is
+ * never a refusal: the refusal states below all claim missing evidence, and
+ * until the reads land the app does not know that.
+ */
+export function DuelVerifying() {
+  return (
+    <section className="duel verifying" aria-label="Challenge verifying">
+      <h1 className="duel-h">Challenge</h1>
+      <p>Verifying on the chain — the Window and fill tape decide, not this link.</p>
+    </section>
+  );
+}
+
+/**
  * The duel surface: one Window, two social opponents, opposite Calls. The URL
  * brought you here; the chain decided everything on screen. Opponents are never
  * each other's exchange counterparty and the second fill was never promised.
@@ -59,7 +73,7 @@ export function Duel(props: {
       <section className="duel challenge" aria-label="Incoming challenge">
         <h1 className="duel-h">Challenge</h1>
         <div className="kicker">{c.asset} {cadenceLabel(c.intervalSec)} · Line {c.line ? Number(c.line).toFixed(2) : "—"}</div>
-        <FillRow label="" fill={{ ...c, escrow: c.stake, account: c.challenger, marketId: c.marketId, ts: 0 }} />
+        <FillRow label="Challenger" fill={{ ...c, escrow: c.stake, account: c.challenger, marketId: c.marketId, ts: 0 }} />
         <p className="duel-note">Opponents are not counterparties — each Call is its own take.</p>
         {c.minStake !== undefined && (
           <small className="mono duel-floor">Stake at least {n2(c.minStake)} tUSDC — a smaller fill is not an accept.</small>
@@ -87,8 +101,8 @@ export function Duel(props: {
         <h1 className="duel-h">Duel</h1>
         <div className="kicker">{d.duel.asset} {cadenceLabel(d.duel.intervalSec)} · Line {d.duel.line ? Number(d.duel.line).toFixed(2) : "—"}</div>
         <p className="duel-line mono">Line {d.duel.line ? Number(d.duel.line).toFixed(2) : "—"}</p>
-        <FillRow label="" fill={d.duel.challengerFill} />
-        <FillRow label="" fill={d.duel.acceptorFill} />
+        <FillRow label="Challenger" fill={d.duel.challengerFill} />
+        <FillRow label="Acceptor" fill={d.duel.acceptorFill} />
         <small className="duel-note">
           Two verified fills, opposite sides, unequal stakes allowed — settles when the Window locks.
         </small>
@@ -104,8 +118,8 @@ export function Duel(props: {
         <p>
           <strong>Winner</strong> <span className="mono">{shorten(d.winner.account)}</span> — {d.winner.side.toUpperCase()} wins.
         </p>
-        <FillRow label="" fill={d.winner} />
-        <FillRow label="" fill={d.loser} />
+        <FillRow label="Winner" fill={d.winner} />
+        <FillRow label="Loser" fill={d.loser} />
         {props.claimLabel && props.onClaim && (
           <Button variant="primary" disabled={props.claimBusy} onClick={props.onClaim}>
             {props.claimBusy ? "Claiming…" : props.claimLabel}
@@ -129,8 +143,8 @@ export function Duel(props: {
         <p>
           <strong>Void — a draw.</strong> No reliable close: both sides redeem at half.
         </p>
-        <FillRow label="" fill={d.duel.challengerFill} />
-        <FillRow label="" fill={d.duel.acceptorFill} />
+        <FillRow label="Challenger" fill={d.duel.challengerFill} />
+        <FillRow label="Acceptor" fill={d.duel.acceptorFill} />
         {props.claimLabel && props.onClaim && (
           <Button variant="primary" disabled={props.claimBusy} onClick={props.onClaim}>
             {props.claimBusy ? "Claiming…" : props.claimLabel}

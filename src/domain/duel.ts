@@ -99,6 +99,7 @@ export type DuelRefusalReason =
   | "missing-fill"
   | "missing-accept-fill"
   | "wrong-market"
+  | "wrong-fill"
   | "self-accept"
   | "same-side"
   | "not-your-duel"
@@ -196,11 +197,16 @@ export function verifyChallenge(
   chain: { window: DuelWindow | null; challengerFill: DuelFill | null },
 ):
   | { ok: true; challenge: VerifiedChallenge }
-  | { ok: false; reason: Extract<DuelRefusalReason, "unknown-market" | "missing-fill" | "wrong-market"> } {
+  | { ok: false; reason: Extract<DuelRefusalReason, "unknown-market" | "missing-fill" | "wrong-market" | "wrong-fill"> } {
   if (!chain.window || chain.window.marketId !== hint.marketId) return { ok: false, reason: "unknown-market" };
   const fill = chain.challengerFill;
   if (!fill) return { ok: false, reason: "missing-fill" };
   if (fill.marketId !== hint.marketId) return { ok: false, reason: "wrong-market" };
+  // The named transaction is the challenge: a different fill by the same wallet
+  // on the same market is not the Call this link mints.
+  if (fill.txHash.toLowerCase() !== hint.txHash.toLowerCase()) {
+    return { ok: false, reason: "wrong-fill" };
+  }
   // The fill wins over every URL field: side and stake come from the chain.
   return {
     ok: true,
@@ -243,10 +249,13 @@ export function verifyAccept(
   if (challenge.to && fill.account.toLowerCase() !== challenge.to.toLowerCase()) {
     return { ok: false, reason: "not-your-duel" };
   }
-  // An undershoot is not an accept: the floor (the challenger's stake on new
-  // links) keeps a partial IOC from claiming the duel.
-  if (challenge.minStake !== undefined && fill.escrow < challenge.minStake - 1e-6) {
-    return { ok: false, reason: "below-floor" };
+  // An undershoot is not an accept. A minted link's floor means "the challenger's
+  // stake," and the challenger's real stake is on the tape (`challenge.stake`) —
+  // so a URL floor can only tighten the floor, never lower it. Legacy v1 links
+  // carry no floor and stay floorless.
+  if (challenge.minStake !== undefined) {
+    const floor = Math.max(challenge.minStake, challenge.stake);
+    if (fill.escrow < floor - 1e-6) return { ok: false, reason: "below-floor" };
   }
   const inviteClose = inviteCloseSec(challenge, challenge.fillTs ?? 0);
   if (inviteClose !== null && fill.ts > 0 && fill.ts > inviteClose) {
@@ -330,6 +339,22 @@ export function readDuel(input: {
   return { kind: "challenge", challenge: verified.challenge };
 }
 
+/**
+ * True while the reads that decide a challenge link are still in flight — the
+ * UI must say "verifying," never flash a refusal it does not yet have evidence
+ * for. A finished read that found nothing is a refusal; a pending read is not.
+ */
+export function duelReadPending(x: {
+  hint: boolean;
+  marketLoading: boolean;
+  window: DuelWindow | null;
+  tapeLoading: boolean;
+}): boolean {
+  if (!x.hint) return false;
+  if (x.marketLoading && !x.window) return true;
+  return Boolean(x.window) && x.tapeLoading;
+}
+
 export function duelRefusalCopy(reason: DuelRefusalReason): string {
   switch (reason) {
     case "no-challenge":
@@ -342,6 +367,8 @@ export function duelRefusalCopy(reason: DuelRefusalReason): string {
       return "The accepting transaction could not be verified on this Window.";
     case "wrong-market":
       return "That fill belongs to a different Window.";
+    case "wrong-fill":
+      return "That fill is not the transaction this challenge names.";
     case "self-accept":
       return "The same wallet cannot accept its own challenge.";
     case "same-side":

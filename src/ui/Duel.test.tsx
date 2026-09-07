@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { Duel as DuelState } from "../domain/duel";
-import { Duel } from "./Duel";
+import { Duel, DuelVerifying } from "./Duel";
 
 afterEach(cleanup);
 
@@ -39,6 +39,14 @@ const base = {
   expiry: 2_000,
   line: "67214.50",
 };
+
+it("verifying: a loading read is never a refusal — no reason copy renders", () => {
+  render(<DuelVerifying />);
+  expect(screen.getByRole("heading", { level: 1, name: "Challenge" })).toBeTruthy();
+  expect(screen.getByText(/verifying on the chain/i)).toBeTruthy();
+  expect(screen.queryByText(/not on this chain/i)).toBeNull();
+  expect(screen.queryByText(/could not be verified/i)).toBeNull();
+});
 
 it("refuses an invalid challenge with its reason and keeps the solo terminal available", () => {
   const state: DuelState = { kind: "invalid", reason: "self-accept" };
@@ -78,6 +86,8 @@ it("open: both wallets, both explorer txs, unequal stakes visible, settles at lo
   };
   render(<Duel duel={state} onAccept={() => {}} acceptBusy={false} />);
   expect(screen.getByRole("heading", { level: 1, name: "Duel" })).toBeTruthy();
+  expect(screen.getByText(/challenger/i)).toBeTruthy();
+  expect(screen.getByText(/acceptor/i)).toBeTruthy();
   expect(screen.getByText(/…00aa/i)).toBeTruthy();
   expect(screen.getByText(/…00bb/i)).toBeTruthy();
   expect(screen.getByText(/9\.90/)).toBeTruthy();
@@ -96,7 +106,8 @@ it("settled: names the winner by wallet and side, with both proofs and the Line"
     loser: acceptorFill,
   };
   render(<Duel duel={state} onAccept={() => {}} acceptBusy={false} />);
-  expect(screen.getByText(/winner/i)).toBeTruthy();
+  expect(screen.getAllByText(/winner/i).length).toBeGreaterThan(0);
+  expect(screen.getByText(/loser/i)).toBeTruthy();
   expect(screen.getAllByText(/…00aa/i).length).toBeGreaterThan(0);
   expect(screen.getByText(/UP wins/i)).toBeTruthy();
   const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
