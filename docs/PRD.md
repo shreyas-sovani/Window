@@ -74,6 +74,25 @@ Window may call this a duel or challenge, but must never imply peer-to-peer escr
 
 Custom markets, proprietary settlement, a peer-to-peer escrow pot, guaranteed matching, custodial balances, social accounts, points/leaderboards without real users, copy trading, mainnet funds in the judged demo, or an automatic roll bot without an SDK-supported binary operator path.
 
+## Demo mode (labeled simulation, never evidence)
+
+**Problem it solves.** The Shannon indexer has trailed chain head by minutes-to-hours across live sessions, stalling fill verification and demo-recordings through no fault of the app. A submission recording must not depend on third-party indexer health.
+
+**What it is.** A frontend switch — **"Switch to demo mode"** (also `#/app?demo=1`) — that runs the *entire real product* against the repo's deterministic fake adapter (`createFakeExchange`, the same engine the 400-test suite runs), driven by a scripted market:
+
+- Deep two-sided books on BTC/ETH 5m windows that roll on schedule, so Calls, exits, quotes, health, and odds all behave.
+- A scripted opponent wallet that FOK-accepts a minted challenge a few seconds after the link is shared — the full duel lifecycle (challenge → open → settle → winner → Claim → Rematch) plays in one browser, on camera, in ~90 seconds.
+- A simulated wallet (wagmi `mock` connector, auto-connected) so connect/switch/mint/approve gates demonstrate honestly without a real wallet.
+
+**Honesty rules (non-negotiable):**
+
+1. Every screen in demo mode carries a persistent **Demo mode — simulated market, not Shannon** badge; receipts, duel views, and banners render a DEMO mark.
+2. Demo challenge links carry an explicit demo marker (`#/app?demo=1&d=…`) and only resolve in demo mode; they never masquerade as Shannon proofs.
+3. Demo data never touches the indexer, the chain, or the real adapter; leaving demo mode returns to Shannon unchanged.
+4. `docs/VERIFICATION.md` and the submission text say plainly which evidence is the labeled demo and which is the real Shannon proof tuple. Demo mode is a recording aid, not a substitute for the live prototype.
+
+**Why this is not "fake demo data."** The earlier rejection (W-077 era) targeted unlabeled seeded UI posing as live. Demo mode is the opposite: the real product unmodified, on its real second adapter, explicitly labeled as simulation — the same distinction the test suite has always drawn.
+
 ## Judge-facing evidence
 
 See `docs/JUDGING.md` for the criterion-to-evidence map and `docs/DEMO.md` for the 2–5 minute flow. Source-of-truth implementation details live in the nearest `AGENTS.md` and must be checked against code.
