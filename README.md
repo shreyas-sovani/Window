@@ -31,7 +31,7 @@ The consumer + social layer for [dreamDEX Event Contracts](https://docs.dreamdex
 | | |
 |---|---|
 | 📺 **Demo video** | [youtube.com/watch?v=AxVN8ameNo0](https://www.youtube.com/watch?v=AxVN8ameNo0) |
-| 🚀 **Live app** | *Pending public HTTPS of the reviewed commit — run locally until then* |
+| 🚀 **Live app** | https://window7.vercel.app |
 | 📦 **Repo** | [github.com/shreyas-sovani/Window](https://github.com/shreyas-sovani/Window) |
 
 </div>
