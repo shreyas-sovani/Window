@@ -493,6 +493,14 @@ export function App({
     };
   }, [duel, address, windowsQ.data, now]);
 
+  // Demo wallets are simulated: the gas RPC read would query a fake address on
+  // Shannon and stall the journey, and the mock connector cannot send the ERC-20
+  // approve. Demo mode grants both locally — the gate chain still walks.
+  const [demoApproved, setDemoApproved] = useState(false);
+  const gateAllowance = demo ? (demoApproved ? 2n ** 64n : 0n) : ((allowance as bigint | undefined) ?? 0n);
+  // Same for the tUSDC balance: the real read queries a simulated address.
+  const demoBal = demo ? 10_000n * 10n ** BigInt(TUSDC.decimals) : bal;
+
   const board = useMemo(
     () =>
       readBoard({
@@ -508,8 +516,8 @@ export function App({
         connected: isConnected,
         chainId,
         expectedChainId: shannonChain.id,
-        allowance: (allowance as bigint | undefined) ?? 0n,
-        collateral: bal,
+        allowance: gateAllowance,
+        collateral: demoBal,
         collateralDecimals: TUSDC.decimals,
       }),
     [
@@ -550,7 +558,7 @@ export function App({
   }, [duel, address, claims, live?.decimals, busy]);
 
   const sttBal = useBalance({ address });
-  const hasGas = sttBal.data === undefined ? undefined : sttBal.data.value > 0n;
+  const hasGas = demo ? true : sttBal.data === undefined ? undefined : sttBal.data.value > 0n;
   const step = useMemo(
     () =>
       nextStep(
@@ -559,15 +567,15 @@ export function App({
           chainId,
           expectedChainId: shannonChain.id,
           hasGas,
-          collateral: bal,
+          collateral: demoBal,
           stakeRaw: board.stakeRaw,
-          allowance: (allowance as bigint | undefined) ?? 0n,
+          allowance: gateAllowance,
           callable: Boolean(live) && (board.upPlan.ok || board.downPlan.ok),
           claimable: claims.windows,
         },
         live?.decimals ?? TUSDC.decimals,
       ),
-    [isConnected, chainId, hasGas, bal, board.stakeRaw, board.upPlan.ok, board.downPlan.ok, allowance, live, claims.windows],
+    [isConnected, chainId, hasGas, bal, board.stakeRaw, board.upPlan.ok, board.downPlan.ok, gateAllowance, live, claims.windows],
   );
   const ownChallenge =
     duel?.kind === "challenge" && Boolean(address) && duel.challenge.challenger.toLowerCase() === address!.toLowerCase();
@@ -648,6 +656,18 @@ export function App({
         }
         if (board.gate.action === "approve") {
           if (!live) return;
+          if (demo) {
+            // The mock connector cannot send the ERC-20 approve; demo mode
+            // grants the bounded allowance locally so the gate chain walks.
+            const demoAmount = approveAmount(board.stakeRaw);
+            if (demoAmount === 0n) {
+              setBanner({ kind: "err", text: "Enter a stake before approving tUSDC." });
+              return;
+            }
+            setDemoApproved(true);
+            setBanner({ kind: "ok", text: `Approved ${Number(demoAmount) / 10 ** TUSDC.decimals} tUSDC for this Call (demo).` });
+            return;
+          }
           if (chainId !== shannonChain.id || !address) {
             setBanner({ kind: "err", text: "Wallet or network changed. Check Shannon and try again." });
             return;
@@ -1011,7 +1031,7 @@ export function App({
         <div className="acct mono">
           <WalletBar
             address={address}
-            balance={bal}
+            balance={demoBal}
             copied={copied}
             onCopy={() => void copyAddress()}
             onDisconnect={() => disconnect()}

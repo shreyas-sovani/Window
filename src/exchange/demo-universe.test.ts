@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { cadenceLabel } from "../domain/series";
 import {
   DEMO_EPOCH_SEC,
   DEMO_WINDOW_SEC,
@@ -56,5 +57,17 @@ describe("demo universe", () => {
       expect(r.oracleQuestionId).toBeTruthy();
     }
     expect(rows[0].expiry).toBeGreaterThanOrEqual(rows[rows.length - 1].expiry);
+  });
+});
+
+describe("demo universe cadence coverage", () => {
+  it("serves every selectable cadence — no chip is ever waiting", () => {
+    const at = DEMO_EPOCH_SEC + DEMO_WINDOW_SEC * 9 + 20;
+    for (const c of [300, 900, 3600, 14400, 86400]) {
+      const w = demoWindowAt("BTC", c, at);
+      expect(w.intervalSec).toBe(c);
+      expect(w.status).toBe(1);
+      expect(w.symbol).toBe(`BTC-${cadenceLabel(c)}`);
+    }
   });
 });

@@ -1,4 +1,5 @@
 import type { LiveWindow, PastWindow } from "./port";
+import { SELECTABLE_CADENCES, cadenceLabel } from "../domain/series";
 
 /**
  * The demo universe: every demo browser derives the identical market from the
@@ -12,10 +13,16 @@ export const DEMO_EPOCH_SEC = 1_788_000_000;
 /** Demo windows roll fast enough to settle inside a demo recording. */
 export const DEMO_WINDOW_SEC = 150;
 
-const SERIES: { asset: string; intervalSec: number; base: number }[] = [
-  { asset: "BTC", intervalSec: 300, base: 67_214.5 },
-  { asset: "ETH", intervalSec: 300, base: 3_141.5 },
-];
+const ASSET_BASE: Record<string, number> = { BTC: 67_214.5, ETH: 3_141.5 };
+
+/** Every selectable cadence, both assets — the chips all have a live window. */
+const SERIES: { asset: string; intervalSec: number; base: number }[] = ["BTC", "ETH"].flatMap((asset) =>
+  (SELECTABLE_CADENCES as readonly number[]).map((intervalSec) => ({
+    asset,
+    intervalSec,
+    base: ASSET_BASE[asset] ?? 67_214.5,
+  })),
+);
 
 function fnv1a32(input: string): number {
   let h = 0x811c9dc5;
@@ -41,12 +48,13 @@ export function demoWindowAt(asset: string, intervalSec: number, atSec: number):
   const expiry = DEMO_EPOCH_SEC + (index + 1) * DEMO_WINDOW_SEC;
   const seed = fnv1a32(`${s.asset}|demo|${index}`);
   const line = (s.base * (0.94 + (seed % 1200) / 10_000)).toFixed(2);
-  const marketId = hex64(index, `market|${s.asset}`) as `0x${string}`;
+  const marketId = hex64(index, `market|${s.asset}|${s.intervalSec}`) as `0x${string}`;
+  const label = cadenceLabel(s.intervalSec);
   return {
     marketId,
-    symbol: `${s.asset}-5m`,
-    upSymbol: `${s.asset}-5m#YES`,
-    downSymbol: `${s.asset}-5m#NO`,
+    symbol: `${s.asset}-${label}`,
+    upSymbol: `${s.asset}-${label}#YES`,
+    downSymbol: `${s.asset}-${label}#NO`,
     asset: s.asset,
     intervalSec,
     expiry,
