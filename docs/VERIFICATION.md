@@ -38,12 +38,12 @@ Both fill transactions link to the Shannon explorer from every duel view, so wal
 | Landing-warmed entry | ~5 s | same session |
 | SDK feedback items | 9, evidence-backed | `docs/SDK-FEEDBACK.md` |
 
-## Live evidence (PENDING — human state, never fabricated)
+## Live evidence (human state, never fabricated)
 
-The repository intentionally contains no invented proof values. Until each lands, it is an explicit blocker, not a claim:
+The repository intentionally contains no invented proof values. Items still open are blockers, not claims:
 
 - **PENDING** — one finalized Shannon `marketId` plus both duel fill tx hashes, from a real two-wallet duel.
 - **PENDING** — public HTTPS deployment URL of the reviewed commit.
-- **PENDING** — 2–5 minute recording following `docs/DEMO.md`.
+- **LIVE** — 3-minute labeled demo-mode recording: https://www.youtube.com/watch?v=AxVN8ameNo0 — the two-wallet loop (Call → share → accept → settle → Claim) on the deterministic demo adapter. Not a Shannon proof; Shannon had no executable depth.
 
-When they exist, the proof tuple plugs directly into the replay URL above.
+When the proof tuple exists, it plugs directly into the replay URL above.

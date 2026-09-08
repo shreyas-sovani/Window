@@ -54,6 +54,6 @@ Code and deterministic tests are ready. Three submission artifacts require human
 
 - **Real proof tuple:** one finalized Shannon `marketId`, challenger fill tx, and opponent fill tx.
 - **Deployment:** a public HTTPS URL built from the reviewed commit.
-- **Recording:** a 2–5 minute video following `docs/DEMO.md`, with the real proof replay as fallback.
+- **Recording:** [3-minute labeled demo-mode video](https://www.youtube.com/watch?v=AxVN8ameNo0) following `docs/DEMO.md`. Shannon had no executable depth; this is the flow beat, not a live proof. The real proof replay remains the evidence fallback once the Shannon tuple exists.
 
 Do not replace these with fake hashes, seeded UI, screenshots without explorer links, or claims that a local test is a live transaction.

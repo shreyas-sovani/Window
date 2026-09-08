@@ -15,9 +15,27 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-Current and truth-passed on 2026-09-08; every remaining file here is judge-facing. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command and marks the three live artifacts PENDING. W-075–W-106 are the winner-readiness + deepening + review-hardening backlog; only W-083 (real finalized Shannon tuple, recording) remains externally blocked — deployment is done by the human outside the repo. Counts say the 448-test suite. SDK-FEEDBACK has 9 evidence-backed items. `README.md` is the judge's entry point (five-minute verification path, why-this-wins, honest limits).
+Current and truth-passed on 2026-09-08; every remaining file here is judge-facing. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command; the 3-minute recording is **LIVE** at https://www.youtube.com/watch?v=AxVN8ameNo0 (labeled demo mode); Shannon proof tuple and public deploy URL stay PENDING. W-083 remains blocked on those two. Counts say the 448-test suite. SDK-FEEDBACK has 9 evidence-backed items. Root `README.md` is the judge first screen: `docs/brand/logo.png`, animated lock-ring/tagline/flow SVGs, mermaid architecture, YouTube embed, short beats, honest limits. `docs/brand/` owns those assets.
 
 ## Decision Log
+
+### 2026-09-08 — README mark, motion, mermaid
+- **Change**: Root README restyled around `docs/brand/logo.png` and three SMIL SVGs; mermaid duel + stack diagrams; short beats; YouTube + repo links live; live HTTPS still named pending. New `docs/brand/AGENTS.md`.
+- **Reasoning**: Judges skim. Logo + living ring + a 10-second flow picture beats a boxed ASCII wordmark.
+- **Rejected alternative(s)**: Shipping `docs/final.png` at 4.9MB (resized 480px PNG instead); heroku typing-svg (uptime risk on the judged first screen).
+- **Task/session**: README polish for DoraHacks; commit + push requested.
+
+### 2026-09-08 — Demo recording URL wired; still labeled, not a Shannon proof
+- **Change**: README Demo section now embeds https://www.youtube.com/watch?v=AxVN8ameNo0 (badge + `maxresdefault` thumbnail). `VERIFICATION.md` recording row is **LIVE** (demo mode). `JUDGING.md` evidence-readiness and `BACKLOG.md` W-083 note the same URL; W-083 stays blocked on deploy + finalized Shannon tuple. Honest-limits copy no longer lists the recording as missing.
+- **Reasoning**: The submission needs the video on the first screen; calling it a live Shannon duel would contradict empty-book honesty.
+- **Rejected alternative(s)**: Marking W-083 done (deploy and proof tuple are still absent); presenting the video as on-chain evidence.
+- **Task/session**: Submission — paste the recorded demo URL.
+
+### 2026-09-08 — README visual pass (wordmark, one architecture, YouTube slot)
+- **Change**: Root `README.md` restyled for a judge's first screen: boxed `WINDOW DUEL` wordmark, a single ASCII figure that is both the two-wallet loop (IOC / share locator / FOK / finalize / winner-only Claim) and the `ui → domain → ExchangePort → {somnia, fake, demo} → Shannon` stack, a decorative demo-player frame with `REPLACE_WITH_YOUTUBE_URL` plus the commented live-embed snippet (`img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg`), footer rule `zero contracts · zero custody · zero referee`. Five-minute path, why-this-wins, duel table, demo-mode, honest limits, and the 448 count are unchanged. No commit this session.
+- **Reasoning**: A dense prose README loses the hackathon skim; one picture has to carry the product and the trust boundary, and the recording must have an obvious hole to paste into — not a buried badge.
+- **Rejected alternative(s)**: Mermaid-only architecture (fails in raw clones and some GitHub mobile skins; ASCII always renders); a dummyimage.com "play" thumbnail (third-party host, looks like a fake preview); emojis as section markers (user asked minimal; shields.io YouTube logo on the badge is the only icon); shrinking the README by dropping honest limits (still the differentiator).
+- **Task/session**: Submission README polish — visual pass, uncommitted.
 
 ### 2026-09-08 — Submission prune and a judge-facing README
 - **Change**: Deleted `info.txt` (the event's own flyer), `PLAN.md` (pre-build history, superseded by PRD/BACKLOG/AGENTS), the untracked `subs.txt` scratch file, and `scripts/` (an unwired indexer probe no script or doc referenced). Pointers in root `AGENTS.md` and `BACKLOG.md` updated. `README.md` rewritten as the judge's landing: a five-minute verification path (offline suite → demo-mode loop → self-contained link → tamper it → replay tool), why-this-wins framed against the brief, the precise duel mechanic, demo mode's deep ladder, and an explicit honest-limits section. Counts refreshed to 448 across README/VERIFICATION.

@@ -1,154 +1,286 @@
+<div align="center">
+
+<img src="docs/brand/logo.png" alt="Window Duel" width="168" />
+
 # Window Duel
 
-**Make a Call. Challenge another wallet. Prove who won — from public chain data alone.**
+<img src="docs/brand/tagline.svg" alt="Make a Call. Challenge a wallet. Prove who won." width="640" />
 
-Window Duel is the consumer and social layer for [dreamDEX Event Contracts](https://docs.dreamdex.io/developers/event-contracts) on **Somnia Shannon** (chain 50312).
+### Two opposite fills. One Window. **The chain names the winner.**
 
-A verified Up/Down fill becomes a link you can drop into any group chat. Another wallet opens it, sees your fill proven on-chain, and takes the opposite side of the *exact same Window*. When the Window settles, two public fill proofs plus the finalized market name the winner — with **no backend referee, no custody, no trusted outcome input, and not one line of custom Solidity**.
+The consumer + social layer for [dreamDEX Event Contracts](https://docs.dreamdex.io/developers/event-contracts) on Somnia Shannon.
 
-Every link you share is a second real order on the venue.
+<img src="docs/brand/lock-ring.svg" alt="Depleting lock ring — Up vs Down on one Line" width="180" />
 
-> **The trust boundary, stated once:** the URL is a locator, never evidence. Sides, stakes, opponents and winners are read from the pool's public fill tape and the finalized market. Tamper with any field in the link and the chain wins. A submitted-but-unfilled transaction earns no receipt, no challenge, and no victory screen.
+<br/>
+
+[![tests](https://img.shields.io/badge/tests-448%20passing-2ea44f?style=flat-square)](docs/VERIFICATION.md)
+[![build](https://img.shields.io/badge/build-green-2ea44f?style=flat-square)](.github/workflows/ci.yml)
+[![contracts](https://img.shields.io/badge/custom%20contracts-zero-d9480f?style=flat-square)](docs/adr/0001-zero-custom-contracts.md)
+[![custody](https://img.shields.io/badge/custody-none-d9480f?style=flat-square)](#trust)
+[![chain](https://img.shields.io/badge/Somnia%20Shannon-50312-6f42c1?style=flat-square)](https://docs.somnia.network/developer/network-info)
+[![license](https://img.shields.io/badge/license-MIT-black?style=flat-square)](LICENSE)
+
+[![dreamDEX](https://img.shields.io/badge/dreamDEX-Event%20Contracts-d9480f?style=flat-square)](https://docs.dreamdex.io/developers/event-contracts)
+[![Somnia](https://img.shields.io/badge/Somnia-Shannon-6f42c1?style=flat-square)](https://docs.somnia.network/developer/network-info)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-7-646cff?style=flat-square)](https://vitejs.dev/)
+
+**[📺 Demo](#demo)** · **[⚡ Judge it](#judge)** · **[🏗️ Architecture](#architecture)** · **[Judge brief](docs/JUDGING.md)** · **[Verification](docs/VERIFICATION.md)**
+
+| | |
+|---|---|
+| 📺 **Demo video** | [youtube.com/watch?v=AxVN8ameNo0](https://www.youtube.com/watch?v=AxVN8ameNo0) |
+| 🚀 **Live app** | *Pending public HTTPS of the reviewed commit — run locally until then* |
+| 📦 **Repo** | [github.com/shreyas-sovani/Window](https://github.com/shreyas-sovani/Window) |
+
+</div>
 
 ---
 
-## Judge it in five minutes
+## 🎯 What you get
 
-No wallet, no funds, no gas required for steps 1 and 2.
+A verified Up/Down fill becomes a **link you drop in a chat**.
 
-| # | What to do | What it proves |
+Another wallet opens it. Takes the opposite side of the **same Window**.
+
+When the Window settles, two public fills + the finalized market name the winner.
+
+No backend referee. No custody. **Not one line of custom Solidity.**
+
+> 🛡️ **The trust boundary.** <a id="trust"></a> The URL is a locator, never evidence. Tamper any field — the tape wins. A submitted-but-unfilled tx earns no receipt, no challenge, no victory screen.
+
+---
+
+## 📺 Demo
+<a id="demo"></a>
+
+<div align="center">
+
+[![Watch the 3-minute demo](https://img.shields.io/badge/%E2%96%B6%20Watch-the%203--minute%20demo-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=AxVN8ameNo0)
+
+[![Window Duel — 3 minute demo](https://img.youtube.com/vi/AxVN8ameNo0/maxresdefault.jpg)](https://www.youtube.com/watch?v=AxVN8ameNo0)
+
+</div>
+
+Labeled **demo mode** — the full two-wallet loop on a simulated market.
+
+Shannon had no executable depth. Empty book = no Call. We do not invent a 50% price.
+
+Replay it locally in [step 2](#judge).
+
+---
+
+## 🏗️ Architecture
+<a id="architecture"></a>
+
+Two humans. One market. Three adapters. **Zero of our contracts.**
+
+<div align="center">
+
+<img src="docs/brand/flow.svg" alt="Wallet A Calls Up, Wallet B Calls Down, one dreamDEX Window, share is only a locator" width="780" />
+
+</div>
+
+```mermaid
+flowchart LR
+  A["Wallet A<br/>Call UP · IOC"] -->|take| W["dreamDEX Window<br/>one marketId · one Line"]
+  B["Wallet B<br/>Call DOWN · FOK"] -->|take| W
+  A -.->|"share #/app?d= locator"| B
+  W --> R["Finalized market"]
+  R --> C["Winner Claims"]
+```
+
+```mermaid
+flowchart TB
+  UI["ui/   #/ · #/docs · #/app<br/>renders · owns no rules"]
+  DOM["domain/   SDK-free · 448 tests<br/>duel · link · replay · claim"]
+  PORT["ExchangePort   one seam"]
+  S["somnia.ts<br/>live SDK"]
+  F["fake.ts<br/>CI"]
+  D["demo.ts<br/>#/app?demo=1"]
+  CH["Somnia Shannon 50312<br/>BinaryMarketsModule + pools<br/>ADR-0001 · no contract of ours"]
+  UI --> DOM --> PORT
+  PORT --> S --> CH
+  PORT --> F
+  PORT --> D
+```
+
+Same rules on Shannon, in CI, and in the recording. `domain/` cannot import the SDK. Divergence is illegal.
+
+---
+
+## ⚡ Judge it in five minutes
+<a id="judge"></a>
+
+No wallet. No funds. No gas.
+
+| # | Do this | You just proved |
+|:-:|---|---|
+| 1️⃣ | `npm install && npm test` | **448 tests**, offline |
+| 2️⃣ | `#/app?demo=1` → Connect → Approve → **Call Up** → **Demo opponent accepts** | Full loop: fill → challenge → accept → settle → winner-only Claim |
+| 3️⃣ | Open the minted link in a second tab | Self-contained locator. One action: the opposite side |
+| 4️⃣ | Edit the payload. Reload | **Fail-closed.** Tape outranks the URL |
+| 5️⃣ | `#/docs` + two hashes. Try to pick a winner | You can't. Settlement is read, not chosen |
+
+---
+
+## 🔥 Why this wins the brief
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 📈 Volume the venue cannot create
+
+The CLOB asks *price and size*.
+
+We ask *up or down?*
+
+**One invite = an attempt at a second real take** on the same Window.
+
+</td>
+<td width="33%" valign="top">
+
+### 🧭 Honest where products lie
+
+No book → no Call.
+
+No invented 50%.
+
+No receipt until the tape witnesses the fill.
+
+Verifying ≠ refused.
+
+</td>
+<td width="33%" valign="top">
+
+### 🔒 Zero new trust
+
+Zero contracts. Zero custody. Zero server.
+
+Social opponents — **not** counterparties.
+
+A judge can verify a duel **without this app**.
+
+</td>
+</tr>
+</table>
+
+Nine evidence-backed SDK findings from actually integrating Event Contracts: [`docs/SDK-FEEDBACK.md`](docs/SDK-FEEDBACK.md).
+
+---
+
+## ⚔️ The duel
+
+| Step | Move | Honest rule |
 |---|---|---|
-| 1 | `npm install && npm test` | 448 deterministic tests, fully offline — no indexer, no chain, no network |
-| 2 | `npm run dev`, open `#/app?demo=1`, then Connect → Approve → **Call Up** → **Demo opponent accepts** | The entire product loop — deep book, verified fill, challenge link, opposite accept, then settlement and a winner-only Claim when that Window closes on its own clock (2.5–6 min) — on a labeled simulation, in one browser |
-| 3 | Copy the challenge link the strip mints, open it in a second tab | The link is **self-contained**: the second tab derives the same market from its own clock, hydrates the fill from the URL, verifies it, and offers exactly one action — the opposite side |
-| 4 | Edit any character of the link's payload and reload | It fails closed: a malformed payload is refused outright, and a re-encoded one is overridden by the tape — side and stake come from the verified fill, and a floor edited *downward* still cannot admit an undersized accept |
-| 5 | Open `#/docs?replay=1` and try to fake a result | The replay tool takes a `marketId` and two tx hashes and reads settlement itself. There is no outcome input. Same wallet on both ends, same-side fills, non-finalized markets, or a hash that is not a fill on that market: **refused** |
-
-Full criterion-to-evidence map: [`docs/JUDGING.md`](docs/JUDGING.md).
-Every claim with the command that reproduces it: [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
-Recording script: [`docs/DEMO.md`](docs/DEMO.md).
+| ⬆️⬇️ **Call** | Stake. `Risk X → Win Y`. Live book | No book, no Call |
+| ✅ **Verify** | Decode the tx receipt on the spot | Chain first. Indexer is backup |
+| 🔗 **Challenge** | Mint `#/app?d=…` — named, floored, short-lived | Only a witnessed fill mints a link |
+| 💥 **Accept** | Opposite side. **FOK** | Whole stake or nothing |
+| 🏁 **Resolve** | URL grows `&a=<acceptTx>` | Unrelated opposite fills never count |
+| 💰 **Claim** | Winner only. Rematch on the successor | Void = draw. Loser is not paid |
 
 ---
 
-## Why this wins on the brief
+## 🧪 Demo mode
 
-**It creates volume the venue cannot create for itself.** dreamDEX rolls a fresh binary market every few minutes, but its UI is a CLOB — it asks "what price and size?", not "up or down?". The natural trader for a 15-minute binary is a consumer with a view and ten tUSDC. Window Duel is that demand side, and its social loop is multiplicative: one invitation is an attempt at a *second real IOC take* on the same Window. Volume is measured in fills, never in links sent.
+`#/app?demo=1` — the real product on its third adapter. Badged on every screen.
 
-**It is honest in the places where products usually lie.** No executable book means no Call — there is no invented 50% price anywhere in the codebase. A receipt exists only after the fill is witnessed on a tape. An accept that undershoots the challenge floor is refused. A challenge link that cannot fill is not minted. When a read is in flight the UI says *verifying*, never a refusal it has no evidence for. When the pool refuses a write, the banner names the pool's own error instead of guessing.
+- Every cadence chip has a live Window (2.5–6 min), from the wall clock.
+- Real six-level ladder. ~2,700 tUSDC a side. Big Calls pay a worse average.
+- Links carry fills (`&s=…`). A second tab is enough. Or **Demo opponent accepts**.
+- Settlement is deterministic per `marketId`. Only the winner Claims.
 
-**It has zero custody and zero new trust.** No custom contracts ([ADR-0001](docs/adr/0001-zero-custom-contracts.md)), no escrow pot, no server. Opponents are social, never each other's counterparty: each side is its own independent take against dreamDEX, and stakes may differ above the floor. Nothing about a duel requires trusting this app — which is exactly why a judge can verify one without it.
-
-**It is a field report on the SDK, not just a consumer of it.** The whole product is `@somnia-chain/markets-sdk` exercised end to end — live books, stake quotes, portfolio and pool tapes, post-only rests, multi-venue claims, the price feed, transaction-receipt decoding — and [`docs/SDK-FEEDBACK.md`](docs/SDK-FEEDBACK.md) is the nine-item, evidence-backed report that came out of it, including the one gap that killed a feature we wanted (no binary operator path, so the roll companion keeps a human in the loop rather than faking a bot).
-
----
-
-## The duel, precisely
-
-1. **Call.** Pick BTC or ETH, a cadence (5m–24h), a stake. The ticket shows explicit `Risk X → Win Y` and sizes from a live stake quote against the real book.
-2. **Verify.** The Call's own transaction receipt is decoded on the spot (ERC-20 net collateral plus ERC-6901 outcome legs), so the receipt appears in seconds and does not wait on the indexer. If the receipt is unavailable, the pool tape and portfolio reads keep reconciling — a real fill is never lost to indexer lag.
-3. **Challenge.** The verified fill mints `#/app?d=…`, optionally addressed to one wallet, floored at your own stake, and short-lived by design (the strip counts the invite down). Shared through the native share sheet, clipboard fallback.
-4. **Accept.** The recipient gets one prerequisite-aware CTA and a **fill-or-kill** take on the opposite side — whole or nothing, so a partial undershoot cannot pose as an accept. If the visible ladder cannot cover it, the accept is disabled with the fillable amount, before gas is spent.
-5. **Resolve.** After the accepting fill verifies, the URL grows `&a=<acceptTx>` and becomes portable proof. Settlement comes from the finalized market; the winner — and only the winner — is offered the Claim, then a one-press **Rematch** re-challenges the same opponent on the successor Window.
-
-Unrelated opposite fills on a public market never complete a duel. Public chronology is not social consent.
+Never presented as chain evidence.
 
 ---
 
-## Demo mode — the recording path that does not depend on anyone's uptime
-
-Shannon's indexer has trailed chain head by minutes to hours during this build, and testnet books are thin. So the product ships a labeled simulation of itself: **`#/app?demo=1`**, badged on every screen, `DEMO ·` on every duel view.
-
-It is not seeded UI. It is the real product, unmodified, on its second adapter:
-
-- Every cadence chip has a live Window derived from the wall clock — 2.5 to 6 minutes each, callable for two thirds of that — so every browser sees the same market with no server.
-- A genuine six-level two-sided ladder, roughly **2,700 tUSDC of executable depth per side**: a 500 tUSDC Call fills whole and pays a worse average than a 10 tUSDC one, the Book cell grades **Strong**, and the drawer lists the levels.
-- Anonymous market colour arrives on the public tape while you watch; settlement is deterministic per `marketId`; claims are account-scoped, so the loser is never offered the winner's payout.
-- Challenge links are self-contained — `&demo=1&s=…` carries the fills — so a second tab, or a phone, joins the duel from the URL alone. Or press **Demo opponent accepts** and record both sides in one browser.
-
-Demo mode is a flow aid and says so, everywhere. It is never presented as chain evidence.
-
----
-
-## Run it
+## ▶️ Run it
 
 ```bash
 cp .env.example .env && npm install && npm test && npm run dev
 ```
 
-Then either `#/app?demo=1` for the labeled simulation, or the live path on Shannon:
+**Demo:** `#/app?demo=1`
 
-1. Injected wallet (MetaMask / Rabby) → add Shannon: chain `50312`, RPC `https://api.infra.testnet.somnia.network`, symbol `STT`, explorer `https://shannon-explorer.somnia.network`.
-2. Gas from [testnet.somnia.network](https://testnet.somnia.network/); tUSDC from the in-app **Mint tUSDC** (`trader.faucet`, cap 10,000).
-3. Connect → Switch → Mint → Approve exactly the stake → **Call Up** / **Call Down**, guided one step at a time.
-4. Share the challenge link, take the opposite side from another wallet, then Claim after the Window finalizes.
+**Live Shannon:**
 
-Three pages, hash-routed, no server config: `#/` landing, `#/docs` docs plus the judge replay tool, `#/app` terminal. Expect two Shannon venues (60s/5m and 15m+); indexer `intervalSec` can be a few seconds off (3598 for 1h) and is snapped to the canonical cadence.
+1. Wallet → chain `50312` · RPC `https://api.infra.testnet.somnia.network` · explorer [shannon-explorer.somnia.network](https://shannon-explorer.somnia.network)
+2. Gas: [testnet.somnia.network](https://testnet.somnia.network) · tUSDC: in-app **Mint tUSDC**
+3. Connect → Switch → Mint → Approve the exact stake → **Call**
+4. Share the link. Opposite wallet accepts. Claim after finalize
 
-**On thin books:** an accept is fill-or-kill, so a large challenger stake can be unacceptable on a shallow venue. Stake small for a live two-wallet duel, or record in demo mode.
+Thin book? FOK refuses. Stake small, or record in demo mode.
 
 ---
 
-## What else is in the terminal
+<details>
+<summary><b>🧰 What else is in the terminal</b></summary>
 
-| Capability | Detail |
+<br>
+
+| | |
 |---|---|
-| Question-first board | "Will BTC close above 67,214.50?" — the Line on a dashed price axis, the lock countdown as a depleting ring, implied odds, volume, trades |
-| Market health | One grade per Window from spread, walked executable depth, and time-to-lock — a cold depth watch grades the spread and says "top of book", never claiming depth it cannot see |
-| Opportunity-first selection | No live Window on the selected series? The terminal jumps to the best one (real Line, safe headroom); the most callable cadence wears a `best` badge |
-| Proof cards | Every witnessed Call becomes a plain-text receipt (settled variant adds result plus oracle link), shareable with no backend |
-| Claim session | Scans the 40 most recent finalized Windows **across every venue**, deduped by market, fee-aware per Window; a failed redeem never aborts the rest |
-| Pulse | Underlying price and implied-odds sparklines, last-12 outcome bars, and the pool's public fill tape — pure SVG, no chart library |
-| Book drawer | Up-depth ladder plus a post-only Rest that expires at Window lock (pool-enforced) |
-| Wallet P&L | Realized and unrealized per open position (avg-cost, marked to book) and a signed fill tape, all explorer-linked |
-| Settle preview | If-Up / If-Down / If-Void payout of the live position, venue-fee aware |
-| Series history | Last 12 finalized Windows per cadence with Up/Down/Void chips, running tally, oracle receipts, and Lines |
-| Write safety | One wallet action at a time, enforced by a synchronous mutex — double-click, click-plus-Enter, and re-rendered controls all land exactly one transaction |
+| Question-first board | Line, depleting lock ring, odds, volume |
+| Market health | Spread + walked depth + time-to-lock. Never claims depth it cannot see |
+| `best` cadence | Jumps to the callable Window |
+| Proof cards | Plain-text receipts. No backend |
+| Claim session | 40 newest finalized Windows, every venue, fee-aware |
+| Pulse | Sparklines + public tape. Pure SVG |
+| Book drawer | Up ladder + post-only Rest (dies at lock) |
+| Wallet P&L | Avg-cost, explorer-linked |
+| Write safety | One tx at a time. Mutex. No double-fire |
+
+</details>
+
+<details>
+<summary><b>📚 Where everything lives</b></summary>
+
+<br>
+
+| | |
+|---|---|
+| [`docs/JUDGING.md`](docs/JUDGING.md) | Criterion → evidence |
+| [`docs/VERIFICATION.md`](docs/VERIFICATION.md) | Every claim + the command that proves it |
+| [`docs/DEMO.md`](docs/DEMO.md) | 2–5 minute script |
+| [`docs/PRD.md`](docs/PRD.md) | In scope / deliberately not |
+| [`docs/SDK-FEEDBACK.md`](docs/SDK-FEEDBACK.md) | 9 field-report items |
+| [`docs/BACKLOG.md`](docs/BACKLOG.md) | Every ticket, in order |
+| [`docs/adr/`](docs/adr/) | Zero contracts · SDK only · domain stays pure |
+| [`CONTEXT.md`](CONTEXT.md) | Window · Line · Call · Claim · Duel |
+| [`submission.md`](submission.md) | DoraHacks BUIDL paste |
+
+</details>
 
 ---
 
-## Architecture
+## 🛡️ Honest limits
 
-```
-src/
-├── domain/     SDK-free pure logic, unit-tested (the bulk of 448 tests)
-│   ├── duel, challenge-link, replay      social state + chain-shaped proof verification
-│   ├── receipt-fill, filled-call         the chain witness: a fill proven from its own receipt
-│   ├── pick-window, window-board         read models for the live series
-│   ├── call-ticket, call-session         tick/lot sizing, IOC and FOK intents
-│   ├── claim-plan, claim-session         what redeems, and how
-│   ├── market-health, liquidity          book grade and fill estimates from walked depth
-│   ├── lifecycle, series                 callability headroom, cadence snapping
-│   └── pnl, settle-preview, wallet-gate, revert-copy, onboarding, roll, auto-series, chart
-├── exchange/   the only SDK-touching layer (ADR-0002 / ADR-0003)
-│   ├── port.ts        ExchangePort — one seam, three adapters
-│   ├── somnia.ts      live: markets-sdk on Shannon, warm-started, every read deadlined
-│   ├── fake.ts        deterministic in-memory adapter for tests
-│   └── demo.ts        the demo universe: same port, wall-clock market, deep ladder
-├── chain/      Shannon constants, wagmi/viem config
-└── ui/         App orchestration, terminal, landing, docs, judge replay
-```
+We would rather write these than have a judge find them.
 
-Decisions: [`docs/adr/`](docs/adr/) — zero custom contracts (0001), SDK over HTTP API (0002), domain stays SDK-free (0003). Glossary: [`CONTEXT.md`](CONTEXT.md). Product truth: [`docs/PRD.md`](docs/PRD.md). Ticket history: [`docs/BACKLOG.md`](docs/BACKLOG.md). Per-directory ownership, decisions and gotchas live in the nearest `AGENTS.md`.
+| | |
+|---|---|
+| **Proof tuple** | No invented Shannon hashes. Live `marketId` + two txs still pending |
+| **Live URL** | Public HTTPS of the reviewed commit still pending |
+| **Recording** | [3-min demo](https://www.youtube.com/watch?v=AxVN8ameNo0) is labeled demo mode |
+| **Thin books** | FOK accept refused when the other side cannot cover. We name it |
+| **Audit** | 25 transitive wagmi findings (2 high, 23 moderate). No criticals. Fix = wagmi 3 |
+| **Users** | Runnable. Nobody outside the team has used it |
+
+`npm test` + `npm run build` are the gate. CI rejects critical advisories.
 
 ---
 
-## Honest limits
+<div align="center">
 
-We would rather state these than have a judge find them.
+<img src="docs/brand/logo.png" alt="Window Duel mark" width="72" />
 
-- **Live proof artifacts are pending, not faked.** A finalized Shannon `marketId` with both duel tx hashes, the public deployment URL, and the recording require live human state. The repository contains no invented proof values; see the PENDING block in [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
-- **Testnet liquidity is thin.** A fill-or-kill accept can be refused by the pool when the opposite side cannot cover it. The UI now refuses that before spending gas and names the reason — but it cannot manufacture depth.
-- **Dependency audit is disclosed, not zero.** `npm audit --omit=dev` reports 25 transitive findings (2 high, 23 moderate) through wagmi's connector tree. No critical findings. Complete remediation needs the breaking wagmi 3 migration, which was not forced into the judged build.
-- **v1 has no on-chain enforcement of the duel itself.** It does not need any — the duel is derived from public fills — but that also means neither side can be compelled to accept.
-- **No external users yet.** The product is real and runnable; it has not been used by anyone outside the team.
+**⚡ zero contracts · zero custody · zero referee ⚡**
 
-`npm test` and `npm run build` are the release gate; GitHub Actions runs both from a clean install and rejects critical production advisories.
+[Event Contracts](https://docs.dreamdex.io/developers/event-contracts) · [recipes](https://docs.dreamdex.io/developers/event-contracts/recipes) · [gotchas](https://docs.dreamdex.io/developers/event-contracts/gotchas) · [addresses](https://docs.dreamdex.io/developers/event-contracts/contracts-and-addresses) · [Somnia](https://docs.somnia.network/developer/network-info)
 
----
+MIT · Somnia × dreamDEX Event Contracts Hackathon
 
-## Sources
-
-- [dreamDEX Event Contracts](https://docs.dreamdex.io/developers/event-contracts) · [recipes](https://docs.dreamdex.io/developers/event-contracts/recipes) · [gotchas](https://docs.dreamdex.io/developers/event-contracts/gotchas) · [contracts and addresses](https://docs.dreamdex.io/developers/event-contracts/contracts-and-addresses)
-- [Somnia network info](https://docs.somnia.network/developer/network-info)
-
-MIT licensed. Built for the Somnia × dreamDEX Event Contracts Hackathon.
+</div>

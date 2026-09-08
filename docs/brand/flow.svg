@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 220" width="860" height="220" role="img" aria-label="Duel flow">
+  <rect width="860" height="220" fill="#f3f4f0"/>
+  <rect x="16" y="48" width="200" height="88" rx="14" fill="#fff" stroke="#cfd2c6" stroke-width="2"/>
+  <text x="116" y="82" text-anchor="middle" font-family="ui-sans-serif, 'Schibsted Grotesk', sans-serif" font-size="13" fill="#74786f">WALLET A</text>
+  <text x="116" y="112" text-anchor="middle" font-family="ui-monospace, 'IBM Plex Mono', monospace" font-size="22" font-weight="600" fill="#0d7d5f">CALL UP</text>
+  <rect x="644" y="48" width="200" height="88" rx="14" fill="#fff" stroke="#cfd2c6" stroke-width="2"/>
+  <text x="744" y="82" text-anchor="middle" font-family="ui-sans-serif, 'Schibsted Grotesk', sans-serif" font-size="13" fill="#74786f">WALLET B</text>
+  <text x="744" y="112" text-anchor="middle" font-family="ui-monospace, 'IBM Plex Mono', monospace" font-size="22" font-weight="600" fill="#b32218">CALL DOWN</text>
+  <rect x="300" y="36" width="260" height="112" rx="16" fill="#fff" stroke="#d9480f" stroke-width="3"/>
+  <text x="430" y="72" text-anchor="middle" font-family="ui-sans-serif, 'Schibsted Grotesk', sans-serif" font-size="13" fill="#74786f">ONE WINDOW</text>
+  <text x="430" y="104" text-anchor="middle" font-family="ui-monospace, 'IBM Plex Mono', monospace" font-size="20" font-weight="600" fill="#17181b">dreamDEX</text>
+  <text x="430" y="128" text-anchor="middle" font-family="ui-sans-serif, 'Schibsted Grotesk', sans-serif" font-size="13" fill="#74786f">Line · book · settlement</text>
+  <path d="M216 92 H300" fill="none" stroke="#0d7d5f" stroke-width="3" stroke-dasharray="8 8">
+    <animate attributeName="stroke-dashoffset" values="0;16" dur="0.8s" repeatCount="indefinite"/>
+  </path>
+  <path d="M644 92 H560" fill="none" stroke="#b32218" stroke-width="3" stroke-dasharray="8 8">
+    <animate attributeName="stroke-dashoffset" values="0;16" dur="0.8s" repeatCount="indefinite"/>
+  </path>
+  <path d="M116 136 V176 H744 V136" fill="none" stroke="#17181b" stroke-width="2" stroke-dasharray="5 7">
+    <animate attributeName="stroke-dashoffset" values="0;24" dur="1.4s" repeatCount="indefinite"/>
+  </path>
+  <text x="430" y="200" text-anchor="middle" font-family="ui-monospace, 'IBM Plex Mono', monospace" font-size="14" fill="#17181b">share #/app?d= locator  ·  never a proof</text>
+</svg>

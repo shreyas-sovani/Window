@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 56" width="720" height="56" role="img" aria-label="Product tagline">
+  <rect width="720" height="56" fill="#f3f4f0"/>
+  <text x="360" y="36" text-anchor="middle" font-family="ui-monospace, 'IBM Plex Mono', Menlo, monospace" font-size="22" fill="#17181b">
+    <tspan>
+      Make a Call.
+      <animate attributeName="opacity" values="1;1;0;0;0;0;1" dur="6s" repeatCount="indefinite"/>
+    </tspan>
+  </text>
+  <text x="360" y="36" text-anchor="middle" font-family="ui-monospace, 'IBM Plex Mono', Menlo, monospace" font-size="22" fill="#d9480f">
+    <tspan>
+      Challenge a wallet.
+      <animate attributeName="opacity" values="0;0;1;1;0;0;0" dur="6s" repeatCount="indefinite"/>
+    </tspan>
+  </text>
+  <text x="360" y="36" text-anchor="middle" font-family="ui-monospace, 'IBM Plex Mono', Menlo, monospace" font-size="22" fill="#0d7d5f">
+    <tspan>
+      Prove who won.
+      <animate attributeName="opacity" values="0;0;0;0;1;1;0" dur="6s" repeatCount="indefinite"/>
+    </tspan>
+  </text>
+</svg>
