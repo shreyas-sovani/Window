@@ -1,4 +1,57 @@
 import { describe, expect, it } from "vitest";
+import { acceptDepthGate } from "./duel";
+import { fillEstimate } from "./liquidity";
+import type { BookDepth } from "./book-depth";
+
+/** A YES book with `levels` ask levels of `contracts` each at 0.50. */
+function ladder(levels: number, contracts: number): BookDepth {
+  const asks = Array.from({ length: levels }, (_, i) => ({
+    upPrice: 0.5 + i * 0.01,
+    downPrice: 0.5 - i * 0.01,
+    contracts,
+    cumContracts: contracts * (i + 1),
+  }));
+  return { bids: [], asks, empty: false };
+}
+
+describe("acceptDepthGate", () => {
+  const gate = (depth: BookDepth, stake: number, floor: number | null, maxLevels = 5) =>
+    acceptDepthGate({
+      est: fillEstimate(depth, "up", stake),
+      levels: depth.asks.length,
+      maxLevels,
+      floor,
+    });
+
+  it("refuses a whole-or-nothing accept the visible book cannot fill", () => {
+    // 2 levels × 10 contracts at ~0.50 ≈ 10 tUSDC of depth, against a 40 tUSDC accept.
+    const refusal = gate(ladder(2, 10), 40, 9.9);
+    expect(refusal.ok).toBe(false);
+    if (refusal.ok) throw new Error("unreachable");
+    expect(refusal.copy).toMatch(/10\.1|10\.0|can fill/i);
+  });
+
+  it("says so plainly when the book cannot even reach the floor", () => {
+    const refusal = gate(ladder(1, 2), 40, 20);
+    expect(refusal.ok).toBe(false);
+    if (refusal.ok) throw new Error("unreachable");
+    expect(refusal.copy).toMatch(/floor/i);
+  });
+
+  it("passes an accept the visible book covers", () => {
+    expect(gate(ladder(3, 100), 40, 9.9).ok).toBe(true);
+  });
+
+  it("stays out of the way when it cannot see the end of the book", () => {
+    // The depth read is capped at 5 levels and returned 5 — there may be more
+    // behind it, and only the pool knows. Do not claim it cannot fill.
+    expect(gate(ladder(5, 10), 400, 9.9).ok).toBe(true);
+  });
+
+  it("stays out of the way with no depth read at all", () => {
+    expect(gate({ bids: [], asks: [], empty: true }, 40, 9.9).ok).toBe(true);
+  });
+});
 import { createFakeExchange } from "../exchange/fake";
 import type { LiveWindow } from "../exchange/port";
 import { executeCall, prepareCall } from "./call-session";

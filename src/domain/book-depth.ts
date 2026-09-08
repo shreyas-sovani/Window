@@ -13,7 +13,10 @@ export type BookDepth = {
   empty: boolean;
 };
 
-const DEFAULT_LEVELS = 5;
+/** Levels a depth read returns per side. A read at this length may be truncated. */
+export const DEPTH_LEVELS = 5;
+
+const DEFAULT_LEVELS = DEPTH_LEVELS;
 
 function take(levels: BookLevelRaw[], decimals: number, max: number): DepthLevel[] {
   const scale = 10 ** decimals;

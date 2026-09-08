@@ -6,14 +6,20 @@ import { WagmiProvider } from "wagmi";
 import { demoAccountFor, demoWagmiConfig } from "./chain/demoWagmi";
 import { queryClient, wagmiConfig } from "./chain/wagmi";
 import { getExchange } from "./exchange/somnia";
-import { createDemoExchange } from "./exchange/demo";
+import { demoExchangeFor } from "./exchange/demo";
+import { demoBookFor, demoDepthFor } from "./exchange/demo-universe";
 import { decodeChallengeLink } from "./domain/challenge-link";
 import { App } from "./ui/App";
 import { Docs } from "./ui/Docs";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { Landing } from "./ui/Landing";
-import { hashParam, useRoute } from "./ui/router";
+import { bootstrapSearchLink, hashParam, useRoute } from "./ui/router";
 import "./ui/styles.css";
+
+// A shared link whose fragment was stripped in transit still carries its proof
+// in the query string. Lift it into the terminal hash before the first render.
+const lifted = bootstrapSearchLink(window.location.search, window.location.hash);
+if (lifted) window.history.replaceState(null, "", `${window.location.pathname}${lifted}`);
 
 function Root() {
   const [route] = useRoute();
@@ -37,20 +43,17 @@ function Root() {
     // simulated wallet, and no SDK live store. Every screen is badged.
     const challenger = decodeChallengeLink(hashParam(location.hash, "d"))?.challenger;
     const account = demoAccountFor(challenger);
-    const demoExchange = createDemoExchange({ account });
-    // The SDK odds hook needs the SDK provider; demo reads the demo book.
+    const demoExchange = demoExchangeFor(account);
+    // The SDK odds hook needs the SDK provider; demo reads the demo ladder —
+    // the same book its quotes walk, so health, drawer, and ticket agree.
     const useDemoOdds = (input: {
       marketId?: string;
       decimals: number;
       polled?: import("./exchange/port").BookTop;
     }): { book: import("./exchange/port").BookTop | undefined; depth: import("./domain/book-depth").BookDepth } => {
-      const w = input.marketId
-        ? demoExchange.state.windows.find((x) => x.marketId.toLowerCase() === input.marketId!.toLowerCase())
-        : undefined;
-      const top = w ? demoExchange.state.books[w.upSymbol] : undefined;
-      const book: import("./exchange/port").BookTop | undefined =
-        top?.bid !== undefined || top?.ask !== undefined ? { bid: top?.bid, ask: top?.ask } : input.polled;
-      return { book, depth: { bids: [], asks: [], empty: true } };
+      if (!input.marketId) return { book: input.polled, depth: { bids: [], asks: [], empty: true } };
+      const depth = demoDepthFor({ marketId: input.marketId });
+      return { book: demoBookFor({ marketId: input.marketId }), depth };
     };
     return (
       <WagmiProvider config={demoWagmiConfig(account)}>

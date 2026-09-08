@@ -19,6 +19,12 @@ Working defaults. Env overrides via `VITE_*` — a var that is absent OR blank/w
 
 ## Decision Log
 
+### 2026-09-08 — demoOpponentOf: the other demo identity
+- **Change**: `demoWagmi.ts` gains `demoOpponentOf(account)` — Wallet B for A, Wallet A otherwise.
+- **Reasoning**: Demo mode's simulated-opponent accept needs the identity that is *not* the acting wallet, or the take would be a self-accept the duel correctly refuses. One helper keeps that rule next to the two identities it names.
+- **Rejected alternative(s)**: A `DEMO_OPPONENT` constant (wrong whenever the tab is Wallet B); deriving it in `App.tsx` (chain identities belong here).
+- **Task/session**: Demo-mode completion pass — BACKLOG W-118.
+
 ### 2026-09-07 — envUrl: blank env vars fall back, not pass through
 - **Change**: `shannon.ts` gains `envUrl(raw, fallback)` (+ tests: absent/blank/whitespace → fallback, trimmed override wins). `chain.ts` (WS) and `wagmi.ts` (RPC + fallback RPC) route their `VITE_*` reads through it; `src/exchange/somnia.ts` does the same for `VITE_INDEXER_URL`/`VITE_WS_RPC_URL`.
 - **Reasoning**: Live Vercel deploy crashed `#/app` with `@somnia-chain/markets-sdk: createClient — needs indexerUrl` on every reload. `??` only catches null/undefined, so a hoster-injected empty-string `VITE_INDEXER_URL` reached the SDK as `""` and createClient threw. `#/` and `#/docs` survived because their warm-up swallows; the terminal's provider/query path surfaced it as the board load-error notice.

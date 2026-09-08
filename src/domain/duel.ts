@@ -1,6 +1,7 @@
 import type { MarketFill } from "../exchange/port";
 import { inviteUntil } from "./challenge-link";
 import type { FilledCall } from "./filled-call";
+import type { FillEstimate } from "./liquidity";
 
 export type DuelSide = "up" | "down";
 
@@ -259,6 +260,37 @@ export function verifyChallenge(
 export function acceptFloor(challenge: VerifiedChallenge): number | null {
   if (challenge.minStake === undefined) return null;
   return Math.max(challenge.minStake, challenge.stake);
+}
+
+/**
+ * An accept is fill-or-kill: the pool refuses it whole (`FillOrKillNotFillable`)
+ * rather than filling part of it, and that refusal costs gas and reads like a
+ * wallet fault. So when the depth read shows the END of the opposite ladder and
+ * that ladder cannot cover the stake, say so before anything is sent.
+ *
+ * Deliberately fails open: a truncated read (as many levels as we asked for) or
+ * no read at all proves nothing about what rests behind it — only the pool
+ * knows, and it is allowed to be the one that refuses.
+ */
+export function acceptDepthGate(input: {
+  est: FillEstimate | null;
+  /** Levels the depth read returned on the accepting side. */
+  levels: number;
+  /** Levels it was allowed to return — equal means the ladder may continue. */
+  maxLevels: number;
+  floor: number | null;
+}): { ok: true } | { ok: false; copy: string } {
+  const est = input.est;
+  if (!est || input.levels === 0 || input.levels >= input.maxLevels) return { ok: true };
+  if (est.unfilledStake <= 0.005) return { ok: true };
+  const fillable = Math.floor(est.maxStake * 100) / 100;
+  if (input.floor !== null && fillable < input.floor) {
+    return {
+      ok: false,
+      copy: `Opposite side holds ${fillable.toFixed(2)} tUSDC — under the ${input.floor.toFixed(2)} floor`,
+    };
+  }
+  return { ok: false, copy: `Opposite side can fill ${fillable.toFixed(2)} tUSDC — lower the stake` };
 }
 
 export function verifyAccept(

@@ -19,9 +19,22 @@ The repository intentionally does not contain invented proof values. Until the t
 If the Shannon indexer is lagging (it has trailed chain head by minutes-to-hours), record the flow beats in **demo mode** instead of stalling on camera:
 
 - Enter it from the terminal's **Switch to demo mode** link, the landing's **Try demo mode**, or `#/app?demo=1`. Every screen carries the **Demo mode — simulated market, not Shannon** badge; duel views read **DEMO ·**.
-- The market is a deterministic simulation: deep two-sided 5m BTC/ETH books that roll every ~2.5 minutes and settle on schedule. Your simulated wallet auto-connects — walk connect → mint → approve → Call as usual.
-- Challenge links are **self-contained**: the `#/app?demo=1&d=…&s=…` URL carries the challenger's fill, so opening it anywhere (a group chat, a second tab, a phone) hydrates the duel and that browser's simulated wallet accepts. Two tabs = the full two-wallet loop.
-- The same script below plays beat-for-beat — substitute "demo mode" where the script says Shannon, and say so in the voiceover. Record the live replay (`#/docs?m&a&b`) from the real proof tuple as the evidence beat; demo mode is the flow beat, never the proof beat.
+- The market is derived from the wall clock, so every browser sees the same one. Every cadence chip has a live Window; each is compressed and callable for roughly its first two thirds:
+
+| Chip | Window | Callable for | Invite stays open |
+|---|---|---|---|
+| 5m | 2:30 | 2:00 | 30s after your fill |
+| 15m | 4:30 | 3:00 | 90s after your fill |
+| 1h · 4h · 24h | 6:00 | 4:00 | 2:00 after your fill |
+
+- Record the duel on **15m or 1h** — the 5m chip settles fastest but its invite closes in 30 seconds. The strip prints **Invite closes in m:ss** while it is live; a link shared after that is honestly refused, so glance at it before you paste.
+- The book is real depth, not a quote: six levels a side, a 1-point spread, ~2,700 tUSDC executable per side. Big Calls pay a worse average than small ones, the Book cell grades **Strong**, and the drawer lists the ladder. Anonymous market colour keeps landing on the public tape while you talk.
+- The simulated wallet does not auto-connect: walk **connect → approve → Call** on camera (gas and mint are already satisfied in demo).
+- Two ways to shoot the duel:
+  1. **Two tabs (the real distribution path).** Challenge links are self-contained — `#/app?d=…&demo=1&s=…` carries the challenger's fill — so a second tab (or a phone) hydrates the duel from the URL alone, takes the other demo identity, and accepts. Its URL then publishes `&a=<acceptTx>` as the completed proof.
+  2. **One browser.** Press **Demo opponent accepts** on the challenge strip: the second demo wallet takes the opposite side, the fill is verified on the demo tape like any other, and the same completed URL appears. Nothing accepts on a timer — you press it when the story needs it.
+- Then wait out the Window: settlement is deterministic from the marketId, the result names a winner, and **only the winning wallet** is offered the Claim.
+- The script below plays beat-for-beat — substitute "demo mode" where it says Shannon, and say so in the voiceover. Record the live replay (`#/docs?m&a&b`) from the real proof tuple as the evidence beat; demo mode is the flow beat, never the proof beat.
 
 ## Primary flow — about 2:30
 
@@ -75,7 +88,7 @@ Open both explorer links. If time permits, alter one hash and show the fail-clos
 
 ### 2:25 — Close
 
-> Zero custom contracts, zero custody, zero backend referee. This is a consumer and social distribution layer over dreamDEX Event Contracts on Somnia: one invitation can create a second real take, and every result is independently inspectable. The integration produced nine concrete SDK feedback items and 404 deterministic tests — `docs/VERIFICATION.md` maps every claim to its command.
+> Zero custom contracts, zero custody, zero backend referee. This is a consumer and social distribution layer over dreamDEX Event Contracts on Somnia: one invitation can create a second real take, and every result is independently inspectable. The integration produced nine concrete SDK feedback items and 439 deterministic tests — `docs/VERIFICATION.md` maps every claim to its command.
 
 Show `docs/JUDGING.md` only if a judge asks for the evidence map.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashParam, parseRoute, routeHref } from "./router";
+import { bootstrapSearchLink, hashParam, parseRoute, routeHref } from "./router";
 
 describe("parseRoute", () => {
   it("does not treat an app prefix as the terminal", () => {
@@ -35,5 +35,18 @@ describe("routeHref", () => {
     expect(routeHref("landing")).toBe("#/");
     expect(routeHref("docs")).toBe("#/docs");
     expect(routeHref("app")).toBe("#/app");
+  });
+});
+
+describe("bootstrapSearchLink", () => {
+  it("lifts a fragment-lost demo link's query into the app hash", () => {
+    expect(bootstrapSearchLink("?demo=1&d=2.abc&s=1.xyz", "")).toBe("#/app?demo=1&d=2.abc&s=1.xyz");
+    expect(bootstrapSearchLink("?demo=1&d=2.abc", "#/")).toBe("#/app?demo=1&d=2.abc");
+  });
+
+  it("leaves URLs without link params, and app hashes, alone", () => {
+    expect(bootstrapSearchLink("?foo=1", "")).toBeNull();
+    expect(bootstrapSearchLink("", "#/app?d=2.abc")).toBeNull();
+    expect(bootstrapSearchLink("?d=2.abc", "#/app?d=2.abc")).toBeNull();
   });
 });

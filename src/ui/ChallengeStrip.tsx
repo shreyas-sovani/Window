@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { challengeHref, challengePayloadFromReceipt, challengeableReceipt } from "../domain/challenge-link";
 import type { CallReceipt } from "../domain/proof-card";
+import { countdown } from "./format";
 import { shareLink } from "./share";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
@@ -22,27 +23,45 @@ export function ChallengeGate(props: {
   allow?: boolean;
   /** Demo mode decorates the shareable href (demo marker + fills blob). */
   decorateHref?: (href: string, txHash: string) => string;
+  /** Extra control rendered inside the strip (demo mode's simulated opponent). */
+  extra?: ReactNode;
 }) {
   // A link against a dead opposite book can only ever expire — do not mint it.
   if (props.allow === false) return null;
   const payload = challengeableReceipt(props.receipts, props.address, props.now);
   const built = payload ? challengePayloadFromReceipt(payload, props.address, props.now) : null;
   if (!built) return null;
-  return <StripFrom payload={built} to={props.to} decorateHref={props.decorateHref} />;
+  return (
+    <StripFrom
+      payload={built}
+      now={props.now}
+      to={props.to}
+      decorateHref={props.decorateHref}
+      extra={props.extra}
+    />
+  );
 }
 
 function StripFrom(props: {
   payload: ReturnType<typeof challengePayloadFromReceipt>;
+  now: number;
   to?: string;
   decorateHref?: (href: string, txHash: string) => string;
+  extra?: ReactNode;
 }) {
   const [opponent, setOpponent] = useState(props.to ?? "");
   const named = opponent.trim().toLowerCase();
   const to = ADDRESS.test(named) ? named : undefined;
   const rawHref = challengeHref({ ...props.payload!, to });
   const href = props.decorateHref ? props.decorateHref(rawHref, props.payload!.txHash) : rawHref;
+  const until = props.payload!.until;
   return (
     <ChallengeStrip href={href}>
+      {until !== undefined && (
+        // The invite is short-lived by design; say how short while it is live,
+        // so nobody shares a link that closes before it is opened.
+        <p className="challenge-close mono">Invite closes in {countdown(until, props.now)}</p>
+      )}
       <label className="challenge-to">
         Opponent wallet
         <input
@@ -55,6 +74,7 @@ function StripFrom(props: {
           autoComplete="off"
         />
       </label>
+      {props.extra}
     </ChallengeStrip>
   );
 }

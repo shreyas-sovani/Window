@@ -1089,6 +1089,8 @@ a.chip:hover { filter: brightness(0.97); }
   background: var(--card);
   color: var(--ink);
 }
+.challenge-close { flex: 1 1 100%; margin: 0; color: var(--muted); font-size: 12px; }
+.demo-accept { flex: 0 0 auto; }
 .duel-floor { color: var(--muted); font-size: 12px; }
 .usp { margin: 2px 0 0; }
 .usp-note { margin: 0; color: var(--muted); font-size: 13px; }

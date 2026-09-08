@@ -45,6 +45,8 @@ export type Busy =
   | "connect"
   | "switch"
   | "approve"
+  /** Demo mode's simulated opponent taking the other side. */
+  | "demo-accept"
   | null;
 
 /**

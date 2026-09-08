@@ -26,6 +26,13 @@ export function demoAccountFor(challenger?: string | null): `0x${string}` {
   return want as `0x${string}`;
 }
 
+/** The other demo identity — who the simulated opponent is, for this wallet. */
+export function demoOpponentOf(account?: string): `0x${string}` {
+  return account && account.toLowerCase() === (DEMO_WALLET_A as string).toLowerCase()
+    ? DEMO_WALLET_B
+    : DEMO_WALLET_A;
+}
+
 const configs = new Map<string, ReturnType<typeof build>>();
 
 function build(account: `0x${string}`) {

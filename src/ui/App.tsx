@@ -13,14 +13,39 @@ import {
   useWriteContract,
 } from "wagmi";
 import { shannonChain } from "../chain/chain";
+import { demoOpponentOf } from "../chain/demoWagmi";
 import { explorerTx, oracleReceipt, STT_FAUCET, TUSDC } from "../chain/shannon";
 import { autoSeries, hottestCadence } from "../domain/auto-series";
 import { stakeUnits } from "../domain/call-ticket";
-import { acceptedChallengeHref, decodeChallengeLink } from "../domain/challenge-link";
-import { acceptFloor, duelReadPending, readDuel, tapeDuelFill, type Duel as DuelState } from "../domain/duel";
+import {
+  acceptedChallengeHref,
+  challengePayloadFromReceipt,
+  challengeableReceipt,
+  decodeChallengeLink,
+} from "../domain/challenge-link";
+import { DEPTH_LEVELS } from "../domain/book-depth";
+import {
+  acceptDepthGate,
+  acceptFloor,
+  duelReadPending,
+  readDuel,
+  tapeDuelFill,
+  type Duel as DuelState,
+} from "../domain/duel";
+import { fillEstimate } from "../domain/liquidity";
 import { healthDetail, marketHealth } from "../domain/market-health";
 import { chipStatus, nextStep } from "../domain/onboarding";
-import { callSkipCopy, executeCall, executeExit, executeFokCall, executeRest, prepareExit, prepareRest, restSkipCopy } from "../domain/call-session";
+import {
+  callSkipCopy,
+  executeCall,
+  executeExit,
+  executeFokCall,
+  executeRest,
+  prepareExit,
+  prepareQuotedCall,
+  prepareRest,
+  restSkipCopy,
+} from "../domain/call-session";
 import {
   callReceiptFromFill,
   confirmFilledCall,
@@ -104,6 +129,10 @@ export function App({
     side: "up" | "down";
   } | null>(null);
   const [dismissedRoll, setDismissedRoll] = useState<string>();
+  // The accepting tx this session published into the URL. Its own fill is
+  // already tape-verified for this wallet; the pool tape read can still be one
+  // poll behind, and a lagging read is not evidence against a proof.
+  const [acceptPublished, setAcceptPublished] = useState<string | null>(null);
   const [rematchTarget, setRematchTarget] = useState<{ to: string; side: "up" | "down"; marketId: string } | null>(null);
 
   useEffect(() => {
@@ -129,7 +158,9 @@ export function App({
   const demoDecorateHref = (href: string, txHashes: string[]) =>
     !demoExchange || txHashes.length === 0
       ? href
-      : `${href.includes("?") ? "&" : "?"}demo=1&s=${encodeDemoFills(demoExchange.exportFillsFor(txHashes))}`;
+      : `${href}${href.includes("?") ? "&" : "?"}demo=1&s=${encodeDemoFills(
+          demoExchange.exportFillsFor(txHashes),
+        )}`;
 
   const windowsQ = useQuery({
     queryKey: ["windows"],
@@ -460,6 +491,16 @@ export function App({
     [duelRaw, duelHint, duelMarketQ.isLoading, duelWindow, duelTapeQ.isLoading],
   );
 
+  // Between our verified accept and the pool tape reading it back, the honest
+  // state is verifying — never "the accepting transaction could not be
+  // verified", which we already know to be false.
+  const acceptSettling =
+    duelAcceptTx !== null &&
+    acceptPublished !== null &&
+    duelAcceptTx.toLowerCase() === acceptPublished.toLowerCase() &&
+    duel?.kind === "invalid" &&
+    duel.reason === "missing-accept-fill";
+
   // Successor rematch: a participant of a settled/void duel re-challenges the
   // same opponent on the next Window of the series — each keeps their side, so
   // the two Calls stay opposite. Never the dead marketId.
@@ -582,25 +623,53 @@ export function App({
   // The enforced accept floor (max of URL floor and challenger tape escrow) —
   // null on floorless legacy links. The accept gate and the verifier agree.
   const duelFloor = duel?.kind === "challenge" ? acceptFloor(duel.challenge) : null;
-  const belowFloor = duelFloor !== null && stakeNum < duelFloor - 1e-6;
-  // Prefill the stake to the floor once per challenge so the golden path
-  // starts acceptable; after that the user owns the number and the gate
-  // explains, not rewrites.
+  // Gate on what will actually be escrowed, not on what was typed: lot and tick
+  // quantization can shave a fraction off the stake, and a fill a hair under
+  // the floor is refused after the money moves. Fall back to the typed stake
+  // only while the quote is still loading.
+  const acceptQuote = duelAcceptSide === "up" ? upQuoteQ.data : duelAcceptSide === "down" ? downQuoteQ.data : undefined;
+  const acceptEscrow = acceptQuote
+    ? Number(acceptQuote.escrow) / 10 ** (live?.decimals ?? TUSDC.decimals)
+    : stakeNum;
+  const belowFloor = duelFloor !== null && acceptEscrow < duelFloor - 1e-6;
+  // A fill-or-kill the visible ladder cannot cover would revert on the pool and
+  // cost gas for nothing. When the read shows the end of that ladder, refuse here.
+  const acceptDepth = useMemo(
+    () =>
+      duelAcceptSide === null
+        ? ({ ok: true } as const)
+        : acceptDepthGate({
+            est: fillEstimate(depth, duelAcceptSide, stakeNum),
+            levels: (duelAcceptSide === "up" ? depth.asks : depth.bids).length,
+            maxLevels: DEPTH_LEVELS,
+            floor: duelFloor,
+          }),
+    [depth, duelAcceptSide, stakeNum, duelFloor],
+  );
+  // Prefill the stake one cent clear of the floor once per challenge, so the
+  // golden path is acceptable after quantization; after that the user owns the
+  // number and the gate explains, not rewrites.
   const duelFlooredFor = useRef("");
   const duelChallengeMarket = duel?.kind === "challenge" ? duel.challenge.marketId : null;
   useEffect(() => {
     if (duelFloor === null || duelChallengeMarket === null) return;
     if (duelFlooredFor.current === duelChallengeMarket) return;
     duelFlooredFor.current = duelChallengeMarket;
-    if (stakeNum < duelFloor) setStake(String(Math.round(duelFloor * 100) / 100));
+    const clear = Math.ceil((duelFloor + 0.01) * 100) / 100;
+    if (stakeNum < clear) setStake(String(clear));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duelFloor, duelChallengeMarket]);
   // A named challenge is addressed: any viewer who is not that wallet —
   // including no wallet at all — can see it but not accept it.
+  // A named challenge is addressed: any connected wallet that is not the named
+  // one can see it but not accept it. With no wallet connected there is nothing
+  // to compare yet — the recipient must be able to connect first, so the step
+  // chain owns the CTA until then (the accept is still gated on the fill).
   const duelWrongViewer =
     duel?.kind === "challenge" &&
     duel.challenge.to !== undefined &&
-    address?.toLowerCase() !== duel.challenge.to.toLowerCase() &&
+    Boolean(address) &&
+    address!.toLowerCase() !== duel.challenge.to.toLowerCase() &&
     !ownChallenge;
   const duelAcceptLabel = ownChallenge
     ? "Open this link with another wallet"
@@ -608,7 +677,9 @@ export function App({
       ? `Open this link with ${shorten(duel.challenge.to)}`
       : belowFloor && duelFloor !== null
         ? `Stake at least ${duelFloor.toFixed(2)} tUSDC to accept`
-        : step.kind === "call" && duelAcceptSide
+        : !acceptDepth.ok
+          ? acceptDepth.copy
+          : step.kind === "call" && duelAcceptSide
           ? `Call ${duelAcceptSide.toUpperCase()} to accept`
           : step.kind === "wait"
             ? "Window is no longer callable"
@@ -738,6 +809,11 @@ export function App({
         duelHint.txHash,
         filled.txHash,
       ]);
+      // The duel now reads a tape that must include this fill: re-read it at
+      // once instead of leaving the proof unverified until the next poll.
+      setAcceptPublished(filled.txHash);
+      void qc.invalidateQueries({ queryKey: ["dueltape"] });
+      void qc.invalidateQueries({ queryKey: ["duelstatus"] });
     }
     void posQ.refetch().then(() => {
       void qc.invalidateQueries({ queryKey: ["fills"] });
@@ -853,6 +929,66 @@ export function App({
           return;
         }
         completeFill(side, win, confirmation.filled);
+      } catch (e) {
+        setBanner({ kind: "err", text: revertCopy(e) });
+      }
+    });
+  }
+
+  /**
+   * Demo only: the simulated opponent takes the other side of the challenge
+   * this session just minted, so the whole duel loop can be recorded in one
+   * browser. It is a real fill on the demo tape by a second demo wallet — the
+   * duel still verifies it there, and the completed proof URL still names its
+   * exact transaction. The two-browser path is unchanged.
+   */
+  async function demoOpponentAccept() {
+    const demoEx = demoExchange;
+    const win = live;
+    const mine = challengeableReceipt(receipts, address, now);
+    if (!demoEx || !win || !mine || mine.marketId !== win.marketId) return;
+    const payload = challengePayloadFromReceipt(mine, address, now);
+    if (!payload) return;
+    const side = mine.side === "up" ? ("down" as const) : ("up" as const);
+    const opponent = demoOpponentOf(address);
+    setBanner(null);
+    await run("demo-accept", async () => {
+      try {
+        // A cent clear of the floor, so quantization cannot undershoot it.
+        const stakeRaw = stakeUnits(mine.stake + 0.01, win.decimals);
+        const quote = await exchange.quoteStake(win.marketId, side, stakeRaw);
+        const intent = prepareQuotedCall({ live: win, side, nowSec: now, quote });
+        if (!intent.ok) {
+          setBanner({ kind: "err", text: callSkipCopy(intent.reason) });
+          return;
+        }
+        const txHash = await demoEx.takeAs(opponent, intent.symbol, intent.plan.contracts, intent.plan.price);
+        const accepted = txHash
+          ? filledCallFromTape(await exchange.fillsByPool(win.pool, win.decimals), {
+              marketId: win.marketId,
+              txHash,
+              taker: opponent,
+              side,
+            })
+          : null;
+        if (!accepted) {
+          setBanner({ kind: "err", text: "The demo opponent's take did not fill. Nothing was accepted." });
+          return;
+        }
+        setBanner({
+          kind: "ok",
+          text: `Demo opponent Called ${side.toUpperCase()} · filled ${fmt(accepted.contracts, 3)} contracts @ ${fmt(
+            accepted.avgOdds * 100,
+            1,
+          )}%`,
+          txHash,
+        });
+        setAcceptPublished(txHash!);
+        window.location.hash = demoDecorateHref(acceptedChallengeHref(payload, txHash!), [
+          payload.txHash,
+          txHash!,
+        ]);
+        void qc.invalidateQueries({ queryKey: ["dueltape"] });
       } catch (e) {
         setBanner({ kind: "err", text: revertCopy(e) });
       }
@@ -1040,8 +1176,8 @@ export function App({
         </div>
       </header>
 
-      {duel && duelPending && <DuelVerifying />}
-      {duel && !duelPending && (
+      {duel && (duelPending || acceptSettling) && <DuelVerifying />}
+      {duel && !duelPending && !acceptSettling && (
         <Duel
           duel={duel}
           demoMark={demo}
@@ -1052,6 +1188,7 @@ export function App({
             Boolean(ownChallenge) ||
             duelWrongViewer ||
             belowFloor ||
+            !acceptDepth.ok ||
             step.kind === "wait" ||
             (duelAcceptSide !== null && !(duelAcceptSide === "up" ? board.upPlan.ok : board.downPlan.ok))
           }
@@ -1150,6 +1287,21 @@ export function App({
             receipts[0].side === rematchTarget.side
               ? rematchTarget.to
               : undefined
+          }
+          extra={
+            // Demo mode can play both wallets, so one browser records the whole
+            // loop. Labeled as the simulation it is; the fill is still verified
+            // on the demo tape before the duel opens.
+            demoExchange ? (
+              <Button
+                variant="ghost"
+                className="demo-accept"
+                disabled={primaryBusy}
+                onClick={() => void demoOpponentAccept()}
+              >
+                {busy === "demo-accept" ? "Opponent taking…" : "Demo opponent accepts"}
+              </Button>
+            ) : undefined
           }
           allow={(() => {
             const newest = receipts[0];

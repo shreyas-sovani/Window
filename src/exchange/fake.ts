@@ -16,6 +16,8 @@ import type {
 export type FakeClaimRow = {
   marketId: `0x${string}`;
   venueId?: string;
+  /** Owning wallet, when the adapter knows it (demo settlement scopes claims). */
+  account?: string;
   isResolved: boolean;
   isVoided: boolean;
   winningOutcome: 0 | 1 | null;
@@ -79,6 +81,7 @@ function recordFill(
   price: number,
   direction: "buy" | "sell",
   txHash: string,
+  nowSec: number,
 ) {
   const w = state.windows.find((row) => row.upSymbol === symbol || row.downSymbol === symbol);
   if (!w) return;
@@ -89,7 +92,7 @@ function recordFill(
     quantity: contracts,
     quote: contracts * price,
     aggressor: w.upSymbol === symbol ? "up" : "down",
-    ts: Date.now() / 1000,
+    ts: nowSec,
     txHash,
     marketId: w.marketId,
     taker: state.actingAccount ?? null,
@@ -103,7 +106,7 @@ function recordFill(
     price,
     quantity: contracts,
     quote: contracts * price,
-    timestamp: Date.now() / 1000,
+    timestamp: nowSec,
     txHash,
     marketId: w.marketId,
   });
@@ -111,7 +114,11 @@ function recordFill(
 }
 
 export function createFakeExchange(
-  seed: Partial<FakeExchangeState> & { txHashFactory?: () => string } = {},
+  seed: Partial<FakeExchangeState> & {
+    txHashFactory?: () => string;
+    /** Clock the recorded fills are stamped with — the demo adapter runs its own. */
+    nowSec?: () => number;
+  } = {},
 ): ExchangePort & {
   state: FakeExchangeState;
   actAs(account?: string): void;
@@ -143,6 +150,7 @@ export function createFakeExchange(
 
   let txSeq = 0;
   const nextTx = seed.txHashFactory ?? ((): string => `0xfake${(txSeq += 1)}`);
+  const nowSec = seed.nowSec ?? (() => Date.now() / 1000);
 
   const port: ExchangePort = {
     async listLiveWindows() {
@@ -200,13 +208,13 @@ export function createFakeExchange(
     async iocBuy(symbol, contracts, price) {
       state.buys.push({ symbol, contracts, price });
       const hash = nextTx();
-      if (state.iocFills) recordFill(state, symbol, contracts, price, "buy", hash);
+      if (state.iocFills) recordFill(state, symbol, contracts, price, "buy", hash, nowSec());
       return hash;
     },
     async iocSell(symbol, contracts, price) {
       state.sells.push({ symbol, contracts, price });
       const hash = nextTx();
-      if (state.iocFills) recordFill(state, symbol, contracts, price, "sell", hash);
+      if (state.iocFills) recordFill(state, symbol, contracts, price, "sell", hash, nowSec());
       return hash;
     },
     async restBuy(symbol, contracts, price) {
@@ -216,7 +224,7 @@ export function createFakeExchange(
     async fokBuy(symbol, contracts, price) {
       state.foks.push({ symbol, contracts, price });
       const hash = nextTx();
-      if (state.iocFills) recordFill(state, symbol, contracts, price, "buy", hash);
+      if (state.iocFills) recordFill(state, symbol, contracts, price, "buy", hash, nowSec());
       return hash;
     },
     async outcomeBalances(account, marketId) {

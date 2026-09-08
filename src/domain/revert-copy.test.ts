@@ -17,6 +17,32 @@ describe("RevertCopy", () => {
     expect(revertCopy("0x1234abcd")).not.toMatch(/^0x/);
   });
 
+  it("names the fill-or-kill refusal an accept actually hits", () => {
+    // The shape the SDK throws: ContractRevertError, message from revertMessage().
+    const err = new Error("placeBinaryOrder reverted: FillOrKillNotFillable()");
+    err.name = "ContractRevertError";
+    const copy = revertCopy(err);
+    expect(copy).toMatch(/whole stake/i);
+    expect(copy).toMatch(/smaller stake|depth/i);
+    // The old copy sent people to check gas and the Window, which were both fine.
+    expect(copy).not.toMatch(/STT/);
+  });
+
+  it("distinguishes a short allowance from a short balance", () => {
+    expect(revertCopy(new Error("transferFrom reverted: ERC20InsufficientAllowance(0x…, 0, 12000000)"))).toMatch(
+      /approve/i,
+    );
+    expect(revertCopy(new Error("ERC20InsufficientBalance"))).toMatch(/collateral/i);
+  });
+
+  it("names an unmapped pool error instead of blaming gas", () => {
+    const err = new Error("placeBinaryOrder reverted: OrderExpiryBeyondMarket(1788000000)");
+    err.name = "ContractRevertError";
+    expect(revertCopy(err)).toContain("OrderExpiryBeyondMarket");
+    // Still no internals: the args and the address do not reach the banner.
+    expect(revertCopy(err)).not.toContain("1788000000");
+  });
+
   it("maps Call-path adapter errors to a sentence", () => {
     expect(revertCopy(new Error("below-lot"))).toBe("Stake is below one lot. Increase the amount.");
     expect(revertCopy(new Error("Window is not Trading"))).toBe("Window is not Trading.");

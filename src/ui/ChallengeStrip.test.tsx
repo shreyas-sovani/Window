@@ -63,6 +63,14 @@ it("the gate shows the link the moment this session has a verified, live fill", 
   expect(container.querySelector("a")).toBe(link);
 });
 
+it("counts the invite down so a link is never shared after it closes", () => {
+  // 15m Window: the invite closes one headroom slice (90s) after the fill.
+  render(
+    <ChallengeGate receipts={[receipt()]} address="0x00000000000000000000000000000000000000aa" now={1_699_999_050} />,
+  );
+  expect(screen.getByText(/Invite closes in 00:40/)).toBeTruthy();
+});
+
 it("keeps the opponent field inside the challenge strip", () => {
   const { container } = render(
     <ChallengeGate receipts={[receipt()]} address="0x00000000000000000000000000000000000000aa" now={1_699_999_050} />,

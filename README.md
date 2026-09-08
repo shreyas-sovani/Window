@@ -34,7 +34,7 @@ Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h.
 | Capability | Detail |
 |---|---|
 | Wallet challenge | A tape-verified Call becomes `#/app?d=…` (native share sheet → clipboard); the recipient sees one prerequisite-aware CTA, and a verified accept produces a completed URL naming both exact transactions |
-| Demo mode | **Switch to demo mode** (or `#/app?demo=1`): the full product on a labeled deterministic simulation — deep books, rolling 5m windows, simulated wallets, and self-contained challenge links (`&s=…` carries the fills) that work from any group chat. For recordings when the indexer lags; every screen carries the Demo badge |
+| Demo mode | **Switch to demo mode** (or `#/app?demo=1`): the whole product on a labeled deterministic simulation, for recordings when the indexer lags. Every cadence chip has a live Window derived from the wall clock (2.5–6 min each, callable for two thirds of that), on a real six-level two-sided book — ~2,700 tUSDC of executable depth a side, so a 500 tUSDC Call fills and pays a worse average than a 10 tUSDC one. Anonymous market colour lands on the pool tape while you watch, settlement is deterministic per marketId, and the winner — only the winner — is owed a Claim. Challenge links are self-contained (`&demo=1&s=…` carries the fills), so a second tab hydrates the duel from the URL alone; **Demo opponent accepts** plays both wallets when you want the loop in one browser. Every screen carries the Demo badge and duel views read `DEMO ·` |
 | Deterministic judge replay | `marketId + two tx hashes` reconstruct both legs and reads settlement from the Finalized market; missing or contradictory evidence refuses |
 | Question-first board | "Will BTC close above 67,214.5?" — the Line on its dashed price axis, the lock countdown as a **depleting ring**, implied odds, volume, trades |
 | Market health | One grade per Window from spread, walked executable depth, and time-to-lock — a cold depth watch grades the spread and says "top of book", never claims depth it cannot see |
@@ -67,7 +67,7 @@ Window is the demand side that ecosystem is missing:
 
 ```
 src/
-├── domain/        SDK-free pure logic — unit-tested with the broader 404-test Vitest suite
+├── domain/        SDK-free pure logic — unit-tested with the broader 439-test Vitest suite
 │   ├── pick-window, window-board     read models for the live series
 │   ├── call-ticket, call-session      sizing (tick/lot grids), Call/Exit intents
 │   ├── claim-plan, claim-session      what redeems, and how

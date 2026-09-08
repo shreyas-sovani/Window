@@ -37,6 +37,26 @@ export function routeHref(r: Route): string {
   return r === "app" ? "#/app" : r === "docs" ? "#/docs" : "#/";
 }
 
+/** Link params the terminal reads: a challenge, its accept, a demo marker, a fills blob. */
+const LINK_KEYS = ["d", "a", "demo", "s"];
+
+/**
+ * Shared links lose their fragment in some clients (chat previews, QR
+ * rewriters, mail scanners), which would land a challenge on the landing page
+ * with the proof sitting unread in the query string. When that happens, lift
+ * the query into the terminal hash the router understands. Returns null when
+ * there is nothing to lift — no link params, or the hash already routes to the
+ * app, in which case the hash wins.
+ */
+export function bootstrapSearchLink(search: string, hash: string): string | null {
+  if (parseRoute(hash) === "app") return null;
+  const query = (search.startsWith("?") ? search.slice(1) : search).replace(/^&+|&+$/g, "");
+  if (!query) return null;
+  const keys = query.split("&").map((pair) => pair.split("=")[0]);
+  if (!keys.some((key) => LINK_KEYS.includes(key))) return null;
+  return `#/app?${query}`;
+}
+
 export function useRoute(): [Route, (r: Route) => void] {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   useEffect(() => {

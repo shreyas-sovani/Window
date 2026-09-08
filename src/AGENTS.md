@@ -19,6 +19,12 @@ P0 UI + domain tests + fake ExchangeAdapter. See subdirectory AGENTS.md files.
 
 ## Decision Log
 
+### 2026-09-08 — Fragment-safe link bootstrap and one demo adapter per page
+- **Change**: `main.tsx` lifts a fragment-stripped link's query into the terminal hash before the first render (`bootstrapSearchLink(location.search, location.hash)` → `history.replaceState`), takes its demo adapter from `demoExchangeFor(account)` instead of constructing one per render, and its demo odds hook now returns the real demo ladder (`demoDepthFor`/`demoBookFor`) rather than an empty depth.
+- **Reasoning**: Some clients (chat previews, QR rewriters, scanners) drop everything after `#`, which landed a shared challenge on the landing page with its proof unread in the query string. Constructing the adapter in render meant the app's own hash rewrite after a verified accept reset the demo market. The empty depth made every demo book grade "top of book" and left the drawer blank.
+- **Rejected alternative(s)**: Minting share URLs in query form (the hash router is the product's URL shape; supporting both is strictly safer); `useMemo` for the adapter (a remount still rebuilds it — the session belongs to the page, not the tree).
+- **Task/session**: Demo-mode completion pass — BACKLOG W-117.
+
 ### 2026-08-28 — parseRoute exact path
 - **Change**: `parseRoute` matches `/app` and `/docs` (optional trailing slash), not `startsWith("#/app")`. Covered by `src/ui/router.test.ts`.
 - **Reasoning**: `#/apps` must not mount wagmi + SomniaMarketsProvider.

@@ -7,6 +7,7 @@ import { WagmiProvider, createConfig } from "wagmi";
 import { mock } from "wagmi/connectors";
 import { afterEach, expect, it } from "vitest";
 import { shannonChain } from "../chain/chain";
+import type { BookDepth } from "../domain/book-depth";
 import { challengeHref, encodeChallenge } from "../domain/challenge-link";
 import { createFakeExchange } from "../exchange/fake";
 import type { LiveWindow } from "../exchange/port";
@@ -50,7 +51,13 @@ const testConfig = createConfig({
   },
 });
 
-function Terminal({ fake }: { fake: ReturnType<typeof createFakeExchange> }) {
+function Terminal({
+  fake,
+  depth = { bids: [], asks: [], empty: true },
+}: {
+  fake: ReturnType<typeof createFakeExchange>;
+  depth?: BookDepth;
+}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
     <StrictMode>
@@ -58,10 +65,7 @@ function Terminal({ fake }: { fake: ReturnType<typeof createFakeExchange> }) {
         <QueryClientProvider client={qc}>
           <App
             exchange={fake}
-            oddsHook={() => ({
-              book: fake.state.books["BTC#YES"],
-              depth: { bids: [], asks: [], empty: true },
-            })}
+            oddsHook={() => ({ book: fake.state.books["BTC#YES"], depth })}
           />
         </QueryClientProvider>
       </WagmiProvider>
@@ -431,6 +435,11 @@ it("a named challenge refuses the wrong wallet and accepts only its intended opp
     to: OPPONENT,
   });
   render(<Terminal fake={fake} />);
+  // Connect first: with no wallet at all the terminal cannot know the viewer,
+  // so the CTA walks the wallet chain instead of naming a mismatch.
+  fireEvent.click(
+    await waitFor(() => screen.getByRole("button", { name: /connect wallet to accept/i }), { timeout: 5_000 }),
+  );
   await waitFor(
     () => {
       // The connected mock wallet (…00ff) is not the named opponent (…00bb).
@@ -475,14 +484,68 @@ it("gates the accept on the challenge floor: the stake prefills to it and a lowe
   });
   render(<Terminal fake={fake} />);
   await waitFor(() => expect(screen.getByLabelText("Incoming challenge")).toBeTruthy(), { timeout: 5_000 });
-  // The enforced floor is max(URL 12, tape 9.9) = 12 — shown and prefilled.
+  // The enforced floor is max(URL 12, tape 9.9) = 12 — shown, and prefilled one
+  // cent clear of it so lot/tick quantization cannot escrow under the floor.
   expect(screen.getByText(/stake at least 12\.00 tusdc/i)).toBeTruthy();
   const stakeInput = screen.getByLabelText(/stake \(tusdc\)/i) as HTMLInputElement;
-  await waitFor(() => expect(stakeInput.value).toBe("12"));
+  await waitFor(() => expect(stakeInput.value).toBe("12.01"));
   // Below the floor the accept names the reason and refuses to send.
   fireEvent.change(stakeInput, { target: { value: "5" } });
   const accept = await screen.findByRole("button", { name: /stake at least 12/i });
   expect(accept.hasAttribute("disabled")).toBe(true);
+  globalThis.window.location.hash = "#/app";
+});
+
+it("refuses an accept the visible opposite ladder cannot fill, before any transaction", async () => {
+  const fake = createFakeExchange({
+    windows: [window],
+    books: { "BTC#YES": { bid: 0.55, ask: 0.6 } },
+    statusByMarket: { [M]: 1 },
+    marketFills: {
+      "0x0000000000000000000000000000000000000001": [
+        {
+          id: "t1",
+          price: 0.55,
+          quantity: 18,
+          quote: 9.9,
+          aggressor: "up",
+          ts: Math.floor(Date.now() / 1000) - 60,
+          txHash: "0xthin",
+          marketId: M,
+          taker: CHALLENGER,
+        },
+      ],
+    },
+  });
+  // Two visible bid levels ≈ 1.3 tUSDC of Down depth: the whole-or-nothing
+  // accept would revert on the pool with FillOrKillNotFillable.
+  const thin: BookDepth = {
+    bids: [
+      { upPrice: 0.55, downPrice: 0.45, contracts: 2, cumContracts: 2 },
+      { upPrice: 0.54, downPrice: 0.46, contracts: 1, cumContracts: 3 },
+    ],
+    asks: [{ upPrice: 0.6, downPrice: 0.4, contracts: 40, cumContracts: 40 }],
+    empty: false,
+  };
+  globalThis.window.location.hash = challengeHref({
+    marketId: M as `0x${string}`,
+    challenger: CHALLENGER,
+    side: "up",
+    stake: 9.9,
+    txHash: "0xthin",
+    expiry: window.expiry,
+    minStake: 9.9,
+  });
+  render(<Terminal fake={fake} depth={thin} />);
+  await waitFor(() => expect(screen.getByLabelText("Incoming challenge")).toBeTruthy(), { timeout: 5_000 });
+  const accept = await waitFor(
+    () => screen.getByRole("button", { name: /opposite side (holds|can fill)/i }) as HTMLButtonElement,
+    { timeout: 5_000 },
+  );
+  expect(accept.hasAttribute("disabled")).toBe(true);
+  // Nothing was sent: no IOC, no FOK, no gas spent on a refusal.
+  expect(fake.state.foks.length).toBe(0);
+  expect(fake.state.buys.length).toBe(0);
   globalThis.window.location.hash = "#/app";
 });
 
