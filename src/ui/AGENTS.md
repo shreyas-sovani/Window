@@ -19,6 +19,12 @@ Winner-pass UI plus the 2026-09-03/06 duel deepening. `#/` leads with the group-
 
 ## Decision Log
 
+### 2026-09-08 — The chain witness completes fills instantly
+- **Change**: `App.tsx` — `callSide` decodes the receipt via `exchange.fillFromChain` immediately after the write lands (before any indexer wait); the pending-reconciliation ladder becomes chain receipt → pool tape → portfolio. New `pendingChainQ` (10s refetch) keeps the chain read alive while a Call stays pending.
+- **Reasoning**: The indexer trailed chain head across three live repros (1h, then ~5m); every indexer-side witness stalls with it. The receipt exists the moment the tx mines, so the receipt, roll banner, and challenge link mint in seconds regardless of indexer health.
+- **Rejected alternative(s)**: Chain-read-only (the tape/portfolio sources still cover an adapter without `fillFromChain`); decoding in the write path on failure (the same read is idempotent through the query).
+- **Task/session**: Live-deploy fill-verification bug 4 — BACKLOG W-111.
+
 ### 2026-09-07 — Reconciliation prefers the pool tape (kind-aware pricing)
 - **Change**: `App.tsx` — the pending-fill effect now tries the pool tape FIRST and the portfolio read only as fallback. `Replay.tsx` passes `kind` through to `ReplayRow`.
 - **Reasoning**: The portfolio query has no fill-kind field; a MINT_A_PAIR fill through it would mint a receipt priced at the sold leg (0.375 tUSDC for a 25-contract Call). The tape carries `kind` and `fillEscrow` prices it at net cost. Same Fill table underneath — the tape read is strictly more truthful.

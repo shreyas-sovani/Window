@@ -114,5 +114,6 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-108 | Read deadlines (`withTimeoutMs`): every indexer/RPC read rejects past its budget (sweep 45s, reads 10–15s) — a hung request surfaces as the board Retry / verifying-unavailable states instead of "Reading the indexer…" forever | exchange | P0 | done | yes |
 | W-109 | Dual-source fill verification: a pending Call reconciles against the wallet tape AND the pool's public tape (`filledCallFromTape`) — the portfolio aggregation lagging a venue's fills can no longer orphan a real fill | Filled receipt / ui | P0 | done | yes |
 | W-110 | MINT_A_PAIR pricing: `fillEscrow` prices mint-a-pair rows at net cost (contracts − sold-leg proceeds) across duel fills, replay legs, and receipts; tape-first reconciliation (portfolio has no kind field) | Duel / Replay / Filled receipt | P0 | done | yes |
+| W-111 | Chain-witness receipt: `fillFromReceiptLogs` decodes the Call's own tx receipt (ERC-20 net collateral + ERC-6901 outcome legs) — receipts mint the moment the tx is mined, with zero indexer dependence; adapter `fillFromChain` via `getViemClient` | Filled receipt / exchange / ui | P0 | done | yes |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.

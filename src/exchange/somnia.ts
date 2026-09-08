@@ -7,7 +7,8 @@ import {
   type UnifiedMarket,
 } from "@somnia-chain/markets-sdk";
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
-import { envUrl } from "../chain/shannon";
+import { envUrl, TUSDC } from "../chain/shannon";
+import { fillFromReceiptLogs } from "../domain/receipt-fill";
 import type { Address, WalletClient } from "viem";
 import type { BinarySide } from "@somnia-chain/markets-sdk";
 import { executeClaims, readClaimSession, type SettledWindow } from "../domain/claim-session";
@@ -336,6 +337,38 @@ export const somniaExchange: ExchangePort = {
   async onchainStatus(marketId) {
     const oc = await withTimeoutMs(getExchange().client.getMarketOnchain(marketId), 15_000, "on-chain status read");
     return oc.status;
+  },
+  async fillFromChain(txHash, win, account) {
+    // The chain witness: indexer-independent. The receipt's own transfers give
+    // side, contracts, and net escrow (mint-a-pair refunds included).
+    try {
+      const oc = await withTimeoutMs(
+        getExchange().client.getMarketOnchain(win.marketId),
+        15_000,
+        "on-chain market read",
+      );
+      const receipt = await withTimeoutMs(
+        getExchange().client.getViemClient().getTransactionReceipt({ hash: txHash as `0x${string}` }),
+        15_000,
+        "tx receipt read",
+      );
+      if (!receipt || receipt.status !== "success") return null;
+      const decoded = fillFromReceiptLogs(
+        receipt.logs.map((l) => ({ address: l.address, topics: l.topics, data: l.data })),
+        {
+          account,
+          pool: win.pool,
+          collateral: TUSDC.address,
+          yesId: oc.yesId,
+          noId: oc.noId,
+          decimals: oc.decimals,
+        },
+      );
+      if (!decoded) return null;
+      return { ...decoded, txHash };
+    } catch {
+      return null;
+    }
   },
   async iocBuy(symbol, contracts, price) {
     return writeTxHash(await placeIocBuy(symbol, contracts, price));

@@ -707,13 +707,25 @@ export function App({
     refetchInterval: 8_000,
     retry: 1,
   });
+  // The chain witness: decode the Call from its own transaction receipt — no
+  // indexer anywhere in the path, so indexer lag cannot stall verification.
+  const pendingChainQ = useQuery({
+    queryKey: ["pendingchain", pendingVerify?.match.txHash],
+    queryFn: () => exchange.fillFromChain!(pendingVerify!.match.txHash!, pendingVerify!.win, address!),
+    enabled: Boolean(pendingVerify?.match.txHash && address && exchange.fillFromChain),
+    refetchInterval: 10_000,
+    retry: 1,
+  });
   useEffect(() => {
     if (!pendingVerify || !address) return;
-    // The pool tape first: it carries the fill kind, so mint-a-pair fills
-    // price at real net cost. The portfolio read has no kind field and would
-    // mis-price them, so it is the fallback only.
+    // Chain receipt first: exact net-cost numbers the moment the tx is mined.
+    // The pool tape second (kind-aware pricing), the kindless portfolio last.
+    const fromChain =
+      pendingVerify.match.txHash && exchange.fillFromChain && pendingChainQ.data
+        ? { ...pendingChainQ.data, proofs: [] as never[] }
+        : null;
     const fromTape =
-      pendingVerify.match.txHash && pendingTapeQ.data
+      fromChain === null && pendingVerify.match.txHash && pendingTapeQ.data
         ? filledCallFromTape(pendingTapeQ.data, {
             marketId: pendingVerify.win.marketId,
             txHash: pendingVerify.match.txHash,
@@ -721,13 +733,14 @@ export function App({
             side: pendingVerify.match.side,
           })
         : null;
-    const fromWallet = fromTape ? null : fillsQ.data ? filledCall(fillsQ.data, pendingVerify.match) : null;
-    const filled = fromTape ?? fromWallet;
+    const fromWallet =
+      fromChain === null && fromTape === null && fillsQ.data ? filledCall(fillsQ.data, pendingVerify.match) : null;
+    const filled = fromChain ?? fromTape ?? fromWallet;
     if (!filled) return;
     setPendingVerify(null);
     completeFill(pendingVerify.side, pendingVerify.win, filled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingVerify, fillsQ.data, pendingTapeQ.data, address]);
+  }, [pendingVerify, fillsQ.data, pendingTapeQ.data, pendingChainQ.data, address]);
 
   async function callSide(side: "up" | "down", mode: "ioc" | "fok" = "ioc") {
     const win = live;
@@ -749,9 +762,17 @@ export function App({
         // partial IOC undershoot is not an accept.
         const txHash =
           mode === "fok" ? await executeFokCall(exchange, win, intent) : await executeCall(exchange, win, intent);
-        // The write result alone is not a fill. Read the wallet's tape back and
-        // size the receipt, the roll, and any challenge from what actually filled.
+        // The write result alone is not a fill — but the transaction receipt
+        // already is chain evidence. Decode it first: if the transfer logs
+        // prove the buy, the receipt mints now, with zero indexer dependence.
         setBanner({ kind: "ok", text: "Transaction sent · verifying the fill…", txHash });
+        if (address && txHash && exchange.fillFromChain) {
+          const chainFill = await exchange.fillFromChain(txHash, win, address);
+          if (chainFill) {
+            completeFill(side, win, { ...chainFill, proofs: [] });
+            return;
+          }
+        }
         const confirmation = address
           ? await confirmFilledCall(
               () => exchange.listFills(address),

@@ -130,6 +130,16 @@ export type WindowFeed = {
   marketById(marketId: `0x${string}`): Promise<LiveWindow | null>;
   /** One-shot indexer fill tape for a pool, carrying marketId + wallets. */
   fillsByPool(pool: string, decimals: number, limit?: number): Promise<MarketFill[]>;
+  /**
+   * The chain witness (optional — adapters without RPC receipts omit it): the
+   * Call this transaction receipt itself proves, decoded from its collateral
+   * and outcome-token transfer logs. No indexer in the path.
+   */
+  fillFromChain?(
+    txHash: string,
+    win: LiveWindow,
+    account: Address,
+  ): Promise<{ side: "up" | "down"; contracts: number; avgOdds: number; escrow: number; txHash: string } | null>;
 };
 
 /** Writes and wallet-scoped reads. Gate Call/Exit on onchainStatus === 1. */
