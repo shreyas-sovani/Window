@@ -38,11 +38,25 @@ function Root() {
     const challenger = decodeChallengeLink(hashParam(location.hash, "d"))?.challenger;
     const account = demoAccountFor(challenger);
     const demoExchange = createDemoExchange({ account });
+    // The SDK odds hook needs the SDK provider; demo reads the demo book.
+    const useDemoOdds = (input: {
+      marketId?: string;
+      decimals: number;
+      polled?: import("./exchange/port").BookTop;
+    }): { book: import("./exchange/port").BookTop | undefined; depth: import("./domain/book-depth").BookDepth } => {
+      const w = input.marketId
+        ? demoExchange.state.windows.find((x) => x.marketId.toLowerCase() === input.marketId!.toLowerCase())
+        : undefined;
+      const top = w ? demoExchange.state.books[w.upSymbol] : undefined;
+      const book: import("./exchange/port").BookTop | undefined =
+        top?.bid !== undefined || top?.ask !== undefined ? { bid: top?.bid, ask: top?.ask } : input.polled;
+      return { book, depth: { bids: [], asks: [], empty: true } };
+    };
     return (
       <WagmiProvider config={demoWagmiConfig(account)}>
         <QueryClientProvider client={queryClient}>
           <ErrorBoundary>
-            <App exchange={demoExchange} demo />
+            <App exchange={demoExchange} demo oddsHook={useDemoOdds} />
           </ErrorBoundary>
         </QueryClientProvider>
       </WagmiProvider>
