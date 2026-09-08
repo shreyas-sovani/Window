@@ -69,6 +69,9 @@ export function Landing() {
             <Button variant="ghost" href={`${routeHref("docs")}?replay=1`}>
               Verify a duel
             </Button>
+            <Button variant="ghost" href={`${routeHref("app")}?demo=1`}>
+              Try demo mode
+            </Button>
           </div>
         </div>
         <div className="hero-visual">

@@ -115,5 +115,10 @@ Triage label vocabulary (local, no hosted tracker): `needs-triage` | `ready` | `
 | W-109 | Dual-source fill verification: a pending Call reconciles against the wallet tape AND the pool's public tape (`filledCallFromTape`) — the portfolio aggregation lagging a venue's fills can no longer orphan a real fill | Filled receipt / ui | P0 | done | yes |
 | W-110 | MINT_A_PAIR pricing: `fillEscrow` prices mint-a-pair rows at net cost (contracts − sold-leg proceeds) across duel fills, replay legs, and receipts; tape-first reconciliation (portfolio has no kind field) | Duel / Replay / Filled receipt | P0 | done | yes |
 | W-111 | Chain-witness receipt: `fillFromReceiptLogs` decodes the Call's own tx receipt (ERC-20 net collateral + ERC-6901 outcome legs) — receipts mint the moment the tx is mined, with zero indexer dependence; adapter `fillFromChain` via `getViemClient` | Filled receipt / exchange / ui | P0 | done | yes |
+| W-112 | Demo engine (`demo-universe` + `demo.ts`): deterministic deep-book rolling 5m windows, deterministic settle, successor roll, winner claims; fills travel by blob between browsers | exchange (demo) | P0 | done | yes |
+| W-113 | Demo mode entry + badge: Switch to demo mode, `#/app?demo=1`, persistent badge, DEMO duel marks, Exit demo | ui | P0 | done | no |
+| W-114 | Demo wallet: wagmi mock connector auto-connected per tab, two stable identities (link challenger disambiguates) | chain / ui | P0 | done | no |
+| W-115 | Self-contained demo links: `#/app?demo=1&d=…&s=…` carry the fills blob (fail-closed codec); completed links carry both fills | Duel / ui | P0 | done | yes |
+| W-116 | Demo truth pass: DEMO.md demo-mode section + fallback beat; README demo-mode capability row (AGENTS/VERIFICATION passes deferred to next session per instruction) | docs | P1 | done | no |
 
 PRD: docs/PRD.md. Plan: docs/PLAN.md. Glossary: CONTEXT.md.

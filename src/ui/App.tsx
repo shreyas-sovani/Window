@@ -43,6 +43,8 @@ import type { CallReceipt } from "../domain/proof-card";
 import { readBoard, windowTickets } from "../domain/window-board";
 import { rematchPrompt, rollPrompt, type LastCall } from "../domain/roll";
 import { bindWallet, somniaExchange } from "../exchange/somnia";
+import { createDemoExchange } from "../exchange/demo";
+import { decodeDemoFills, encodeDemoFills } from "../domain/demo-state";
 import type { ExchangePort, LiveWindow } from "../exchange/port";
 import { CallBoard } from "./CallBoard";
 import { ChallengeGate, ChallengeStrip } from "./ChallengeStrip";
@@ -64,10 +66,13 @@ import { WalletBar } from "./WalletBar";
 export function App({
   exchange = somniaExchange,
   oddsHook = useLiveOdds,
+  demo = false,
 }: {
   exchange?: ExchangePort;
   /** Hook seam keeps adapter integration tests entirely offline. */
   oddsHook?: typeof useLiveOdds;
+  /** Demo mode: labeled simulation on the deterministic demo adapter. */
+  demo?: boolean;
 }) {
   const qc = useQueryClient();
   const { address, isConnected, chainId } = useAccount();
@@ -104,6 +109,27 @@ export function App({
   useEffect(() => {
     if (exchange === somniaExchange) bindWallet(walletClient);
   }, [exchange, walletClient]);
+
+  // Demo mode plumbing: the simulated wallet acts on the demo adapter, and a
+  // shared link's fills blob hydrates the challenger's tape before anything
+  // renders. The blob is fail-closed — a malformed row never enters the tape.
+  const demoExchange = demo ? (exchange as ReturnType<typeof createDemoExchange>) : null;
+  useEffect(() => {
+    if (demoExchange && address) demoExchange.actAs(address);
+  }, [demoExchange, address]);
+  const demoBlobRaw = useHashParam("s");
+  const hydratedFor = useRef("");
+  useEffect(() => {
+    if (!demoExchange || !demoBlobRaw) return;
+    if (hydratedFor.current === demoBlobRaw) return;
+    hydratedFor.current = demoBlobRaw;
+    demoExchange.hydrateFills(decodeDemoFills(demoBlobRaw) ?? []);
+  }, [demoExchange, demoBlobRaw]);
+  /** Demo links are self-contained: they carry the demo marker and the fills. */
+  const demoDecorateHref = (href: string, txHashes: string[]) =>
+    !demoExchange || txHashes.length === 0
+      ? href
+      : `${href.includes("?") ? "&" : "?"}demo=1&s=${encodeDemoFills(demoExchange.exportFillsFor(txHashes))}`;
 
   const windowsQ = useQuery({
     queryKey: ["windows"],
@@ -688,7 +714,10 @@ export function App({
     ) {
       // Publish the exact accepting tx into the shareable proof URL only
       // after the wallet tape has verified that it actually filled.
-      window.location.hash = acceptedChallengeHref(duelHint, filled.txHash);
+      window.location.hash = demoDecorateHref(acceptedChallengeHref(duelHint, filled.txHash), [
+        duelHint.txHash,
+        filled.txHash,
+      ]);
     }
     void posQ.refetch().then(() => {
       void qc.invalidateQueries({ queryKey: ["fills"] });
@@ -961,6 +990,14 @@ export function App({
       <header className="mast">
         <div>
           <div className="wordmark">Window Duel</div>
+          {demo ? (
+            <>
+              <p className="demo-badge">Demo mode — simulated market, not Shannon</p>
+              <a className="linklike demo-switch" href="#/app">Exit demo mode</a>
+            </>
+          ) : (
+            <a className="linklike demo-switch" href="#/app?demo=1">Switch to demo mode</a>
+          )}
           <p className="usp">
             Challenge another wallet on the same Window. Two opposite Calls, two verified fills, one Line,
             one on-chain winner.
@@ -968,7 +1005,7 @@ export function App({
           <p className="usp-note">Opponents are not counterparties — each Call is its own take.</p>
           <div className={`status${windowsQ.isSuccess ? "" : " sync"}`}>
             <span className="dot" aria-hidden />
-            {windowsQ.isSuccess ? "Indexer live" : "Syncing…"}
+            {demo ? "Demo universe" : windowsQ.isSuccess ? "Indexer live" : "Syncing…"}
           </div>
         </div>
         <div className="acct mono">
@@ -987,6 +1024,7 @@ export function App({
       {duel && !duelPending && (
         <Duel
           duel={duel}
+          demoMark={demo}
           acceptBusy={primaryBusy || (duelAcceptSide !== null && busy === duelAcceptSide)}
           acceptLabel={duelAcceptLabel}
           acceptHref={duelAcceptHref}
@@ -1032,7 +1070,7 @@ export function App({
         duel &&
         (duel.kind === "open" || duel.kind === "settled" || duel.kind === "void") && (
           <ChallengeStrip
-            href={acceptedChallengeHref(duelHint, duelAcceptTx)}
+            href={demoDecorateHref(acceptedChallengeHref(duelHint, duelAcceptTx), [duelHint.txHash, duelAcceptTx])}
             kicker="Share verified duel"
             ariaLabel="Verified duel link"
             linkLabel="Open the verified duel link"
@@ -1084,6 +1122,7 @@ export function App({
           receipts={receipts}
           address={address}
           now={now}
+          decorateHref={demo ? (href, txHash) => demoDecorateHref(href, [txHash]) : undefined}
           to={
             rematchTarget &&
             receipts[0] &&

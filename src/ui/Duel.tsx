@@ -42,6 +42,8 @@ export function DuelVerifying() {
  */
 export function Duel(props: {
   duel: DuelState;
+  /** Demo mode: the duel view itself carries the simulation mark. */
+  demoMark?: boolean;
   onAccept: () => void;
   acceptBusy: boolean;
   acceptLabel?: string;
@@ -60,7 +62,7 @@ export function Duel(props: {
   if (d.kind === "invalid") {
     return (
       <section className="duel refusal" aria-label="Challenge refused">
-        <h1 className="duel-h">Challenge</h1>
+        <h1 className="duel-h">{props.demoMark ? "DEMO · " : ""}Challenge</h1>
         <p>{duelRefusalCopy(d.reason)}</p>
       </section>
     );
@@ -71,7 +73,7 @@ export function Duel(props: {
     const acceptSide = c.side === "up" ? "DOWN" : "UP";
     return (
       <section className="duel challenge" aria-label="Incoming challenge">
-        <h1 className="duel-h">Challenge</h1>
+        <h1 className="duel-h">{props.demoMark ? "DEMO · " : ""}Challenge</h1>
         <div className="kicker">{c.asset} {cadenceLabel(c.intervalSec)} · Line {c.line ? Number(c.line).toFixed(2) : "—"}</div>
         <FillRow label="Challenger" fill={{ ...c, escrow: c.stake, account: c.challenger, marketId: c.marketId, ts: 0 }} />
         <p className="duel-note">Opponents are not counterparties — each Call is its own take.</p>
@@ -98,7 +100,7 @@ export function Duel(props: {
   if (d.kind === "open") {
     return (
       <section className="duel open" aria-label="Duel open">
-        <h1 className="duel-h">Duel</h1>
+        <h1 className="duel-h">{props.demoMark ? "DEMO · " : ""}Duel</h1>
         <div className="kicker">{d.duel.asset} {cadenceLabel(d.duel.intervalSec)} · Line {d.duel.line ? Number(d.duel.line).toFixed(2) : "—"}</div>
         <p className="duel-line mono">Line {d.duel.line ? Number(d.duel.line).toFixed(2) : "—"}</p>
         <FillRow label="Challenger" fill={d.duel.challengerFill} />
@@ -113,7 +115,7 @@ export function Duel(props: {
   if (d.kind === "settled") {
     return (
       <section className="duel settled" aria-label="Duel settled">
-        <h1 className="duel-h">Result</h1>
+        <h1 className="duel-h">{props.demoMark ? "DEMO · " : ""}Result</h1>
         <div className="kicker">{d.asset} {cadenceLabel(d.intervalSec)} · Line {d.line ? Number(d.line).toFixed(2) : "—"}</div>
         <p>
           <strong>Winner</strong> <span className="mono">{shorten(d.winner.account)}</span> — {d.winner.side.toUpperCase()} wins.
@@ -138,7 +140,7 @@ export function Duel(props: {
   if (d.kind === "void") {
     return (
       <section className="duel void" aria-label="Duel void">
-        <h1 className="duel-h">Result</h1>
+        <h1 className="duel-h">{props.demoMark ? "DEMO · " : ""}Result</h1>
         <div className="kicker">{d.duel.asset} {cadenceLabel(d.duel.intervalSec)} · Line {d.duel.line ? Number(d.duel.line).toFixed(2) : "—"}</div>
         <p>
           <strong>Void — a draw.</strong> No reliable close: both sides redeem at half.
@@ -162,7 +164,7 @@ export function Duel(props: {
 
   return (
     <section className="duel expired" aria-label="Challenge expired">
-      <h1 className="duel-h">Challenge</h1>
+      <h1 className="duel-h">{props.demoMark ? "DEMO · " : ""}Challenge</h1>
       <p>
         {d.cause === "invite"
           ? "The invite closed before anyone accepted — an expired challenge, not a win."

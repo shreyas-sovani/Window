@@ -110,7 +110,9 @@ function recordFill(
   if (state.actingAccount) state.fillAccounts[fillId] = state.actingAccount.toLowerCase();
 }
 
-export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): ExchangePort & {
+export function createFakeExchange(
+  seed: Partial<FakeExchangeState> & { txHashFactory?: () => string } = {},
+): ExchangePort & {
   state: FakeExchangeState;
   actAs(account?: string): void;
 } {
@@ -140,7 +142,7 @@ export function createFakeExchange(seed: Partial<FakeExchangeState> = {}): Excha
   };
 
   let txSeq = 0;
-  const nextTx = (): string => `0xfake${(txSeq += 1)}`;
+  const nextTx = seed.txHashFactory ?? ((): string => `0xfake${(txSeq += 1)}`);
 
   const port: ExchangePort = {
     async listLiveWindows() {

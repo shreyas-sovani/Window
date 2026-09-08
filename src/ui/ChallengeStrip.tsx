@@ -20,20 +20,27 @@ export function ChallengeGate(props: {
   to?: string;
   /** False while the opposite side of the live Window has no executable depth. */
   allow?: boolean;
+  /** Demo mode decorates the shareable href (demo marker + fills blob). */
+  decorateHref?: (href: string, txHash: string) => string;
 }) {
   // A link against a dead opposite book can only ever expire — do not mint it.
   if (props.allow === false) return null;
   const payload = challengeableReceipt(props.receipts, props.address, props.now);
   const built = payload ? challengePayloadFromReceipt(payload, props.address, props.now) : null;
   if (!built) return null;
-  return <StripFrom payload={built} to={props.to} />;
+  return <StripFrom payload={built} to={props.to} decorateHref={props.decorateHref} />;
 }
 
-function StripFrom(props: { payload: ReturnType<typeof challengePayloadFromReceipt>; to?: string }) {
+function StripFrom(props: {
+  payload: ReturnType<typeof challengePayloadFromReceipt>;
+  to?: string;
+  decorateHref?: (href: string, txHash: string) => string;
+}) {
   const [opponent, setOpponent] = useState(props.to ?? "");
   const named = opponent.trim().toLowerCase();
   const to = ADDRESS.test(named) ? named : undefined;
-  const href = challengeHref({ ...props.payload!, to });
+  const rawHref = challengeHref({ ...props.payload!, to });
+  const href = props.decorateHref ? props.decorateHref(rawHref, props.payload!.txHash) : rawHref;
   return (
     <ChallengeStrip href={href}>
       <label className="challenge-to">
@@ -70,7 +77,7 @@ export function ChallengeStrip(props: {
         title={props.linkLabel ?? "Open the challenge link"}
         aria-label={props.linkLabel ?? "Open the challenge link"}
       >
-        {props.href}
+        {props.href.length > 72 ? `${props.href.slice(0, 69)}…` : props.href}
       </a>
       <button
         type="button"

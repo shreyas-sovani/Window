@@ -14,6 +14,15 @@ Product sentence: **Make a Call, challenge another wallet, and prove who won fro
 
 The repository intentionally does not contain invented proof values. Until the three real identifiers above exist, the submission has a live-evidence blocker.
 
+## Demo mode — the indexer-independent recording path
+
+If the Shannon indexer is lagging (it has trailed chain head by minutes-to-hours), record the flow beats in **demo mode** instead of stalling on camera:
+
+- Enter it from the terminal's **Switch to demo mode** link, the landing's **Try demo mode**, or `#/app?demo=1`. Every screen carries the **Demo mode — simulated market, not Shannon** badge; duel views read **DEMO ·**.
+- The market is a deterministic simulation: deep two-sided 5m BTC/ETH books that roll every ~2.5 minutes and settle on schedule. Your simulated wallet auto-connects — walk connect → mint → approve → Call as usual.
+- Challenge links are **self-contained**: the `#/app?demo=1&d=…&s=…` URL carries the challenger's fill, so opening it anywhere (a group chat, a second tab, a phone) hydrates the duel and that browser's simulated wallet accepts. Two tabs = the full two-wallet loop.
+- The same script below plays beat-for-beat — substitute "demo mode" where the script says Shannon, and say so in the voiceover. Record the live replay (`#/docs?m&a&b`) from the real proof tuple as the evidence beat; demo mode is the flow beat, never the proof beat.
+
 ## Primary flow — about 2:30
 
 ### 0:00 — Hook
@@ -83,4 +92,5 @@ If a short live Window finalizes during the demo, return to either challenge URL
 - **Broken/tampered link:** show the refusal. Chain data outranks URL fields.
 - **Unrelated opposite fill:** the original challenge remains pending. Only the accepting wallet's exact verified transaction can complete the proof URL.
 - **Indexer unavailable after a tx:** show the explorer transaction and the “could not verify yet” state. Do not call it unfilled.
+- **Indexer lagging hard mid-recording:** switch to **demo mode** and finish the flow beats there, labeled.
 - **Live duel misses settlement:** finish with the prepared finalized replay, which reads the result itself.

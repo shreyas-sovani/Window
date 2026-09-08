@@ -34,6 +34,7 @@ Expect two Shannon venues: 60s/5m vs 15m+. Cadence chips include 5m through 24h.
 | Capability | Detail |
 |---|---|
 | Wallet challenge | A tape-verified Call becomes `#/app?d=…` (native share sheet → clipboard); the recipient sees one prerequisite-aware CTA, and a verified accept produces a completed URL naming both exact transactions |
+| Demo mode | **Switch to demo mode** (or `#/app?demo=1`): the full product on a labeled deterministic simulation — deep books, rolling 5m windows, simulated wallets, and self-contained challenge links (`&s=…` carries the fills) that work from any group chat. For recordings when the indexer lags; every screen carries the Demo badge |
 | Deterministic judge replay | `marketId + two tx hashes` reconstruct both legs and reads settlement from the Finalized market; missing or contradictory evidence refuses |
 | Question-first board | "Will BTC close above 67,214.5?" — the Line on its dashed price axis, the lock countdown as a **depleting ring**, implied odds, volume, trades |
 | Market health | One grade per Window from spread, walked executable depth, and time-to-lock — a cold depth watch grades the spread and says "top of book", never claims depth it cannot see |
