@@ -6,7 +6,7 @@ This file is the canonical source of instructions for any AI coding agent workin
 
 ## 0. Project Context
 
-**Window** is a consumer Up/Down terminal for dreamDEX Event Contracts on Somnia Shannon (chain 50312). Glossary: `CONTEXT.md`. Plan: `docs/PLAN.md`. PRD: `docs/PRD.md`. Backlog: `docs/BACKLOG.md`.
+**Window** is a consumer Up/Down terminal for dreamDEX Event Contracts on Somnia Shannon (chain 50312). Glossary: `CONTEXT.md`. PRD: `docs/PRD.md`. Backlog: `docs/BACKLOG.md`. Judge-facing evidence: `docs/JUDGING.md`, `docs/VERIFICATION.md`.
 
 ### Things actively in flux right now
 

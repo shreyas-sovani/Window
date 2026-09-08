@@ -15,9 +15,15 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-Current and truth-passed on 2026-09-07. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command and marks the three live artifacts PENDING. W-075–W-106 are the winner-readiness + deepening + review-hardening backlog; only W-083 (real finalized Shannon tuple, recording) remains externally blocked — deployment is done by the human outside the repo. Counts say the 404-test suite. SDK-FEEDBACK has 9 evidence-backed items. The original PLAN remains historical below its current-status banner.
+Current and truth-passed on 2026-09-08; every remaining file here is judge-facing. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command and marks the three live artifacts PENDING. W-075–W-106 are the winner-readiness + deepening + review-hardening backlog; only W-083 (real finalized Shannon tuple, recording) remains externally blocked — deployment is done by the human outside the repo. Counts say the 448-test suite. SDK-FEEDBACK has 9 evidence-backed items. `README.md` is the judge's entry point (five-minute verification path, why-this-wins, honest limits).
 
 ## Decision Log
+
+### 2026-09-08 — Submission prune and a judge-facing README
+- **Change**: Deleted `info.txt` (the event's own flyer), `PLAN.md` (pre-build history, superseded by PRD/BACKLOG/AGENTS), the untracked `subs.txt` scratch file, and `scripts/` (an unwired indexer probe no script or doc referenced). Pointers in root `AGENTS.md` and `BACKLOG.md` updated. `README.md` rewritten as the judge's landing: a five-minute verification path (offline suite → demo-mode loop → self-contained link → tamper it → replay tool), why-this-wins framed against the brief, the precise duel mechanic, demo mode's deep ladder, and an explicit honest-limits section. Counts refreshed to 448 across README/VERIFICATION.
+- **Reasoning**: A judge's first screen decides how much of the rest gets read, and everything else in the repo should either be evidence or product. The flyer and the old plan were neither, and a scrape of rival submissions sitting in `docs/` is actively bad optics.
+- **Rejected alternative(s)**: Deleting `AGENTS.md` files and `BACKLOG.md` too (they are the strongest evidence of process rigor — decision logs with rejected alternatives are exactly what a technical judge wants); keeping `PLAN.md` "as history" (git is the history); a shorter README that drops the honest-limits section (the limits are a differentiator, not a liability).
+- **Task/session**: Submission polish pass.
 
 ### 2026-09-07 — Floor-aware accept in the check lists
 - **Change**: `BACKLOG.md` W-104/W-105; `JUDGING.md` floor check now includes the input-time gate (stake prefills, accept disables with the reason); `VERIFICATION.md` same; `CONTEXT.md` floor entry names `acceptFloor` and the prefill/gate; landing hero carries the distribution one-liner.
@@ -185,4 +191,4 @@ Current and truth-passed on 2026-09-07. `PRD.md` is Duel-first with the 2026-09-
 Plan then PRD and ADRs first. Call session + fake adapter made ExchangePort a real seam (W-008–W-013 / W-018–W-020). Later ticks: Claim session, Window board, Stake quote, Book drawer, Series record, Settle preview, venue fee, Wallet P&L, README/DEMO, Window phase, Locked wait row, cadence labels (W-021–W-030).
 
 ## Known Gotchas
-`docs/info.txt` is the hackathon flyer, not the product spec.
+Every file in this directory is judge-facing. The event flyer (`info.txt`), the superseded pre-build plan (`PLAN.md`), and a scratch file of other teams' submissions were deleted in the 2026-09-08 submission prune — do not restore them, and do not add internal scratch files here. Test counts appear in README, JUDGING, VERIFICATION and DEMO; refresh all four from one `npm test` run or they drift.

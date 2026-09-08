@@ -78,11 +78,12 @@ Custom markets, proprietary settlement, a peer-to-peer escrow pot, guaranteed ma
 
 **Problem it solves.** The Shannon indexer has trailed chain head by minutes-to-hours across live sessions, stalling fill verification and demo-recordings through no fault of the app. A submission recording must not depend on third-party indexer health.
 
-**What it is.** A frontend switch — **"Switch to demo mode"** (also `#/app?demo=1`) — that runs the *entire real product* against the repo's deterministic fake adapter (`createFakeExchange`, the same engine the 400-test suite runs), driven by a scripted market:
+**What it is.** A frontend switch — **"Switch to demo mode"** (also `#/app?demo=1`) — that runs the *entire real product* against a third adapter on the same `ExchangePort` (`demo.ts` over `demo-universe.ts`, built on the deterministic fake the test suite runs), driven by a market derived from the wall clock:
 
-- Deep two-sided books on BTC/ETH 5m windows that roll on schedule, so Calls, exits, quotes, health, and odds all behave.
-- A scripted opponent wallet that FOK-accepts a minted challenge a few seconds after the link is shared — the full duel lifecycle (challenge → open → settle → winner → Claim → Rematch) plays in one browser, on camera, in ~90 seconds.
-- A simulated wallet (wagmi `mock` connector, auto-connected) so connect/switch/mint/approve gates demonstrate honestly without a real wallet.
+- Every selectable cadence has a live Window (2.5–6 minutes each, callable for two thirds of that) on a genuine six-level two-sided ladder — ~2,700 tUSDC executable per side — so Calls, exits, quotes, health, odds, and a walked average all behave. Anonymous colour arrives on the pool tape as the Window runs; settlement is deterministic per `marketId`; claims are account-scoped.
+- Challenge links are self-contained (`&demo=1&s=…` carries the fills), so a second tab or a phone joins the duel from the URL alone — the real two-wallet distribution path, with no server.
+- **Demo opponent accepts** is an explicit control, not a timer: the second demo identity takes the opposite side on request, its fill is verified on the demo tape like any other, and the completed proof URL still names its exact transaction. That is what lets the full lifecycle (challenge → open → settle → winner → Claim → Rematch) record in one browser.
+- A simulated wallet (wagmi `mock` connector) so the connect/approve gates demonstrate honestly without a real wallet; gas and collateral are granted locally because the reads would query a simulated address.
 
 **Honesty rules (non-negotiable):**
 

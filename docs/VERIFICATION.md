@@ -6,8 +6,11 @@ How to check every claim this submission makes. Nothing below requires trusting 
 
 | Claim | How to verify |
 |---|---|
-| Deterministic test suite — 404 tests, offline | `npm install && npm test` (Vitest; no indexer calls in the default run) |
+| Deterministic test suite — 448 tests, offline | `npm install && npm test` (Vitest; no indexer calls in the default run) |
 | Typecheck + production build | `npm run build` (`tsc --noEmit` + Vite) |
+| The whole duel loop runs with no chain and no indexer | `npm run dev` → `#/app?demo=1` → Connect → Approve → Call Up → **Demo opponent accepts**; or `npx vitest run src/exchange/demo-link.test.ts src/ui/App.demo.test.tsx` for the same path asserted end to end |
+| Demo depth is real depth, not a single quote | `npx vitest run src/exchange/demo-universe.test.ts` — a 500 tUSDC Call fills whole, pays a worse average than a 10 tUSDC one, and grades **Strong** on ~2,700 tUSDC of executable depth per side |
+| A whole-or-nothing accept is refused before it costs gas | `npx vitest run src/ui/App.integration.test.tsx -t "visible opposite ladder"` — no IOC and no FOK is sent when the visible ladder cannot cover the stake |
 | CI runs both from a clean install and rejects critical advisories | `.github/workflows/ci.yml` |
 | Zero custom contracts | No Solidity anywhere in this repo; every write goes through `@somnia-chain/markets-sdk` (ADR-0002). Only the dreamDEX `BinaryMarketsModule` and pools are touched |
 | No key material in the client | `grep -ri "private" src/` — the browser wallet signs every write; `.env` is gitignored and unused by the bundle |
@@ -30,7 +33,7 @@ Both fill transactions link to the Shannon explorer from every duel view, so wal
 
 | Number | Value | Source |
 |---|---|---|
-| Deterministic tests | 404 passing | `npm test` |
+| Deterministic tests | 448 passing | `npm test` |
 | Cold direct `#/app` entry | ~10–15 s to a live question (Shannon indexer `loadMarkets(true)`) | measured during the 2026-08-30 warm-start pass |
 | Landing-warmed entry | ~5 s | same session |
 | SDK feedback items | 9, evidence-backed | `docs/SDK-FEEDBACK.md` |
