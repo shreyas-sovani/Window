@@ -15,9 +15,21 @@ Agents that skip this will rebuild a CLOB clone or add Solidity.
 - External systems touched: none
 
 ## Current State
-Current and truth-passed on 2026-09-08; every remaining file here is judge-facing. `PRD.md` is Duel-first with the 2026-09-03 deepening (named opponent, stake floor, FOK accept, rematch, Claim on result) plus invite TTL. `JUDGING.md` maps criteria to inspectable evidence; `DEMO.md` is the 2–5 minute proof-first flow. `VERIFICATION.md` maps every engineering claim to its command; the 3-minute recording is **LIVE** at https://www.youtube.com/watch?v=AxVN8ameNo0 (labeled demo mode); Shannon proof tuple and public deploy URL stay PENDING. W-083 remains blocked on those two. Counts say the 448-test suite. SDK-FEEDBACK has 9 evidence-backed items. Root `README.md` is the judge first screen: `docs/brand/logo.png`, animated lock-ring/tagline/flow SVGs, mermaid architecture, YouTube embed, short beats, honest limits. `docs/brand/` owns those assets.
+Current and truth-passed on 2026-09-08; every remaining file here is judge-facing. Live app: https://window7.vercel.app/. Recording: https://www.youtube.com/watch?v=AxVN8ameNo0 (labeled demo mode). Shannon proof tuple still PENDING. Counts say the 448-test suite. SDK-FEEDBACK has 9 evidence-backed items — `submission.md` now surfaces all nine on the DoraHacks page instead of a footer of GitHub doc links. Root `README.md` remains the GitHub first screen.
 
 ## Decision Log
+
+### 2026-09-08 — submission.md: live URL, one video, SDK findings on-page
+- **Change**: Root `submission.md` now uses https://window7.vercel.app/. YouTube appears once (thumbnail only). Footer of GitHub doc links removed. New **Field report — 9 SDK findings** table sits high (after the product beat) so judges see the ecosystem work without leaving the BUIDL page.
+- **Reasoning**: A DoraHacks page that dumps repo markdown files looks like homework. The nine SDK items are the brief’s “we used the venue for real” proof and belong in the body.
+- **Rejected alternative(s)**: Keeping a single SDK-FEEDBACK.md hyperlink (easy to skip); repeating the raw YouTube URL in the table and the demo section.
+- **Task/session**: DoraHacks details rewrite.
+
+### 2026-09-08 — submission.md is DoraHacks CommonMark, not a GitHub README clone
+- **Change**: Rewrote root `submission.md` for the BUIDL details field: headings, tables, blockquote, fenced ASCII architecture, shields.io + raw.githubusercontent.com image URLs, YouTube URL + thumbnail. No mermaid, no `<div>`/`<details>`, no relative `docs/brand/` paths. Live HTTPS still `REPLACE_WITH_LIVE_URL`.
+- **Reasoning**: DoraHacks says Markdown + toolbar (images, tables, YouTube). It does not run GitHub’s README extras — relative assets 404, mermaid prints as a code fence, HTML alignment often strips. That is why an earlier rich paste “didn’t format.”
+- **Rejected alternative(s)**: Pasting README.md verbatim (looks broken on the BUIDL page); embedding SMIL SVGs (content-type / no animation).
+- **Task/session**: DoraHacks front-facing description.
 
 ### 2026-09-08 — README mark, motion, mermaid
 - **Change**: Root README restyled around `docs/brand/logo.png` and three SMIL SVGs; mermaid duel + stack diagrams; short beats; YouTube + repo links live; live HTTPS still named pending. New `docs/brand/AGENTS.md`.

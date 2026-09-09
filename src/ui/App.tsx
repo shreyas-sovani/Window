@@ -598,6 +598,19 @@ export function App({
     return { label: claimSessionCopy(claims, live?.decimals ?? TUSDC.decimals), busy: busy === "claim" };
   }, [duel, address, claims, live?.decimals, busy]);
 
+  // The 60s claimsQ refetch is fine at rest but too slow the moment a duel
+  // settles (or the live Window Finalizes) — the winner would stare at an
+  // empty tote for up to a minute. Kick a targeted invalidate as soon as the
+  // duel state or Window status crosses that threshold; the preview scan is
+  // now parallel + capped, so this returns in one round-trip.
+  const settledKind = duel?.kind === "settled" || duel?.kind === "void" ? duel.kind : null;
+  const liveFinalized = live?.status === 4;
+  useEffect(() => {
+    if (!address) return;
+    if (!settledKind && !liveFinalized) return;
+    void qc.invalidateQueries({ queryKey: ["claims", address] });
+  }, [address, settledKind, liveFinalized, qc]);
+
   const sttBal = useBalance({ address });
   const hasGas = demo ? true : sttBal.data === undefined ? undefined : sttBal.data.value > 0n;
   const step = useMemo(
@@ -870,7 +883,7 @@ export function App({
   async function callSide(side: "up" | "down", mode: "ioc" | "fok" = "ioc") {
     const win = live;
     if (!win || !board.gate.canCall) return;
-    const intent = side === "up" ? board.upPlan : board.downPlan;
+    let intent = side === "up" ? board.upPlan : board.downPlan;
     if (!intent.ok) {
       setBanner({ kind: "err", text: callSkipCopy(intent.reason) });
       return;
@@ -883,6 +896,30 @@ export function App({
     const writeStartSec = Math.floor(Date.now() / 1000);
     await run(side, async () => {
       try {
+        // Fresh quote at click time. The polled quote can be up to 4s stale,
+        // and MetaMask signing adds several more — enough for a maker to move
+        // through the SDK's cushion on a thin binary book (real repro:
+        // ImmediateOrCancelNoFill at yesPrice 0.348 on BTC-15m). Re-quoting
+        // right before the write minimizes the read-to-execute window; if the
+        // re-quote fails or returns null (book emptied) we fall back to the
+        // cached intent so the write attempt still happens rather than silently
+        // dropping the user's click.
+        if (quoteStakeRaw > 0n) {
+          try {
+            const freshQuote = await exchange.quoteStake(win.marketId, side, quoteStakeRaw);
+            if (freshQuote) {
+              const freshIntent = prepareQuotedCall({
+                live: win,
+                side,
+                nowSec: Math.floor(Date.now() / 1000),
+                quote: freshQuote,
+              });
+              if (freshIntent.ok) intent = freshIntent;
+            }
+          } catch {
+            /* stale intent still holds — the write can still fill */
+          }
+        }
         // A duel accept is FOK: the whole stake crosses or nothing does; a
         // partial IOC undershoot is not an accept.
         const txHash =
@@ -1037,9 +1074,15 @@ export function App({
           text: claimReceiptCopy(receipt, TUSDC.decimals),
           txHash: receipt.txHash,
         });
-        void qc.invalidateQueries({ queryKey: ["fills"] });
-        void qc.invalidateQueries({ queryKey: ["pnl"] });
-        void qc.invalidateQueries({ queryKey: ["claims"] });
+        // Everything that reads outcome balances or wallet history is now
+        // stale: the redeem burned the winning position and paid collateral.
+        // Force a fresh read of claims (so the tote clears) AND fills/pnl/duel
+        // reads (so the panels above the claim button reflect the payout).
+        void qc.invalidateQueries({ queryKey: ["claims", address] });
+        void qc.invalidateQueries({ queryKey: ["fills", address] });
+        void qc.invalidateQueries({ queryKey: ["pnl", address] });
+        void qc.invalidateQueries({ queryKey: ["duelfills"] });
+        void qc.invalidateQueries({ queryKey: ["duelstatus"] });
       } catch (e) {
         setBanner({ kind: "err", text: revertCopy(e) });
       }

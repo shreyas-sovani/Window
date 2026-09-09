@@ -194,6 +194,16 @@ export const somniaExchange: ExchangePort = {
           marketId,
           side: side === "up" ? "BUY_YES" : "BUY_NO",
           stake: stakeRaw,
+          // Shannon's binary books are thin AND drift fast: a live BTC-15m Call
+          // still reverted `ImmediateOrCancelNoFill` at 1000 bps (10%) because
+          // the walked yesPrice=0.383 → limit 0.348 was defeated by the maker
+          // moving past 0.348 in the ~5-10s between the quote and the wallet
+          // signature landing. 3000 bps (30%) buys real drift tolerance; the
+          // SDK re-fits quantity so escrow ≤ stake (allowance invariant is
+          // safe), the cost is ~15-20% fewer contracts per stake, which is a
+          // fair trade for a first-try fill on a first-party CLOB with no
+          // maker-of-last-resort.
+          slippageBps: 3000n,
         }),
         10_000,
         "stake quote read",
@@ -544,46 +554,59 @@ export async function mintTestCollateral() {
   return res.hash;
 }
 
+/** Newest 20 finalized markets, snapshotted in parallel. Serial + 40 rows meant
+ * a 30+ minute stall on Shannon (each market: 3 sequential 15s-timeout reads).
+ * Duels almost always claim from the just-settled Window at the head of the
+ * list, so 20 rows are plenty and Promise.all cuts wall time to one round-trip.
+ */
 async function listSettledSnapshots(account: Address, venueId?: string): Promise<SettledWindow[]> {
   const ex = getExchange();
   const settled = await withTimeoutMs(
-    ex.client.listBinaryMarkets({
-      venueId,
-      status: "Finalized",
-      limit: 80,
-    }),
+    ex.client.listBinaryMarkets({ venueId, status: "Finalized", limit: 80 }),
     15_000,
     "finalized windows read",
   );
   settled.sort((a, b) => Number(b.expiry ?? 0) - Number(a.expiry ?? 0));
-  const snapshots: SettledWindow[] = [];
   const seen = new Set<string>();
-  for (const row of settled.slice(0, 40)) {
+  const uniq: typeof settled = [];
+  for (const row of settled) {
     if (seen.has(row.marketId)) continue;
     seen.add(row.marketId);
-    const oc = await withTimeoutMs(ex.client.getMarketOnchain(row.marketId), 15_000, "claim market read");
-    const up = await withTimeoutMs(
-      ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.yesId }),
-      15_000,
-      "claim balance read",
-    );
-    const down = await withTimeoutMs(
-      ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.noId }),
-      15_000,
-      "claim balance read",
-    );
-    snapshots.push({
-      marketId: row.marketId,
-      market: oc.marketAddress,
-      expiry: Number(row.expiry ?? 0),
-      isResolved: oc.isResolved,
-      isVoided: oc.isVoided,
-      winningOutcome: oc.winningOutcome,
-      up,
-      down,
-    });
+    uniq.push(row);
+    if (uniq.length >= 20) break;
   }
-  return snapshots;
+  const results = await Promise.all(
+    uniq.map(async (row): Promise<SettledWindow | null> => {
+      try {
+        const oc = await withTimeoutMs(ex.client.getMarketOnchain(row.marketId), 10_000, "claim market read");
+        const [up, down] = await Promise.all([
+          withTimeoutMs(
+            ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.yesId }),
+            10_000,
+            "claim balance read",
+          ),
+          withTimeoutMs(
+            ex.client.getOutcomeBalance({ outcomeToken: oc.outcomeToken, account, id: oc.noId }),
+            10_000,
+            "claim balance read",
+          ),
+        ]);
+        return {
+          marketId: row.marketId,
+          market: oc.marketAddress,
+          expiry: Number(row.expiry ?? 0),
+          isResolved: oc.isResolved,
+          isVoided: oc.isVoided,
+          winningOutcome: oc.winningOutcome,
+          up,
+          down,
+        };
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return results.filter((r): r is SettledWindow => r !== null);
 }
 
 /** Fees only for Windows with a redeem pending — the 40-row scan stays cheap. */
@@ -607,15 +630,35 @@ async function withHeldFees(rows: SettledWindow[]): Promise<SettledWindow[]> {
   });
 }
 
-export async function previewClaimSession(account: Address, venueId?: string) {
+/** Preview snapshots cached per account for ~15s. Claim execute reuses them so
+ * pressing "Claim" does not re-run the 20-market scan the preview just finished.
+ */
+const claimCache = new Map<string, { at: number; rows: SettledWindow[] }>();
+const CLAIM_CACHE_TTL_MS = 15_000;
+
+function cacheKey(account: Address, venueId?: string): string {
+  return `${account.toLowerCase()}::${venueId ?? ""}`;
+}
+
+async function scanSnapshots(account: Address, venueId?: string): Promise<SettledWindow[]> {
   const rows = await withHeldFees(await listSettledSnapshots(account, venueId));
+  claimCache.set(cacheKey(account, venueId), { at: Date.now(), rows });
+  return rows;
+}
+
+export async function previewClaimSession(account: Address, venueId?: string) {
+  const rows = await scanSnapshots(account, venueId);
   const session = readClaimSession(rows, 40);
   return { count: session.intents.length, windows: session.windows, payout: session.payout };
 }
 
 export async function claimFinalized(account: Address, venueId?: string) {
-  const rows = await withHeldFees(await listSettledSnapshots(account, venueId));
+  const cached = claimCache.get(cacheKey(account, venueId));
+  const rows = cached && Date.now() - cached.at < CLAIM_CACHE_TTL_MS ? cached.rows : await scanSnapshots(account, venueId);
   const session = readClaimSession(rows, 40);
+  // Invalidate: the balances the cache holds will be zero after this redeem,
+  // and a stale preview would keep the Claim panel visible with nothing to do.
+  claimCache.delete(cacheKey(account, venueId));
   return executeClaims(
     {
       async redeem(intent) {

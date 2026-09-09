@@ -171,18 +171,21 @@ describe("acceptFloor", () => {
     expect(acceptFloor(got.challenge)).toBeNull();
   });
 
-  it("is the challenger's tape escrow when the URL floor matches or is lowered", () => {
+  it("is the challenger's tape escrow, softened by the cushion tolerance, when the URL floor matches or is lowered", () => {
+    // ACCEPT_FLOOR_TOLERANCE = 0.4 (covers 30% SDK slippage cushion +
+    // MINT_A_PAIR net-cost pricing that can price the acceptor's fill at a
+    // fraction of the collateral they locked).
     const minted = verifyChallenge({ ...hint, minStake: 9.9 }, { window, challengerFill });
     const tampered = verifyChallenge({ ...hint, minStake: 0 }, { window, challengerFill });
     if (!minted.ok || !tampered.ok) throw new Error("fixture");
-    expect(acceptFloor(minted.challenge)).toBeCloseTo(9.9, 6);
-    expect(acceptFloor(tampered.challenge)).toBeCloseTo(9.9, 6);
+    expect(acceptFloor(minted.challenge)).toBeCloseTo(9.9 * 0.4, 6);
+    expect(acceptFloor(tampered.challenge)).toBeCloseTo(9.9 * 0.4, 6);
   });
 
-  it("keeps a raised URL floor — the URL can only tighten", () => {
+  it("keeps a raised URL floor — the URL can only tighten (still softened by the tolerance)", () => {
     const raised = verifyChallenge({ ...hint, minStake: 20 }, { window, challengerFill });
     if (!raised.ok) throw new Error("fixture");
-    expect(acceptFloor(raised.challenge)).toBeCloseTo(20, 6);
+    expect(acceptFloor(raised.challenge)).toBeCloseTo(20 * 0.4, 6);
   });
 });
 
@@ -286,8 +289,11 @@ describe("verifyAccept", () => {
   it("a URL floor above the challenger's stake still applies — the floor can only tighten", () => {
     const raised = verifyChallenge({ ...hint, minStake: 20 }, { window, challengerFill });
     if (!raised.ok) throw new Error("fixture");
+    // With minStake 20, softened floor = 20 × 0.4 = 8. A fill of 6 undershoots
+    // the raised floor even after the tolerance — the URL still tightens the
+    // enforced floor above the tape's own default (9.9 × 0.4 = 3.96).
     const mid = verifyAccept(raised.challenge, {
-      acceptorFill: { ...acceptorFill, escrow: 12, contracts: 28.6, avgOdds: 0.42 },
+      acceptorFill: { ...acceptorFill, escrow: 6, contracts: 14.3, avgOdds: 0.42 },
       windowStatus: 1,
     });
     expect(mid).toEqual({ ok: false, reason: "below-floor" });

@@ -64,8 +64,8 @@ describe("prepareCall", () => {
     const book = { bid: 0.55, ask: 0.6 };
     const up = prepareCall({ live: live(), book, stake: 10, side: "up", nowSec: 1_000 });
     const down = prepareCall({ live: live(), book, stake: 10, side: "down", nowSec: 1_000 });
-    expect(up.ok && up.plan.price).toBeCloseTo(0.6);
-    expect(down.ok && down.plan.price).toBeCloseTo(0.45);
+    expect(up.ok && up.plan.price).toBeCloseTo(0.6 * 1.03, 4);
+    expect(down.ok && down.plan.price).toBeCloseTo(0.45 * 1.03, 4);
     expect(prepareCall({ live: live(), book: { bid: 0.55 }, stake: 10, side: "up", nowSec: 1_000 })).toEqual({
       ok: false,
       reason: "bad-price",
@@ -95,6 +95,8 @@ describe("prepareQuotedCall", () => {
     expect(got.ok).toBe(true);
     if (!got.ok) return;
     expect(got.plan.contracts).toBe(15);
+    // The SDK already cushioned the limit inside quoteBinaryStake; the app
+    // hands it through unchanged so the escrow it computed (≤ stake) still holds.
     expect(got.plan.price).toBe(0.4);
     expect(got.plan.maxLoss).toBe(6);
   });
@@ -129,7 +131,9 @@ describe("prepareExit", () => {
     if (!got.ok) return;
     expect(got.symbol).toBe("BTC#NO");
     expect(got.contracts).toBe(2);
-    expect(got.price).toBeCloseTo(0.4);
+    // Exit sell cushions the seen bid down by 3% so a maker tick-down between
+    // read and sign still crosses.
+    expect(got.price).toBeCloseTo(0.4 * 0.97, 4);
   });
 
   it("refuses to sell when the selected outcome has no bid", () => {
@@ -268,7 +272,8 @@ describe("executeFokCall", () => {
     expect(intent.ok).toBe(true);
     const hash = await executeFokCall(ex, live(), intent);
     expect(hash).toMatch(/^0xfake/);
-    expect(ex.state.foks).toEqual([{ symbol: "BTC#NO", contracts: 20, price: 0.5 }]);
+    // Buying NO cushions the crossing price up by 3% (buy cushion), not down.
+    expect(ex.state.foks).toEqual([{ symbol: "BTC#NO", contracts: 20, price: 0.5 * 1.03 }]);
   });
 
   it("refuses FOK on a Window that is not Trading", async () => {
@@ -279,5 +284,105 @@ describe("executeFokCall", () => {
     });
     const intent = prepareCall({ live: live(), book: { bid: 0.5, ask: 0.6 }, stake: 10, side: "down", nowSec: 1_000 });
     await expect(executeFokCall(ex, live(), intent)).rejects.toThrow("not Trading");
+  });
+});
+
+describe("protective limit cushion", () => {
+  it("a raw-book buy's limit sits above the seen ask — sign-time drift still crosses", () => {
+    // The SDK-quoted path trusts the SDK's own cushion (see somnia.ts
+    // quoteStake, slippageBps: 1000). The raw-book fallback below is where the
+    // app pads the limit itself, since the book has no cushion of its own.
+    const plan = prepareCall({
+      live: live({ expiry: 100_000 }),
+      book: { ask: 0.587 },
+      stake: 10,
+      side: "up",
+      nowSec: 99_000,
+    });
+    expect(plan.ok).toBe(true);
+    if (plan.ok) {
+      // 0.587 × 1.03 = 0.60461 — the ask can drift up 3% and still fill.
+      expect(plan.plan.price).toBeGreaterThan(0.604);
+      expect(plan.plan.price).toBeLessThan(0.605);
+      expect(plan.plan.price).toBeLessThan(1);
+    }
+  });
+
+  it("the SDK-quoted path passes the SDK's cushioned limit through unchanged", () => {
+    // Doubling cushions would keep the SDK's quantity but raise the escrow
+    // (quantity × new_limit) above the stake the wallet approved for.
+    const quoted = prepareQuotedCall({
+      live: live({ expiry: 100_000 }),
+      side: "up",
+      nowSec: 99_000,
+      quote: { quantity: 17_035_000n, limitPrice: 587_000n, escrow: 10_000_000n },
+    });
+    expect(quoted.ok).toBe(true);
+    if (quoted.ok) {
+      expect(quoted.plan.price).toBe(0.587);
+      expect(quoted.plan.priceRaw).toBe(587_000n);
+    }
+  });
+
+  it("a book-sized buy carries the same cushion", () => {
+    const plan = prepareCall({
+      live: live({ expiry: 100_000 }),
+      book: { bid: 0.55, ask: 0.587 },
+      stake: 10,
+      side: "up",
+      nowSec: 99_000,
+    });
+    expect(plan.ok).toBe(true);
+    if (plan.ok) expect(plan.plan.price).toBeCloseTo(0.587 * 1.03, 4);
+  });
+
+  it("a down Call cushions the NO price it crosses, not the YES bid", () => {
+    const plan = prepareCall({
+      live: live({ expiry: 100_000 }),
+      book: { bid: 0.42, ask: 0.60 },
+      stake: 10,
+      side: "down",
+      nowSec: 99_000,
+    });
+    expect(plan.ok).toBe(true);
+    if (plan.ok) {
+      // NO price = 1 − YES bid = 0.58, cushioned to 0.5974.
+      expect(plan.plan.price).toBeCloseTo(0.58 * 1.03, 4);
+    }
+  });
+
+  it("an exit's sell limit sits below the seen bid", () => {
+    const exit = prepareExit({
+      live: live({ expiry: 100_000 }),
+      book: { bid: 0.42, ask: 0.60 },
+      side: "up",
+      up: 5_000_000n,
+      down: 0n,
+      decimals: 6,
+    });
+    expect(exit.ok).toBe(true);
+    if (exit.ok) expect(exit.price).toBeCloseTo(0.42 * 0.97, 4);
+  });
+
+  it("the cushion never pushes a buy to ≥ 1 or a sell to ≤ 0", () => {
+    const nearOne = prepareCall({
+      live: live({ expiry: 100_000 }),
+      book: { bid: 0.97, ask: 0.995 },
+      stake: 10,
+      side: "up",
+      nowSec: 99_000,
+    });
+    expect(nearOne.ok).toBe(true);
+    if (nearOne.ok) expect(nearOne.plan.price).toBeLessThan(1);
+    const exit = prepareExit({
+      live: live({ expiry: 100_000 }),
+      book: { bid: 0.005, ask: 0.2 },
+      side: "up",
+      up: 5_000_000n,
+      down: 0n,
+      decimals: 6,
+    });
+    expect(exit.ok).toBe(true);
+    if (exit.ok) expect(exit.price).toBeGreaterThan(0);
   });
 });

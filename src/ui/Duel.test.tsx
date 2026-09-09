@@ -70,13 +70,14 @@ it("challenge: shows the verified fill, the opposite side to take, and the socia
   expect(screen.getByRole("button", { name: /call down to accept challenge/i })).toBeTruthy();
 });
 
-it("challenge: shows the stake floor the accept must meet", () => {
+it("challenge: shows the stake floor the accept must meet (softened by the SDK-cushion tolerance)", () => {
   const state: DuelState = {
     kind: "challenge",
     challenge: { ...base, challenger: CHALLENGER, side: "up", stake: 9.9, contracts: 18, avgOdds: 0.55, txHash: "0xchallengerfill", to: ACCEPTOR, minStake: 9.9 },
   };
   render(<Duel duel={state} onAccept={() => {}} acceptBusy={false} />);
-  expect(screen.getByText(/stake at least 9\.90 tusdc/i)).toBeTruthy();
+  // 9.9 × 0.4 (ACCEPT_FLOOR_TOLERANCE) = 3.96 rounded for display.
+  expect(screen.getByText(/stake at least 3\.96 tusdc/i)).toBeTruthy();
 });
 
 it("challenge: the floor hint shows the enforced floor, not a tampered-down URL floor", () => {
@@ -86,7 +87,8 @@ it("challenge: the floor hint shows the enforced floor, not a tampered-down URL 
     challenge: { ...base, challenger: CHALLENGER, side: "up", stake: 9.9, contracts: 18, avgOdds: 0.55, txHash: "0xchallengerfill", minStake: 0 },
   };
   render(<Duel duel={state} onAccept={() => {}} acceptBusy={false} />);
-  expect(screen.getByText(/stake at least 9\.90 tusdc/i)).toBeTruthy();
+  // Tampered URL floor of 0 is ignored; the tape's 9.9 × 0.4 = 3.96 wins.
+  expect(screen.getByText(/stake at least 3\.96 tusdc/i)).toBeTruthy();
   expect(screen.queryByText(/stake at least 0\.00 tusdc/i)).toBeNull();
 });
 

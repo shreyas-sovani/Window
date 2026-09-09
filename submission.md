@@ -1,112 +1,81 @@
-<!-- DORA HACKS — Describe your BUIDL. Paste this body into the form. -->
-<!-- 1) Drop the 480×480 logo in the block below (toolbar → image, or ![](logo.png)). -->
-<!-- Replace REPLACE_WITH_LIVE_URL before you publish. YouTube is already live. -->
+<!-- PASTE FROM "# Window Duel" DOWN. Do not paste this comment.
 
-<p align="center">
-
-<img src="docs/brand/logo.png" alt="Window Duel" width="168" />
-
-</p>
+Put https://www.youtube.com/watch?v=AxVN8ameNo0 in the DoraHacks Demo video field
+(not again in the body). Upload docs/brand/logo.png with the image toolbar if the
+hotlink does not render. Live app is https://window7.vercel.app/
+-->
 
 # Window Duel
 
-**Make a Call. Challenge another wallet. Prove who won.**
+![Window Duel](https://raw.githubusercontent.com/shreyas-sovani/Window/master/docs/brand/logo.png)
 
-Two opposite fills. One Window. The chain names the winner.
+**Make a Call. Challenge a wallet. Prove who won.**
 
-This is not another trading terminal. This is the missing consumer and social layer for dreamDEX Event Contracts on Somnia Shannon — the product that turns a group-chat call into a second real take on a live market, with **zero custom contracts, zero custody, and zero backend referee**.
+Two opposite fills. One Window. **The chain names the winner.**
 
-**Demo video:** https://www.youtube.com/watch?v=AxVN8ameNo0
+The consumer + social layer for dreamDEX Event Contracts on Somnia Shannon.
 
-**Live deployment:** REPLACE_WITH_LIVE_URL
+No backend referee. No custody. **Not one line of custom Solidity.**
 
-**Repository:** https://github.com/shreyas-sovani/Window
+![448 tests](https://img.shields.io/badge/tests-448%20passing-2ea44f)
+![build](https://img.shields.io/badge/build-green-2ea44f)
+![zero contracts](https://img.shields.io/badge/custom%20contracts-zero-d9480f)
+![no custody](https://img.shields.io/badge/custody-none-d9480f)
+![Shannon](https://img.shields.io/badge/Somnia%20Shannon-50312-6f42c1)
+![MIT](https://img.shields.io/badge/license-MIT-black)
 
----
-
-## Why this is exactly what this brief asked for
-
-dreamDEX already has the book. Somnia already has the chain. What neither has is a reason for a normal person to bring a second person into the market.
-
-That is the entire product.
-
-Crypto already runs short-horizon BTC and ETH calls in Telegram, Discord, and group chats. Today those calls die as screenshots. Informal bets need a trusted friend or a custodial pot. The exchange UI asks *price, size, tick, lot, outcome token, claim scan*. The person with ten dollars and a view walks away.
-
-**Window Duel sits in the hole between those two worlds.** One Up/Down decision. One shareable challenge. One independently inspectable result. The venue gets a second fill it would never have seen. The chat gets proof instead of a JPEG.
-
-That market is not crowded. It is empty. The CLOB is built. The social layer is not. We built the social layer.
-
----
-
-## The super use case
-
-A wallet Calls Up on a live Window. The fill is verified. That fill becomes a link you drop into a chat.
-
-The recipient does not trust you. They do not trust us. They open the link and see **your exact transaction** on the public tape. They get one next action: the opposite side, whole or nothing. When the Window finalizes, two fills plus the market result name a winner. Only the winner Claims.
-
-That loop is the superpower:
-
-- **Distribution.** One invitation is an attempt at a second real IOC take on the same Window. Volume is fills, not links sent.
-- **Legibility.** Outcome tokens, tick grids, and claim hunting disappear. The user sees a question, a Line, a countdown, Risk → Win.
-- **Proof.** Anyone can reconstruct the duel from a marketId and two hashes. There is no outcome picker. Settlement is read, not chosen.
-
-This is how Event Contracts leave the exchange and enter the chat — without a new trust surface.
-
----
-
-## What no competitor is doing
-
-Rebuild the CLOB and you have added nothing. Ship a custom escrow pot and you have added a contract the brief did not need. Ship a screenshot and you have added zero proof.
-
-| Everyone else | Window Duel |
+| | |
 |---|---|
-| Exchange UI: trade the book | Consumer UI: Call Up or Down |
-| Prediction market: new contracts, new custody | **Zero Solidity of ours.** dreamDEX is the venue |
-| P2P bet: matched pot, trusted middle | **Independent takes.** Social opponents, not counterparties |
-| Chat call: screenshot | **Portable proof.** Two named txs + finalized market |
-| “The app decided who won” | **The tape decides.** URL is a locator. Tamper it and the chain wins |
-
-We do not match a pot. We do not invent a 50% price. We do not guess the opponent from whoever traded the other side. We do not mint a challenge until a fill is witnessed. We do not let an undershoot pose as an accept. We do not let you pick the winner.
-
-That is not polish. That is the product other teams will not ship because it is harder than a demo that lies.
+| 🚀 Live app | https://window7.vercel.app/ |
+| 📦 Repo | https://github.com/shreyas-sovani/Window |
 
 ---
 
-## How robust this is
+## 📺 Demo
 
-This is not a weekend wrapper around a happy path.
+[![Window Duel — 3 minute demo](https://img.youtube.com/vi/AxVN8ameNo0/maxresdefault.jpg)](https://www.youtube.com/watch?v=AxVN8ameNo0)
 
-- **448 deterministic tests**, fully offline. CI from a clean install. Critical advisories rejected.
-- **One domain, three adapters.** Live Shannon, in-memory fake for CI, labeled demo universe for recording. The rules cannot import the SDK. Divergence is structurally illegal.
-- **Fail-closed by design.** Malformed link: refused. Wrong wallet on an addressed challenge: refused. Fill that is not the named tx: refused. Same wallet both sides: refused. Same-side fills: refused. Empty book: no Call. Partial accept: FOK, whole or nothing. Floor edited downward in the URL: the tape floor still binds.
-- **Chain over indexer.** The Call’s own transaction receipt is decoded on the spot (ERC-20 net collateral + ERC-6901 outcome legs). Receipts do not wait for a lagging indexer. Hung reads deadline out. A confirmed no-fill and an unavailable tape are different states. Neither becomes a fake win.
-- **Adversarial on purpose.** Invite TTL. Named opponent. Stake floor. Verifying state while proofs load — never a refusal we have no evidence for. Winner-only Claim. Successor rematch of the same opponent.
-- **Nine evidence-backed SDK findings** from actually integrating Event Contracts, not from reading the docs. Field report, not a tourism visit.
+Labeled **demo mode** — the full two-wallet loop on a simulated market.
 
-If it can lie, it is a bug. If it cannot be proven, it is not a duel.
+Shannon had no executable depth. Empty book = no Call. We do not invent a 50% price.
 
 ---
 
-## How innovative this is
+## 🎯 What you get
 
-The innovation is not “we drew buttons on a book.”
+A verified Up/Down fill becomes a **link you drop in a chat**.
 
-The innovation is **composing public market fills into a social object** that is still fully on-chain:
+Another wallet opens it. Takes the opposite side of the **same Window**.
 
-1. A verified fill mints a versioned locator (`#/app?d=…`), not a certificate.
-2. The accept is a **fill-or-kill** take on the opposite side of the same `marketId`.
-3. The completed URL names **both** transactions. Public chronology is never treated as consent.
-4. A judge supplies only a marketId and two hashes. Window reconstructs wallets, sides, sizes, and the winner from settlement. **No outcome input exists.**
+When the Window settles, two public fills + the finalized market name the winner.
 
-That is a new primitive for this venue: the **wallet challenge**, as native to a group chat as a link, as serious as a fill.
-
-We also refused the fake innovation: a custom duel contract, a custodial pot, a points farm, a bot that signs without a human. Those would have been easier. They would have been a different, worse product.
+> 🛡️ **The trust boundary.** The URL is a locator, never evidence. Tamper any field — the tape wins. A submitted-but-unfilled tx earns no receipt, no challenge, no victory screen.
 
 ---
 
-## Architecture
+## 📡 Field report — 9 SDK findings
 
-Two humans. One market. Three adapters. Zero of our contracts.
+This is not a wrapper tour. Shipping Window Duel on `@somnia-chain/markets-sdk` produced **nine evidence-backed gaps** in the Event Contract surface. They are why a consumer app on this venue is hard — and why this repo is useful to the ecosystem, not just a UI.
+
+| # | What we hit | Why it matters |
+|---|---|---|
+| 1 | `getOutcomeBalance` docs still show positional args | The typed API is an object. Copy-paste from recipes does not compile. |
+| 2 | Indexer `intervalSec` can be 3598 on a 1h Window | Cadence filters miss live markets unless you snap to canonical intervals. |
+| 3 | Recipes use a fixed 300s headroom | That kills entire 5-minute series. Headroom has to scale with the Window. |
+| 4 | Two venues on one Shannon indexer | Pin venue from the first BTC row and 15m+ markets disappear. |
+| 5 | `quoteBinaryStake` reads a cold watch cache | Quote before the first book snapshot and the ticket dies. Need a polled top-of-book fallback. |
+| 6 | `getMarketFees` unit docs disagree with the client | “bpsTimes1k” vs standard bps. Wrong unit silently mis-prices Claims. |
+| 7 | PnL folds fills by pool, not `marketId` | Recycled pools leak cost basis across successor Windows. |
+| 8 | Unified `createOrder` cannot set a shorter TTL | Rests die at market expiry (good) but a shorter invite TTL still needs a raw trader call. |
+| 9 | No binary `placeOrderFor` / session-key path | The pool has the ABI. The SDK and Bot Kit do not. A roll bot is not shippable without dropping under the SDK. |
+
+Item 9 killed a feature we wanted. The rematch / roll companion keeps a human in the loop instead of faking a bot.
+
+---
+
+## 🏗️ Architecture
+
+Two humans. One market. Three adapters. **Zero of our contracts.**
 
 ```
    WALLET A                         THE WINDOW                        WALLET B
@@ -136,32 +105,99 @@ Two humans. One market. Three adapters. Zero of our contracts.
                                no contract of ours
 ```
 
-The same duel logic that runs against Shannon is the logic that runs in CI and in the demo you will watch. That is how you know the recording is the product, not a slide.
+Same rules on Shannon, in CI, and in the recording. `domain/` cannot import the SDK. Divergence is illegal.
 
 ---
 
-## Watch it. Run it. Break it.
+## ⚡ Judge it in five minutes
 
-**Demo video:** https://www.youtube.com/watch?v=AxVN8ameNo0
+Live: https://window7.vercel.app/
 
-**Live deployment:** REPLACE_WITH_LIVE_URL
+No wallet. No funds. No gas.
 
-Clone https://github.com/shreyas-sovani/Window
-
-`npm install && npm test` — 448 tests, no chain required.
-
-`npm run dev` then `#/app?demo=1` — Connect, Approve, Call Up, accept from the second wallet, wait the Window, Claim as the winner.
-
-Open `#/docs` and try to fake a result. You cannot. Settlement is not an input.
-
-The recording is labeled demo mode when the live book has no depth. That is the same honesty as the product: **no executable side, no Call.** We will not invent Shannon hashes to look busier than we are. Judges who want the real proof tuple will find it in the repo when it exists — or they will find the absence, named, instead of a lie.
+| # | Do this | You just proved |
+|---|---|---|
+| 1 | Open https://window7.vercel.app/#/app?demo=1 | Labeled demo mode, real product, third adapter |
+| 2 | Connect → Approve → **Call Up** → **Demo opponent accepts** | Full loop: fill → challenge → accept → settle → winner-only Claim |
+| 3 | Open the minted link in a second tab | Self-contained locator. One action: the opposite side |
+| 4 | Edit the payload. Reload | **Fail-closed.** Tape outranks the URL |
+| 5 | Open `#/docs` and try to pick a winner | You can't. Settlement is read, not chosen |
 
 ---
 
-## The line
+## 🔥 Why this wins the brief
 
-Zero custom contracts. Zero custody. Zero referee.
+**📈 Volume the venue cannot create.** The CLOB asks *price and size*. We ask *up or down?* One invite = an attempt at a second real take on the same Window.
 
-One invitation. A second take. A winner the chain can name.
+**🧭 Honest where products lie.** No book → no Call. No invented 50%. No receipt until the tape witnesses the fill. Verifying ≠ refused.
 
-That is Window Duel. That is what this ecosystem did not have. That is what we shipped.
+**🔒 Zero new trust.** Zero contracts. Zero custody. Zero server. Social opponents — not counterparties. A judge can verify a duel without this app.
+
+---
+
+## ⚔️ What no competitor is doing
+
+| Everyone else | Window Duel |
+|---|---|
+| Exchange UI: trade the book | Consumer UI: Call Up or Down |
+| Prediction market: new contracts, new custody | **Zero Solidity of ours.** dreamDEX is the venue |
+| P2P bet: matched pot, trusted middle | **Independent takes.** Social opponents, not counterparties |
+| Chat call: screenshot | **Portable proof.** Two named txs + finalized market |
+| “The app decided who won” | **The tape decides.** URL is a locator |
+
+The CLOB is built. The social layer is not. We built the social layer.
+
+---
+
+## ⚔️ The duel
+
+| Step | Move | Honest rule |
+|---|---|---|
+| Call | Stake. `Risk X → Win Y`. Live book | No book, no Call |
+| Verify | Decode the tx receipt on the spot | Chain first. Indexer is backup |
+| Challenge | Mint `#/app?d=…` — named, floored, short-lived | Only a witnessed fill mints a link |
+| Accept | Opposite side. **FOK** | Whole stake or nothing |
+| Resolve | URL grows `&a=<acceptTx>` | Unrelated opposite fills never count |
+| Claim | Winner only. Rematch on the successor | Void = draw. Loser is not paid |
+
+---
+
+## 🧪 Demo mode
+
+https://window7.vercel.app/#/app?demo=1 — the real product on its third adapter. Badged on every screen.
+
+- Every cadence chip has a live Window (2.5–6 min), from the wall clock.
+- Real six-level ladder. ~2,700 tUSDC a side. Big Calls pay a worse average.
+- Links carry fills (`&s=…`). A second tab is enough. Or **Demo opponent accepts**.
+- Settlement is deterministic per `marketId`. Only the winner Claims.
+
+Never presented as chain evidence.
+
+---
+
+## ▶️ Run it live
+
+https://window7.vercel.app/
+
+1. Wallet → chain `50312` · RPC `https://api.infra.testnet.somnia.network`
+2. Gas from the Somnia testnet faucet · tUSDC from in-app **Mint tUSDC**
+3. Connect → Switch → Mint → Approve the exact stake → **Call**
+4. Share the link. Opposite wallet accepts. Claim after finalize
+
+Thin book? FOK refuses. Stake small, or use demo mode.
+
+---
+
+## 🛡️ Honest limits
+
+We would rather write these than have a judge find them.
+
+| | |
+|---|---|
+| Proof tuple | No invented Shannon hashes. Live `marketId` + two txs still pending |
+| Recording | The video above is labeled demo mode |
+| Thin books | FOK accept refused when the other side cannot cover. We name it |
+| Audit | 25 transitive wagmi findings (2 high, 23 moderate). No criticals |
+| Users | Runnable. Nobody outside the team has used it |
+
+**⚡ zero contracts · zero custody · zero referee ⚡**

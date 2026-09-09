@@ -28,6 +28,27 @@ function outcomeSymbol(live: LiveWindow, side: CallSide): string {
   return side === "up" ? live.upSymbol : live.downSymbol;
 }
 
+/**
+ * Sign-time drift cushion for the raw-book path. The book is read on-chain but
+ * the wallet signature lands seconds later on 100ms blocks — a protective limit
+ * set exactly at the seen ask fails with ImmediateOrCancelNoFill the moment a
+ * maker reprices (live evidence: 17.035 contracts @ 0.587, zero fill). The
+ * limit only caps the worst case; execution still prices at the book. The
+ * SDK-quoted path (prepareQuotedCall) trusts the SDK's own protective limit —
+ * that quote is already padded via `slippageBps` and its quantity re-fit so the
+ * escrow never exceeds the stake. Double-cushioning there would push the
+ * pool's `size × limit` escrow above the wallet's approved allowance.
+ */
+export const CROSSING_CUSHION = 0.03;
+
+export function cushionedBuyLimit(price: number): number {
+  return Math.min(price * (1 + CROSSING_CUSHION), 0.999);
+}
+
+export function cushionedSellLimit(price: number): number {
+  return Math.max(price * (1 - CROSSING_CUSHION), 0.001);
+}
+
 export function prepareCall(input: {
   live: LiveWindow | null;
   book: BookTop | undefined;
@@ -48,7 +69,7 @@ export function prepareCall(input: {
   // opposite side of the spread when the required level is absent.
   const upPrice = input.side === "up" ? input.book?.ask : input.book?.bid;
   if (upPrice === undefined) return { ok: false, reason: "bad-price" };
-  const plan = planCall({
+  const raw = planCall({
     stake: input.stake,
     upPrice,
     side: input.side,
@@ -56,7 +77,10 @@ export function prepareCall(input: {
     tick: input.live.tick,
     lot: input.live.lot,
   });
-  if (plan.kind !== "take") return { ok: false, reason: plan.reason };
+  if (raw.kind !== "take") return { ok: false, reason: raw.reason };
+  const price = cushionedBuyLimit(raw.price);
+  const scale = 10n ** BigInt(input.live.decimals);
+  const plan = { ...raw, price, priceRaw: BigInt(Math.round(price * Number(scale))) };
   return { ok: true, symbol: outcomeSymbol(input.live, input.side), plan };
 }
 
@@ -78,13 +102,18 @@ export function prepareQuotedCall(input: {
   if (input.quote.limitPrice <= 0n) return { ok: false, reason: "bad-price" };
   const scale = 10 ** input.live.decimals;
   const contracts = Number(input.quote.quantity) / scale;
+  // Trust the SDK's protective limit — it already carries the venue-tuned
+  // slippage cushion (see somnia.ts quoteStake). Layering another cushion
+  // would keep the SDK's quantity but raise size × limit above the escrow the
+  // SDK sized against the stake, breaking the exact-stake allowance approval.
+  const price = Number(input.quote.limitPrice) / scale;
   return {
     ok: true,
     symbol: outcomeSymbol(input.live, input.side),
     plan: {
       kind: "take",
       side: input.side,
-      price: Number(input.quote.limitPrice) / scale,
+      price,
       contracts,
       maxLoss: Number(input.quote.escrow) / scale,
       payoutIfWin: contracts,
@@ -139,7 +168,7 @@ export function prepareExit(input: {
     ok: true,
     symbol: outcomeSymbol(input.live, input.side),
     contracts: Number(raw) / 10 ** input.decimals,
-    price: input.side === "up" ? upPx : 1 - upPx,
+    price: cushionedSellLimit(input.side === "up" ? upPx : 1 - upPx),
   };
 }
 

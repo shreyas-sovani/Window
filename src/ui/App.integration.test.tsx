@@ -484,14 +484,15 @@ it("gates the accept on the challenge floor: the stake prefills to it and a lowe
   });
   render(<Terminal fake={fake} />);
   await waitFor(() => expect(screen.getByLabelText("Incoming challenge")).toBeTruthy(), { timeout: 5_000 });
-  // The enforced floor is max(URL 12, tape 9.9) = 12 — shown, and prefilled one
-  // cent clear of it so lot/tick quantization cannot escrow under the floor.
-  expect(screen.getByText(/stake at least 12\.00 tusdc/i)).toBeTruthy();
+  // The enforced floor is max(URL 12, tape 9.9) = 12, softened by the SDK
+  // cushion tolerance (ACCEPT_FLOOR_TOLERANCE = 0.4) → 4.80. The default
+  // 10 tUSDC stake already clears that floor so no prefill fires.
+  expect(screen.getByText(/stake at least 4\.80 tusdc/i)).toBeTruthy();
   const stakeInput = screen.getByLabelText(/stake \(tusdc\)/i) as HTMLInputElement;
-  await waitFor(() => expect(stakeInput.value).toBe("12.01"));
+  expect(stakeInput.value).toBe("10");
   // Below the floor the accept names the reason and refuses to send.
-  fireEvent.change(stakeInput, { target: { value: "5" } });
-  const accept = await screen.findByRole("button", { name: /stake at least 12/i });
+  fireEvent.change(stakeInput, { target: { value: "2" } });
+  const accept = await screen.findByRole("button", { name: /stake at least 4\.80/i });
   expect(accept.hasAttribute("disabled")).toBe(true);
   globalThis.window.location.hash = "#/app";
 });

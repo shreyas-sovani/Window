@@ -251,15 +251,36 @@ export function verifyChallenge(
 }
 
 /**
+ * Room the SDK's slippage cushion + MINT_A_PAIR net-cost pricing take out of
+ * every side's tape escrow. Both parties approve the same size, but a fill
+ * that matches a resting order on the OPPOSITE outcome (BUY_YES taker + BUY_NO
+ * maker = MINT_A_PAIR, and vice-versa) prices at (contracts − sold-leg
+ * proceeds), which can leave the tape escrow at a fraction of the collateral
+ * that was actually locked. Live evidence: opponent locked 9.999342 tUSDC,
+ * refunded 4.859118 → tape escrow 5.14 for a challenger tape escrow around 8;
+ * ratio 0.64, right at the old 0.65 boundary. 0.4 covers that MINT_A_PAIR
+ * asymmetry while still refusing an accepter who committed less than 40% of
+ * the challenger's tape stake (the same-league test the floor exists for).
+ * Keep in sync with `slippageBps` in somnia.ts (3000 = 30%) — a smaller
+ * cushion or a book without mint-a-pair fills would let this tighten back up.
+ * The right long-term fix is to track the challenger's *approved* stake on
+ * the receipt/link and floor against that, since both parties approve the
+ * same amount up front regardless of how their fills price.
+ */
+export const ACCEPT_FLOOR_TOLERANCE = 0.4;
+
+/**
  * The floor an accept escrow must meet, or null when there is none (legacy v1
  * links). A minted link's floor means "the challenger's stake," and the
  * challenger's real stake is on the tape — so a URL floor can only tighten the
- * floor, never lower it. The UI previews and gates on this same number the
- * verifier enforces.
+ * floor, never lower it. The raw floor is then softened by
+ * {@link ACCEPT_FLOOR_TOLERANCE} so cushion + spread asymmetry cannot refuse a
+ * legitimately-comparable accept. The UI previews and gates on this same
+ * number the verifier enforces.
  */
 export function acceptFloor(challenge: VerifiedChallenge): number | null {
   if (challenge.minStake === undefined) return null;
-  return Math.max(challenge.minStake, challenge.stake);
+  return Math.max(challenge.minStake, challenge.stake) * ACCEPT_FLOOR_TOLERANCE;
 }
 
 /**

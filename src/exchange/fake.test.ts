@@ -42,7 +42,9 @@ describe("fake ExchangeAdapter", () => {
     const [live] = await ex.listLiveWindows();
     const intent = prepareCall({ live, book: { ask: 0.5 }, stake: 10, side: "up", nowSec: 1_000 });
     const hash = await executeCall(ex, live!, intent);
-    expect(ex.state.buys).toEqual([{ symbol: "BTC#YES", contracts: 20, price: 0.5 }]);
+    // Raw-book prepareCall pads the ask by 3% so a maker tick-up between the
+    // book read and the wallet signature still crosses.
+    expect(ex.state.buys).toEqual([{ symbol: "BTC#YES", contracts: 20, price: 0.5 * 1.03 }]);
     expect(hash).toMatch(/^0xfake/);
   });
 
@@ -233,7 +235,9 @@ describe("fake ExchangeAdapter", () => {
     const fills = await ex.listFills("0x0000000000000000000000000000000000000001");
     expect(fills[0]?.direction).toBe("buy");
     expect(fills[0]?.side).toBe("up");
-    expect(fills[0]?.quote).toBe(10);
+    // Fake records the sent limit as the fill price; with the raw-book cushion
+    // (0.5 × 1.03 = 0.515), 20 contracts × 0.515 = 10.3.
+    expect(fills[0]?.quote).toBeCloseTo(10.3, 4);
   });
 
   it("finds a Window by marketId even when Finalized, and reads a pool's fill tape", async () => {
