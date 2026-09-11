@@ -30,7 +30,7 @@ The consumer + social layer for [dreamDEX Event Contracts](https://docs.dreamdex
 
 | | |
 |---|---|
-| 📺 **Demo video** | [youtube.com/watch?v=AxVN8ameNo0](https://www.youtube.com/watch?v=AxVN8ameNo0) |
+| 📺 **Demo video** | [youtu.be/8bnpRuujuoA](https://youtu.be/8bnpRuujuoA) |
 | 🚀 **Live app** | https://window7.vercel.app |
 | 📦 **Repo** | [github.com/shreyas-sovani/Window](https://github.com/shreyas-sovani/Window) |
 
